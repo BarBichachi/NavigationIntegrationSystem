@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "NavigationIntegrationSystem (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "NavigationIntegrationSystem (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
