@@ -1,50 +1,44 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
 
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+using NavigationIntegrationSystem.Bootstrap;
+using NavigationIntegrationSystem.Infrastructure.Logging;
 
-namespace NavigationIntegrationSystem
+namespace NavigationIntegrationSystem;
+
+// Boots the application, builds DI host, and opens the main window
+public partial class App : Application
 {
-    /// <summary>
-    /// Provides application-specific behavior to supplement the default Application class.
-    /// </summary>
-    public partial class App : Application
+    #region Private Fields
+    private readonly IHost m_Host;
+    private Window? m_MainWindow;
+    #endregion
+
+    #region Properties
+    public IServiceProvider Services => m_Host.Services;
+    #endregion
+
+    #region Ctors
+    public App()
     {
-        private Window? _window;
-
-        /// <summary>
-        /// Initializes the singleton application object.  This is the first line of authored code
-        /// executed, and as such is the logical equivalent of main() or WinMain().
-        /// </summary>
-        public App()
-        {
-            InitializeComponent();
-        }
-
-        /// <summary>
-        /// Invoked when the application is launched.
-        /// </summary>
-        /// <param name="args">Details about the launch request and process.</param>
-        protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
-        {
-            _window = new MainWindow();
-            _window.Activate();
-        }
+        InitializeComponent();
+        m_Host = HostBuilderFactory.Build();
     }
+    #endregion
+
+    #region Overrides
+    // Starts the application and opens the main window
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        LogService logService = ((App)Current).Services.GetRequiredService<LogService>();
+        logService.Info(nameof(App), "NIS starting");
+
+        m_MainWindow = m_Host.Services.GetRequiredService<MainWindow>();
+        m_MainWindow.Activate();
+    }
+    #endregion
 }
