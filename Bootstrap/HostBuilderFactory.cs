@@ -3,10 +3,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
 
-using NavigationIntegrationSystem.Infrastructure.Configuration;
+using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
+using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
+using NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
 using NavigationIntegrationSystem.Infrastructure.Logging;
+using NavigationIntegrationSystem.Services.Devices;
 using NavigationIntegrationSystem.Services.UI;
 using NavigationIntegrationSystem.UI.ViewModels;
+using NavigationIntegrationSystem.UI.ViewModels.Devices;
 
 namespace NavigationIntegrationSystem.Bootstrap;
 
@@ -34,6 +38,9 @@ public static class HostBuilderFactory
                 // Register Services and ViewModels
                 services.AddSingleton<NavigationService>();
                 services.AddSingleton<LogsViewModel>();
+                services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
+                services.AddSingleton<DeviceCatalogService>();
+                services.AddSingleton<DevicesViewModel>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

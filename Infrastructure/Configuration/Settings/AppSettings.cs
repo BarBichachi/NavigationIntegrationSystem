@@ -1,4 +1,4 @@
-﻿namespace NavigationIntegrationSystem.Infrastructure.Configuration;
+﻿namespace NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
 
 // Holds strongly-typed settings loaded from appsettings.json
 public sealed class AppSettings

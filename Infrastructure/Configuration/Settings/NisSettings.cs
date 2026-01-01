@@ -1,4 +1,4 @@
-﻿namespace NavigationIntegrationSystem.Infrastructure.Configuration;
+﻿namespace NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
 
 // Holds application-wide settings for NIS
 public sealed class NisSettings

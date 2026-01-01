@@ -1,4 +1,4 @@
-﻿namespace NavigationIntegrationSystem.Infrastructure.Configuration;
+﻿namespace NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
 
 // Holds log settings such as file path and UI buffer limits
 public sealed class LogSettings
