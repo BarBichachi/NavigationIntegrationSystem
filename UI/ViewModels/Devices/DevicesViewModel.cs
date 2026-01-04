@@ -29,6 +29,8 @@ public sealed partial class DevicesViewModel : ObservableObject
     private DevicesPaneMode m_PaneMode;
     private DeviceSettingsPaneViewModel? m_CurrentSettingsPane;
     private readonly IDialogService m_DialogService;
+    private string m_SaveButtonText = "Save";
+    private Symbol m_SaveButtonIcon = Symbol.Save;
     #endregion
 
     #region Properties
@@ -37,12 +39,14 @@ public sealed partial class DevicesViewModel : ObservableObject
     public DevicesPaneMode PaneMode { get => m_PaneMode; set => SetProperty(ref m_PaneMode, value); }
     public DeviceSettingsPaneViewModel? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
     public bool IsPaneOpen { get => m_IsPaneOpen; set => SetProperty(ref m_IsPaneOpen, value); }
+    public string SaveButtonText { get => m_SaveButtonText; private set => SetProperty(ref m_SaveButtonText, value); }
+    public Symbol SaveButtonIcon { get => m_SaveButtonIcon; private set => SetProperty(ref m_SaveButtonIcon, value); }
     #endregion
 
     #region Commands
     public IRelayCommand<DeviceCardViewModel> OpenSettingsCommand { get; }
     public IRelayCommand<DeviceCardViewModel> OpenInspectCommand { get; }
-    public IRelayCommand SaveDevicesConfigCommand { get; }
+    public IAsyncRelayCommand SaveDevicesConfigCommand { get; }
     public IRelayCommand ApplySettingsCommand { get; }
     #endregion
 
@@ -72,7 +76,7 @@ public sealed partial class DevicesViewModel : ObservableObject
 
         OpenSettingsCommand = new RelayCommand<DeviceCardViewModel>(OnOpenSettings);
         OpenInspectCommand = new RelayCommand<DeviceCardViewModel>(OnOpenInspect);
-        SaveDevicesConfigCommand = new RelayCommand(OnSaveConfig);
+        SaveDevicesConfigCommand = new AsyncRelayCommand(OnSaveConfigAsync);
         ApplySettingsCommand = new RelayCommand(OnApplySettings);
     }
     #endregion
@@ -112,11 +116,13 @@ public sealed partial class DevicesViewModel : ObservableObject
     }
 
     // Saves all device configuration changes to devices.json
-    private void OnSaveConfig()
+    private async Task OnSaveConfigAsync()
     {
         m_ConfigService.Save(m_ConfigFile);
         foreach (var device in Devices) { device.HasUnsavedSettings = false; }
         m_LogService.Info(nameof(DevicesViewModel), $"Saved devices config: {AppPaths.DevicesConfigPath}");
+
+        await ShowSavedFeedbackAsync();
     }
 
     // Applies current settings pane changes if available
@@ -187,6 +193,17 @@ public sealed partial class DevicesViewModel : ObservableObject
         CleanupPaneState();
     }
 
+    // Shows a short "Saved" feedback on the Save button
+    private async Task ShowSavedFeedbackAsync()
+    {
+        SaveButtonText = "Saved";
+        SaveButtonIcon = Symbol.Accept;
+
+        await Task.Delay(1400);
+
+        SaveButtonText = "Save";
+        SaveButtonIcon = Symbol.Save;
+    }
 
     // Opens settings pane for a device requested by the card
     private void OnOpenSettingsFromCard(DeviceCardViewModel i_Device) { OnOpenSettings(i_Device); }
