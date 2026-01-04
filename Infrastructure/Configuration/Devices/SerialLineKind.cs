@@ -4,5 +4,6 @@
 public enum SerialLineKind
 {
     Rs232,
-    Rs422
+    Rs422,
+    Rs485
 }

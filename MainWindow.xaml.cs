@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 using NavigationIntegrationSystem.Infrastructure.Logging;
-using NavigationIntegrationSystem.Services.UI;
+using NavigationIntegrationSystem.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
 

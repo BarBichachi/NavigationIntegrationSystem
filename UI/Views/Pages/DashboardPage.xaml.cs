@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 
-namespace NavigationIntegrationSystem.UI.Pages;
+namespace NavigationIntegrationSystem.UI.Views.Pages;
 
 // Shows the main dashboard summary
 public sealed partial class DashboardPage : Page

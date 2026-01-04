@@ -15,9 +15,11 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="appsettings.json" />
-    <None Remove="UI\Pages\DashboardPage.xaml" />
-    <None Remove="UI\Pages\DevicesPage.xaml" />
-    <None Remove="UI\Pages\LogsPage.xaml" />
+    <None Remove="UI\Views\Pages\DashboardPage.xaml" />
+    <None Remove="UI\Views\Pages\DevicesPage.xaml" />
+    <None Remove="UI\Views\Pages\LogsPage.xaml" />
+    <None Remove="UI\Views\Panes\DeviceInspectPaneView.xaml" />
+    <None Remove="UI\Views\Panes\DeviceSettingsPaneView.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -55,17 +57,12 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.251106002" />
   </ItemGroup>
   <ItemGroup>
-    <Page Update="UI\Pages\LogsPage.xaml">
+    <Page Update="UI\Views\Panes\DeviceSettingsPaneView.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Page Update="UI\Pages\DevicesPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-  <ItemGroup>
-    <Page Update="UI\Pages\DashboardPage.xaml">
+    <Page Update="UI\Views\Panes\DeviceInspectPaneView.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>

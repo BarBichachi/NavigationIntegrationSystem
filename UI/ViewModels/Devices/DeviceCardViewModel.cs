@@ -17,9 +17,9 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     private readonly LogService m_LogService;
     private DeviceStatus m_Status;
     private bool m_IsConnected;
-    private bool m_AutoReconnect;
     private readonly Action<DeviceCardViewModel> m_OpenSettings;
     private readonly Action<DeviceCardViewModel> m_OpenInspect;
+    private bool m_HasUnsavedSettings;
     #endregion
 
     #region Properties
@@ -29,21 +29,19 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     public DeviceConnectionConfig Connection => Config.Connection;
     public DeviceConfig Config { get; }
     public ObservableCollection<InspectFieldViewModel> InspectFields { get; }
-    public DeviceStatus Status
-    {
-        get => m_Status;
-        set => SetProperty(ref m_Status, value);
-    }
-    public bool IsConnected
-    {
-        get => m_IsConnected;
-        set => SetProperty(ref m_IsConnected, value);
-    }
+    public DeviceStatus Status { get => m_Status; set => SetProperty(ref m_Status, value); }
+    public bool IsConnected { get => m_IsConnected; set => SetProperty(ref m_IsConnected, value); }
     public bool AutoReconnect
     {
-        get => m_AutoReconnect;
-        set => SetProperty(ref m_AutoReconnect, value);
+        get => Config.AutoReconnect;
+        set
+        {
+            if (Config.AutoReconnect == value) { return; }
+            Config.AutoReconnect = value;
+            OnPropertyChanged(nameof(AutoReconnect));
+        }
     }
+    public bool HasUnsavedSettings { get => m_HasUnsavedSettings; set => SetProperty(ref m_HasUnsavedSettings, value); }
     #endregion
 
     #region Commands
@@ -64,7 +62,6 @@ public sealed partial class DeviceCardViewModel : ObservableObject
         m_LogService = i_LogService;
         m_Status = DeviceStatus.Disconnected;
         m_IsConnected = false;
-        m_AutoReconnect = i_Config.AutoReconnect;
         m_OpenSettings = i_OpenSettings;
         m_OpenInspect = i_OpenInspect;
 
@@ -75,12 +72,6 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     #endregion
 
     #region Functions
-    // Updates the persisted auto-reconnect value on the config object
-    public void SyncAutoReconnectToConfig()
-    {
-        Config.AutoReconnect = AutoReconnect;
-    }
-
     // Toggles the device connection state (stub for now)
     private void OnToggleConnect()
     {

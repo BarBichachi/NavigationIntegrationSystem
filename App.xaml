@@ -7,11 +7,12 @@
                 <!--  Other merged dictionaries here  -->
             </ResourceDictionary.MergedDictionaries>
 
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <converters:BoolToConnectTextConverter x:Key="BoolToConnectTextConverter" />
+            <converters:ConnectionKindToVisibilityConverter x:Key="ConnectionKindToVisibilityConverter" />
 
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToSettingsVisibilityConverter" TargetMode="Settings" />
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToInspectVisibilityConverter" TargetMode="Inspect" />
-            <!--  Other app resources here  -->
         </ResourceDictionary>
     </Application.Resources>
 </Application>

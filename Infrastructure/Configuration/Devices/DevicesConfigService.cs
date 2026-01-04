@@ -22,7 +22,8 @@ public sealed class DevicesConfigService
         m_JsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            Converters = { new JsonStringEnumConverter() }
         };
     }
     #endregion
@@ -50,10 +51,9 @@ public sealed class DevicesConfigService
     public DeviceConfig GetOrCreateDevice(DevicesConfigFile i_Config, string i_DeviceId)
     {
         DeviceConfig? existing = i_Config.Devices.FirstOrDefault(d => d.DeviceId == i_DeviceId);
-        if (existing != null)
-        { return existing; }
+        if (existing != null) { return existing; }
 
-        var created = new DeviceConfig { DeviceId = i_DeviceId };
+        var created = new DeviceConfig { DeviceId = i_DeviceId, AutoReconnect = true, Connection = new DeviceConnectionConfig() };
         i_Config.Devices.Add(created);
         return created;
     }

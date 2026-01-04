@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.UI.ViewModels;
 
-namespace NavigationIntegrationSystem.UI.Pages;
+namespace NavigationIntegrationSystem.UI.Views.Pages;
 
 // Displays the live log stream from LogsViewModel
 public sealed partial class LogsPage : Page

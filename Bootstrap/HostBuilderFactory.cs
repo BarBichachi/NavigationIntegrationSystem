@@ -8,7 +8,8 @@ using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
 using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.Services.Devices;
-using NavigationIntegrationSystem.Services.UI;
+using NavigationIntegrationSystem.Services.UI.Dialog;
+using NavigationIntegrationSystem.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 
@@ -38,9 +39,10 @@ public static class HostBuilderFactory
                 // Register Services and ViewModels
                 services.AddSingleton<NavigationService>();
                 services.AddSingleton<LogsViewModel>();
+                services.AddSingleton<DevicesViewModel>();
                 services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
                 services.AddSingleton<DeviceCatalogService>();
-                services.AddSingleton<DevicesViewModel>();
+                services.AddSingleton<IDialogService, DialogService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })
