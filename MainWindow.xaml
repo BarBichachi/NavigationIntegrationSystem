@@ -7,11 +7,33 @@
     </Window.SystemBackdrop>
 
     <Grid x:Name="RootGrid">
-        <NavigationView x:Name="Nav" IsBackButtonVisible="Collapsed" IsPaneOpen="True" PaneDisplayMode="Left" SelectionChanged="OnNavSelectionChanged">
+        <NavigationView x:Name="Nav" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True" PaneDisplayMode="Left"
+                        SelectionChanged="OnNavSelectionChanged">
+            <NavigationView.PaneHeader>
+                <StackPanel Margin="12,10,12,10" Orientation="Horizontal" Spacing="10">
+                    <Image Width="22" Height="22" Source="ms-appx:///Assets/Square44x44Logo.png" Stretch="Uniform" />
+                    <TextBlock VerticalAlignment="Center" FontSize="14" Text="Navigation Integration System" />
+                </StackPanel>
+            </NavigationView.PaneHeader>
+
             <NavigationView.MenuItems>
-                <NavigationViewItem Content="Dashboard" Tag="dashboard" />
-                <NavigationViewItem Content="Devices" Tag="devices" />
-                <NavigationViewItem Content="Logs" Tag="logs" />
+                <NavigationViewItem Content="Dashboard" Tag="dashboard">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Home" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="Devices" Tag="devices">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="ViewAll" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Content="Logs" Tag="logs">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Document" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <Frame x:Name="ContentFrame" />
