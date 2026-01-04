@@ -11,6 +11,7 @@ using NavigationIntegrationSystem.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
 
 using Windows.Graphics;
+using Windows.UI;
 
 using WinRT.Interop;
 
@@ -35,6 +36,7 @@ public sealed partial class MainWindow : Window
         m_LogService = i_LogService;
         m_NavigationService = i_NavigationService;
 
+        InitializeTitleBar();
         InitWindowLayout();
         InitLogging();
         InitNavigation();
@@ -42,6 +44,30 @@ public sealed partial class MainWindow : Window
     #endregion
 
     #region Private Functions
+    // Enables custom title bar (WinUI Gallery style)
+    private void InitializeTitleBar()
+    {
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+
+        IntPtr hwnd = WindowNative.GetWindowHandle(this);
+        AppWindow appWindow = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(hwnd));
+
+        if (appWindow.TitleBar is null)
+        { return; }
+
+        appWindow.TitleBar.ExtendsContentIntoTitleBar = true;
+
+        appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
+        appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+
+        appWindow.TitleBar.ButtonForegroundColor = Colors.White;
+        appWindow.TitleBar.ButtonInactiveForegroundColor = Colors.Gray;
+
+        appWindow.TitleBar.ButtonHoverBackgroundColor = Color.FromArgb(25, 255, 255, 255);
+        appWindow.TitleBar.ButtonPressedBackgroundColor = Color.FromArgb(40, 255, 255, 255);
+    }
+
     // Initializes the window logging behavior
     private void InitLogging()
     {
