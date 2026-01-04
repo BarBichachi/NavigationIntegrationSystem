@@ -11,6 +11,7 @@ using NavigationIntegrationSystem.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
 
 using Windows.Graphics;
+using Windows.UI;
 
 using WinRT.Interop;
 
@@ -35,6 +36,7 @@ public sealed partial class MainWindow : Window
         m_LogService = i_LogService;
         m_NavigationService = i_NavigationService;
 
+        InitializeTitleBar();
         InitWindowLayout();
         InitLogging();
         InitNavigation();
@@ -42,6 +44,13 @@ public sealed partial class MainWindow : Window
     #endregion
 
     #region Private Functions
+    // Enables custom title bar
+    private void InitializeTitleBar()
+    {
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+    }
+
     // Initializes the window logging behavior
     private void InitLogging()
     {
