@@ -7,11 +7,10 @@
         <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Entries, Mode=OneWay}">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="logging:LogEntry">
-                    <Grid ColumnDefinitions="150,60,110,*" ColumnSpacing="12">
+                    <Grid ColumnDefinitions="150,60,*" ColumnSpacing="12">
                         <TextBlock Grid.Column="0" Text="{x:Bind Timestamp}" />
                         <TextBlock Grid.Column="1" Text="{x:Bind Level}" />
-                        <TextBlock Grid.Column="2" Text="{x:Bind Category}" />
-                        <TextBlock Grid.Column="3" Text="{x:Bind Message}" TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="2" Text="{x:Bind Message}" TextWrapping="Wrap" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
