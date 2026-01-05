@@ -7,7 +7,7 @@
     </Window.SystemBackdrop>
 
     <Grid x:Name="RootGrid" RowDefinitions="Auto,*">
-        <!--  Custom top title bar  -->
+        <!-- Title Bar  -->
         <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32" Padding="12,0,12,0" VerticalAlignment="Top"
               Background="{ThemeResource LayerFillColorDefaultBrush}">
             <Grid ColumnDefinitions="Auto,*">
@@ -17,28 +17,52 @@
                 </StackPanel>
             </Grid>
         </Grid>
-
+        
+        <!-- Hamburger Menu -->
         <NavigationView x:Name="Nav" Grid.Row="1" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True"
-                        PaneDisplayMode="Left" SelectionChanged="OnNavSelectionChanged">
+                        PaneDisplayMode="Left" SelectionChanged="OnNavSelectionChanged" IsSettingsVisible="False">
+            
+            <!-- Main Items -->
             <NavigationView.MenuItems>
+                
+                <!-- Dashboard -->
                 <NavigationViewItem Content="Dashboard" Tag="dashboard">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Home" />
+                        <ImageIcon Source="ms-appx:///Assets/Icons/Home.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <!-- Devices -->
                 <NavigationViewItem Content="Devices" Tag="devices">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="ViewAll" />
+                        <ImageIcon Source="ms-appx:///Assets/Icons/Devices.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <!-- Logs -->
                 <NavigationViewItem Content="Logs" Tag="logs">
                     <NavigationViewItem.Icon>
-                        <SymbolIcon Symbol="Document" />
+                        <ImageIcon Source="ms-appx:///Assets/Icons/Logs.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
+            
+            <!-- Footer -->
+            <NavigationView.FooterMenuItems>
+                 <!-- Help --> 
+                <NavigationViewItem Content="Help" Tag="help">
+                    <NavigationViewItem.Icon>
+                        <ImageIcon Source="ms-appx:///Assets/Icons/Help.svg" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                
+                <!-- Settings -->
+                <NavigationViewItem Content="Settings" Tag="settings">
+                    <NavigationViewItem.Icon>
+                        <ImageIcon Source="ms-appx:///Assets/Icons/Settings.svg" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
 
             <Frame x:Name="ContentFrame" />
         </NavigationView>

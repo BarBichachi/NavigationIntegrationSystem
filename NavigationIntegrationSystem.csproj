@@ -18,6 +18,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Remove="appsettings.json" />
+    <None Remove="Assets\Icons\Devices.svg" />
+    <None Remove="Assets\Icons\Help.svg" />
+    <None Remove="Assets\Icons\Home.svg" />
+    <None Remove="Assets\Icons\Logs.svg" />
+    <None Remove="Assets\Icons\Settings.svg" />
     <None Remove="UI\Views\Pages\DashboardPage.xaml" />
     <None Remove="UI\Views\Pages\DevicesPage.xaml" />
     <None Remove="UI\Views\Pages\LogsPage.xaml" />

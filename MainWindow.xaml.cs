@@ -1,18 +1,15 @@
-using System;
-
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
-
+using System;
 using Windows.Graphics;
 using Windows.UI;
-
 using WinRT.Interop;
 
 namespace NavigationIntegrationSystem;
@@ -51,6 +48,14 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
     }
 
+    // Initializes the window size and centers it on screen
+    private void InitWindowLayout()
+    {
+        AppWindow appWindow = GetAppWindow();
+        appWindow.Resize(new SizeInt32(c_DefaultWindowWidth, c_DefaultWindowHeight));
+        CenterWindow(appWindow);
+    }
+
     // Initializes the window logging behavior
     private void InitLogging()
     {
@@ -81,14 +86,6 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // Initializes the window size and centers it on screen
-    private void InitWindowLayout()
-    {
-        AppWindow appWindow = GetAppWindow();
-        appWindow.Resize(new SizeInt32(c_DefaultWindowWidth, c_DefaultWindowHeight));
-        CenterWindow(appWindow);
-    }
-
     // Gets the current window AppWindow
     private AppWindow GetAppWindow()
     {
@@ -114,7 +111,19 @@ public sealed partial class MainWindow : Window
     // Navigates based on the selected menu item
     private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        if (args.SelectedItemContainer?.Tag is string tag) { m_NavigationService.Navigate(tag); }
+        if (args.SelectedItemContainer?.Tag is not string tag) { return; }
+
+        // Per-device navigation: devices:VN310
+        if (tag.StartsWith($"{NavKeys.Devices}:", StringComparison.OrdinalIgnoreCase))
+        {
+            string deviceType = tag.Substring($"{NavKeys.Devices}:".Length);
+            m_NavigationService.Navigate(NavKeys.Devices, deviceType);
+            return;
+        }
+
+        // Normal navigation
+        m_NavigationService.Navigate(tag);
     }
+
     #endregion
 }
