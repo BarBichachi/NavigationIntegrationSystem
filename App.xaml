@@ -11,6 +11,7 @@
             <converters:BoolToConnectTextConverter x:Key="BoolToConnectTextConverter" />
             <converters:ConnectionKindToVisibilityConverter x:Key="ConnectionKindToVisibilityConverter" />
             <converters:BoolToStatusForegroundBrushConverter x:Key="BoolToStatusForegroundBrushConverter" />
+            <converters:LogLevelToBrushConverter x:Key="LogLevelToBrushConverter" />
 
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToSettingsVisibilityConverter" TargetMode="Settings" />
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToInspectVisibilityConverter" TargetMode="Inspect" />

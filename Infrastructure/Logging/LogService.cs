@@ -21,6 +21,7 @@ public sealed class LogService
 
     #region Properties
     public ObservableCollection<LogEntry> Entries { get; } = new ObservableCollection<LogEntry>();
+    public string LogFolderPath => m_LogFolderPath;
     #endregion
 
     #region Ctors
@@ -80,6 +81,24 @@ public sealed class LogService
         try
         { await File.AppendAllTextAsync(filePath, line, Encoding.UTF8).ConfigureAwait(false); }
         finally { m_FileLock.Release(); }
+    }
+
+    // Clears the UI log buffer
+    public void ClearUiEntries()
+    {
+        AddEntryToUiClear();
+    }
+
+    // Clears entries on the UI thread
+    private void AddEntryToUiClear()
+    {
+        if (m_DispatcherQueue == null || m_DispatcherQueue.HasThreadAccess)
+        {
+            Entries.Clear();
+            return;
+        }
+
+        m_DispatcherQueue.TryEnqueue(() => { Entries.Clear(); });
     }
     #endregion
 }
