@@ -5,7 +5,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using NavigationIntegrationSystem.Infrastructure.Logging;
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Threading.Tasks;
@@ -64,8 +64,8 @@ public sealed partial class LogsViewModel : ObservableObject
     #endregion
 
     #region Commands
-    public IAsyncRelayCommand<ListView?> CopyCommand { get; }
-    public IRelayCommand<ListView?> ClearCommand { get; }
+    public IAsyncRelayCommand<IList<object>?> CopyCommand { get; }
+    public IRelayCommand<IList<object>?> ClearCommand { get; }
     public IRelayCommand<ListView?> ToggleSelectAllCommand { get; }
     public IAsyncRelayCommand OpenLogFolderCommand { get; }
     #endregion
@@ -81,8 +81,8 @@ public sealed partial class LogsViewModel : ObservableObject
         m_FilteredEntries = new AdvancedCollectionView(m_LogService.Entries, true);
         m_FilteredEntries.Filter = FilterLogEntry;
 
-        CopyCommand = new AsyncRelayCommand<ListView?>(ExecuteCopyAsync);
-        ClearCommand = new RelayCommand<ListView?>(ExecuteClear);
+        CopyCommand = new AsyncRelayCommand<IList<object>?>(ExecuteCopyAsync);
+        ClearCommand = new RelayCommand<IList<object>?>(ExecuteClear);
         ToggleSelectAllCommand = new RelayCommand<ListView?>(ExecuteToggleSelectAll);
         OpenLogFolderCommand = new AsyncRelayCommand(ExecuteOpenLogFolderAsync);
 
@@ -111,21 +111,16 @@ public sealed partial class LogsViewModel : ObservableObject
     }
 
     // Copies selected rows (if any); otherwise copies all filtered rows, and shows "Copied"
-    private async Task ExecuteCopyAsync(ListView? i_ListView)
+    private async Task ExecuteCopyAsync(IList<object>? i_SelectedItems)
     {
         var sb = new StringBuilder(Entries.Count * 64);
 
-        object[] selectedSnapshot = Array.Empty<object>();
-
-        if (i_ListView?.SelectedItems != null && i_ListView.SelectedItems.Count > 0)
+        if (i_SelectedItems != null && i_SelectedItems.Count > 0)
         {
-            selectedSnapshot = new object[i_ListView.SelectedItems.Count];
-            i_ListView.SelectedItems.CopyTo(selectedSnapshot, 0);
-        }
+            var snapshot = new object[i_SelectedItems.Count];
+            i_SelectedItems.CopyTo(snapshot, 0);
 
-        if (selectedSnapshot.Length > 0)
-        {
-            foreach (var item in selectedSnapshot)
+            foreach (object item in snapshot)
             {
                 if (item is LogEntry e) { AppendEntryLine(sb, e); }
             }
@@ -146,21 +141,21 @@ public sealed partial class LogsViewModel : ObservableObject
         await Task.Delay(900);
 
         int selectedCount = m_LastSelectedCount;
-
         DispatcherQueue? dq = m_DispatcherQueue;
+
         if (dq == null || dq.HasThreadAccess) { UpdateSelectionButtons(selectedCount, m_FilteredEntries.Count); }
         else { dq.TryEnqueue(() => { UpdateSelectionButtons(selectedCount, m_FilteredEntries.Count); }); }
     }
 
     // Clears selected rows (if any); otherwise clears all
-    private void ExecuteClear(ListView? i_ListView)
+    private void ExecuteClear(IList<object>? i_SelectedItems)
     {
-        if (i_ListView?.SelectedItems != null && i_ListView.SelectedItems.Count > 0)
+        if (i_SelectedItems != null && i_SelectedItems.Count > 0)
         {
-            object[] snapshot = new object[i_ListView.SelectedItems.Count];
-            i_ListView.SelectedItems.CopyTo(snapshot, 0);
+            var snapshot = new object[i_SelectedItems.Count];
+            i_SelectedItems.CopyTo(snapshot, 0);
 
-            foreach (var item in snapshot)
+            foreach (object item in snapshot)
             {
                 if (item is LogEntry e) { Entries.Remove(e); }
             }
@@ -259,9 +254,9 @@ public sealed partial class LogsViewModel : ObservableObject
     // Requests the view to clear ListView selection and updates button texts accordingly
     private void RequestSelectionClear()
     {
-        m_LastSelectedCount = 0;
         RequestClearSelection?.Invoke();
         UpdateSelectionButtons(0, m_FilteredEntries.Count);
+        m_LastSelectedCount = 0;
     }
     #endregion
 }

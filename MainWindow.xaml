@@ -12,14 +12,14 @@
               Background="{ThemeResource LayerFillColorDefaultBrush}">
             <Grid ColumnDefinitions="Auto,*">
                 <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="10">
-                    <Image Width="18" Height="18" Source="ms-appx:///Assets/Square44x44Logo.png" Stretch="Uniform" />
+                    <Image Width="18" Height="18" Source="ms-appx:///Assets/Square44x44Logo.png" VerticalAlignment="Center" Stretch="Uniform" />
                     <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Text="Navigation Integration System" />
                 </StackPanel>
             </Grid>
         </Grid>
         
         <!-- Hamburger Menu -->
-        <NavigationView x:Name="Nav" Grid.Row="1" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True"
+        <NavigationView x:Name="Nav" Grid.Row="1" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True" OpenPaneLength="200"
                         PaneDisplayMode="Left" SelectionChanged="OnNavSelectionChanged" IsSettingsVisible="False">
             
             <!-- Main Items -->

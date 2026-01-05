@@ -1,10 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using NavigationIntegrationSystem.Infrastructure.Logging;
+using Microsoft.UI.Xaml.Input;
 using NavigationIntegrationSystem.UI.ViewModels;
 using System;
-using System.Collections.Specialized;
 
 namespace NavigationIntegrationSystem.UI.Views.Pages;
 
@@ -67,6 +66,42 @@ public sealed partial class LogsPage : Page
     {
         if (m_IgnoreSelectionChanged) { return; }
         ViewModel.OnSelectionChanged(LogsList.SelectedItems.Count);
+    }
+    #endregion
+
+    #region Keyboard Shortcuts
+    // Handles Ctrl+C copy shortcut
+    private async void OnCopyAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await ViewModel.CopyCommand.ExecuteAsync(LogsList.SelectedItems);
+    }
+
+    // Handles Ctrl+A select/deselect all shortcut
+    private void OnSelectAllAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        ViewModel.ToggleSelectAllCommand.Execute(LogsList);
+    }
+
+    // Handles Delete clear shortcut
+    private void OnDeleteAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        ViewModel.ClearCommand.Execute(LogsList.SelectedItems);
+    }
+
+    // Handles Esc to clear selection shortcut
+    private void OnEscapeAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        m_IgnoreSelectionChanged = true;
+
+        LogsList.SelectedItems?.Clear();
+        ViewModel.OnSelectionChanged(0);
+
+        m_IgnoreSelectionChanged = false;
     }
     #endregion
 }

@@ -7,15 +7,23 @@
       xmlns:logging="using:NavigationIntegrationSystem.Infrastructure.Logging"
       mc:Ignorable="d">
 
-    <Grid Padding="16" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
-        
+    <Grid KeyboardAcceleratorPlacementMode="Hidden" Padding="16" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+        <!-- Keyboard Accelerators -->
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="C" Modifiers="Control" Invoked="OnCopyAcceleratorInvoked" />
+            <KeyboardAccelerator Key="A" Modifiers="Control" Invoked="OnSelectAllAcceleratorInvoked" />
+            <KeyboardAccelerator Key="Delete" Invoked="OnDeleteAcceleratorInvoked" />
+            <KeyboardAccelerator Key="Escape" Invoked="OnEscapeAcceleratorInvoked" />
+        </Grid.KeyboardAccelerators>
+
         <!-- Header -->
         <TextBlock FontSize="24" FontWeight="SemiBold" Text="Logs" />
 
         <!-- Filters + Actions (same row) -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,180,24,Auto,Auto,Auto" ColumnSpacing="10" VerticalAlignment="Center">
-            <TextBox PlaceholderText="Search..." Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-            <ComboBox Grid.Column="1" SelectedValue="{x:Bind ViewModel.SelectedLevel, Mode=TwoWay}" SelectedValuePath="Content">
+        <Grid Grid.Row="1" ColumnDefinitions="360,80,*,120,120,120" ColumnSpacing="10" VerticalAlignment="Center">
+            <!-- Left: filters -->
+            <TextBox Grid.Column="0" Width="360" PlaceholderText="Search..." Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <ComboBox Grid.Column="1" Width="80" SelectedValue="{x:Bind ViewModel.SelectedLevel, Mode=TwoWay}" SelectedValuePath="Content">
                 <ComboBoxItem Content="All" />
                 <ComboBoxItem Content="DEBUG" />
                 <ComboBoxItem Content="INFO" />
@@ -23,14 +31,18 @@
                 <ComboBoxItem Content="ERROR" />
             </ComboBox>
 
-            <Button Grid.Column="3" Content="{x:Bind ViewModel.CopyButtonText, Mode=OneWay}" Command="{x:Bind ViewModel.CopyCommand}" CommandParameter="{x:Bind LogsList}" />
-            <Button Grid.Column="4" Content="{x:Bind ViewModel.ClearButtonText, Mode=OneWay}" Command="{x:Bind ViewModel.ClearCommand}" CommandParameter="{x:Bind LogsList}" />
-            <Button Grid.Column="5" Content="{x:Bind ViewModel.SelectAllButtonText, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleSelectAllCommand}" CommandParameter="{x:Bind LogsList}" />
+            <!-- Column 3 is the flexible spacer (*) -->
+
+            <!-- Right: actions -->
+            <Button Grid.Column="3" Width="120" Content="{x:Bind ViewModel.CopyButtonText, Mode=OneWay}" Command="{x:Bind ViewModel.CopyCommand, Mode=OneWay}" CommandParameter="{x:Bind LogsList.SelectedItems, Mode=OneWay}" />
+            <Button Grid.Column="4" Width="120" Content="{x:Bind ViewModel.ClearButtonText, Mode=OneWay}" Command="{x:Bind ViewModel.ClearCommand, Mode=OneWay}" CommandParameter="{x:Bind LogsList.SelectedItems, Mode=OneWay}" />
+            <Button Grid.Column="5" Width="120" Content="{x:Bind ViewModel.SelectAllButtonText, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleSelectAllCommand, Mode=OneWay}" CommandParameter="{x:Bind LogsList, Mode=OneWay}" />
         </Grid>
 
         <!-- Log list container -->
         <Border Grid.Row="2" CornerRadius="12" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
             <ListView x:Name="LogsList" ItemsSource="{x:Bind ViewModel.FilteredEntries, Mode=OneWay}" Padding="8" SelectionMode="Multiple" SelectionChanged="OnLogsSelectionChanged">
+                <!-- Log entry template -->
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="logging:LogEntry">
                         <Grid Padding="8" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="16" VerticalAlignment="Center">
