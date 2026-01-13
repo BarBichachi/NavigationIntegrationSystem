@@ -34,6 +34,7 @@ public sealed partial class LogsPage : Page
             m_IgnoreSelectionChanged = true;
 
             LogsList.SelectedItems?.Clear();
+            ViewModel.SelectedItems = LogsList.SelectedItems;
             ViewModel.OnSelectionChanged(0);
 
             m_IgnoreSelectionChanged = false;
@@ -60,11 +61,12 @@ public sealed partial class LogsPage : Page
         }
     }
 
-
     // Forward selection count changes to the VM so it can update button texts
     private void OnLogsSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (m_IgnoreSelectionChanged) { return; }
+
+        ViewModel.SelectedItems = LogsList.SelectedItems;
         ViewModel.OnSelectionChanged(LogsList.SelectedItems.Count);
     }
     #endregion

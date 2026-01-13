@@ -11,6 +11,7 @@ using NavigationIntegrationSystem.Services.Devices;
 using NavigationIntegrationSystem.Services.UI.Dialog;
 using NavigationIntegrationSystem.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
+using NavigationIntegrationSystem.UI.ViewModels.Integration;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 
 namespace NavigationIntegrationSystem.Bootstrap;
@@ -32,9 +33,8 @@ public static class HostBuilderFactory
                 services.AddSingleton(settings);
 
                 // Configure Logging
-                DispatcherQueue dispatcherQueue = DispatcherQueue.GetForCurrentThread();
                 string logRoot = PathResolver.Resolve(settings.Nis.Log.Root);
-                services.AddSingleton(new LogService(logRoot, settings.Nis.Log.MaxUiEntries, dispatcherQueue));
+                services.AddSingleton(new LogService(logRoot, settings.Nis.Log.MaxUiEntries));
 
                 // Register Services and ViewModels
                 services.AddSingleton<NavigationService>();
@@ -43,6 +43,7 @@ public static class HostBuilderFactory
                 services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
                 services.AddSingleton<DeviceCatalogService>();
                 services.AddSingleton<IDialogService, DialogService>();
+                services.AddSingleton<IntegrationViewModel>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

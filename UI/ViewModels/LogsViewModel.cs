@@ -23,6 +23,7 @@ public sealed partial class LogsViewModel : ObservableObject
     private readonly LogService m_LogService;
     private DispatcherQueue? m_DispatcherQueue;
     private AdvancedCollectionView m_FilteredEntries;
+    private IList<object>? m_SelectedItems;
     private string m_SearchText = string.Empty;
     private string m_SelectedLevel = "All";
     private string m_CopyButtonText = "Copy all";
@@ -61,6 +62,7 @@ public sealed partial class LogsViewModel : ObservableObject
     public string CopyButtonText { get => m_CopyButtonText; private set => SetProperty(ref m_CopyButtonText, value); }
     public string ClearButtonText { get => m_ClearButtonText; private set => SetProperty(ref m_ClearButtonText, value); }
     public string SelectAllButtonText { get => m_SelectAllButtonText; private set => SetProperty(ref m_SelectAllButtonText, value); }
+    public IList<object>? SelectedItems { get => m_SelectedItems; set => SetProperty(ref m_SelectedItems, value); }
     #endregion
 
     #region Commands

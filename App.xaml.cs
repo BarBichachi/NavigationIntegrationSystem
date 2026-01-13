@@ -34,10 +34,11 @@ public partial class App : Application
     // Starts the application and opens the main window
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        LogService logService = ((App)Current).Services.GetRequiredService<LogService>();
+        LogService logService = Services.GetRequiredService<LogService>();
+        logService.AttachUiDispatcher(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
         logService.Info(nameof(App), "NIS starting");
 
-        m_MainWindow = m_Host.Services.GetRequiredService<MainWindow>();
+        m_MainWindow = Services.GetRequiredService<MainWindow>();
         m_MainWindow.Activate();
     }
     #endregion

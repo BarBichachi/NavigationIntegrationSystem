@@ -16,7 +16,7 @@ public sealed class LogService
     private readonly SemaphoreSlim m_FileLock = new SemaphoreSlim(1, 1);
     private readonly string m_LogFolderPath;
     private readonly int m_MaxUiEntries;
-    private readonly DispatcherQueue? m_DispatcherQueue;
+    private DispatcherQueue? m_DispatcherQueue;
     #endregion
 
     #region Properties
@@ -25,17 +25,23 @@ public sealed class LogService
     #endregion
 
     #region Ctors
-    public LogService(string i_LogFolderPath, int i_MaxUiEntries, DispatcherQueue? i_DispatcherQueue)
+    public LogService(string i_LogFolderPath, int i_MaxUiEntries)
     {
         m_LogFolderPath = i_LogFolderPath;
         m_MaxUiEntries = i_MaxUiEntries <= 0 ? 2000 : i_MaxUiEntries;
-        m_DispatcherQueue = i_DispatcherQueue;
 
         Directory.CreateDirectory(m_LogFolderPath);
     }
     #endregion
 
     #region Functions
+    // Attaches the UI dispatcher so log entries can be marshaled to the UI thread
+    public void AttachUiDispatcher(DispatcherQueue i_DispatcherQueue)
+    {
+        if (m_DispatcherQueue != null) { return; }
+        m_DispatcherQueue = i_DispatcherQueue;
+    }
+
     // Logs an informational message to file and in-memory buffer
     public void Info(string i_Category, string i_Message) { Append("INFO", i_Category, i_Message, null); }
 

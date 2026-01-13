@@ -65,7 +65,7 @@ public sealed partial class MainWindow : Window
     // Initializes the navigation shell and routes to the default page
     private void InitNavigation()
     {
-        string initialPage = NavKeys.Dashboard;
+        string initialPage = NavKeys.Integration;
 
         m_NavigationService.Attach(ContentFrame);
         m_NavigationService.Navigate(initialPage);

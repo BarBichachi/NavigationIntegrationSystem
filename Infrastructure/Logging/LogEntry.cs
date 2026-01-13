@@ -9,6 +9,7 @@ public sealed class LogEntry
     public string Level { get; }
     public string Category { get; }
     public string Message { get; }
+    public string TimestampText => Timestamp.ToString("HH:mm:ss");
 
     public LogEntry(DateTime i_Timestamp, string i_Level, string i_Category, string i_Message)
     {

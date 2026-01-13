@@ -23,7 +23,7 @@ public sealed class NavigationService
 
         switch (i_Key)
         {
-            case NavKeys.Dashboard: m_Frame.Navigate(typeof(DashboardPage)); break;
+            case NavKeys.Integration: m_Frame.Navigate(typeof(IntegrationPage)); break;
             case NavKeys.Devices: m_Frame.Navigate(typeof(DevicesPage)); break;
             case NavKeys.Logs: m_Frame.Navigate(typeof(LogsPage)); break;
         }

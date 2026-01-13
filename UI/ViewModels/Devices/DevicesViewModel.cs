@@ -142,12 +142,6 @@ public sealed partial class DevicesViewModel : ObservableObject
         return CurrentSettingsPane.HasUnsavedChanges;
     }
 
-    private async Task HandlePaneCloseAsync()
-    {
-        DialogCloseDecision decision = await ConfirmCloseSettingsAsync(m_MainWindow.Content.XamlRoot);
-        ForceClosePaneAfterDecision(decision);
-    }
-
     // Forces close after dialog decision
     public void ForceClosePaneAfterDecision(DialogCloseDecision i_Decision)
     {
@@ -173,6 +167,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         }
     }
 
+    // Shows unsaved-changes dialog and returns user decision
     public async Task<DialogCloseDecision> ConfirmCloseSettingsAsync(XamlRoot i_XamlRoot)
     {
         return await m_DialogService.ShowUnsavedChangesDialogAsync(i_XamlRoot);

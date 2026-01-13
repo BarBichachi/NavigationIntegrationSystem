@@ -7,56 +7,56 @@
     </Window.SystemBackdrop>
 
     <Grid x:Name="RootGrid" RowDefinitions="Auto,*">
-        <!-- Title Bar  -->
+        <!--  Title Bar  -->
         <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32" Padding="12,0,12,0" VerticalAlignment="Top"
               Background="{ThemeResource LayerFillColorDefaultBrush}">
             <Grid ColumnDefinitions="Auto,*">
                 <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="10">
-                    <Image Width="18" Height="18" Source="ms-appx:///Assets/Square44x44Logo.png" VerticalAlignment="Center" Stretch="Uniform" />
+                    <Image Width="18" Height="18" VerticalAlignment="Center" Source="ms-appx:///Assets/Square44x44Logo.png" Stretch="Uniform" />
                     <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Text="Navigation Integration System" />
                 </StackPanel>
             </Grid>
         </Grid>
-        
-        <!-- Hamburger Menu -->
-        <NavigationView x:Name="Nav" Grid.Row="1" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True" OpenPaneLength="200"
-                        PaneDisplayMode="Left" SelectionChanged="OnNavSelectionChanged" IsSettingsVisible="False">
-            
-            <!-- Main Items -->
+
+        <!--  Hamburger Menu  -->
+        <NavigationView x:Name="Nav" Grid.Row="1" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True"
+                        IsSettingsVisible="False" OpenPaneLength="200" PaneDisplayMode="Left" SelectionChanged="OnNavSelectionChanged">
+
+            <!--  Main Items  -->
             <NavigationView.MenuItems>
-                
-                <!-- Dashboard -->
-                <NavigationViewItem Content="Dashboard" Tag="dashboard">
+
+                <!--  Integration  -->
+                <NavigationViewItem Content="Integration" Tag="integration">
                     <NavigationViewItem.Icon>
                         <ImageIcon Source="ms-appx:///Assets/Icons/Home.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <!-- Devices -->
+                <!--  Devices  -->
                 <NavigationViewItem Content="Devices" Tag="devices">
                     <NavigationViewItem.Icon>
                         <ImageIcon Source="ms-appx:///Assets/Icons/Devices.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <!-- Logs -->
+                <!--  Logs  -->
                 <NavigationViewItem Content="Logs" Tag="logs">
                     <NavigationViewItem.Icon>
                         <ImageIcon Source="ms-appx:///Assets/Icons/Logs.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
-            
-            <!-- Footer -->
+
+            <!--  Footer  -->
             <NavigationView.FooterMenuItems>
-                 <!-- Help --> 
+                <!--  Help  -->
                 <NavigationViewItem Content="Help" Tag="help">
                     <NavigationViewItem.Icon>
                         <ImageIcon Source="ms-appx:///Assets/Icons/Help.svg" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                
-                <!-- Settings -->
+
+                <!--  Settings  -->
                 <NavigationViewItem Content="Settings" Tag="settings">
                     <NavigationViewItem.Icon>
                         <ImageIcon Source="ms-appx:///Assets/Icons/Settings.svg" />
