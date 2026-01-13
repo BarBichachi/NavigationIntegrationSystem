@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
+using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
 using NavigationIntegrationSystem.Infrastructure.Logging;
@@ -15,22 +17,22 @@ public sealed partial class DeviceCardViewModel : ObservableObject
 {
     #region Private Fields
     private readonly LogService m_LogService;
-    private DeviceStatus m_Status;
-    private bool m_IsConnected;
+    private readonly IInsDevice m_Device;
     private readonly Action<DeviceCardViewModel> m_OpenSettings;
     private readonly Action<DeviceCardViewModel> m_OpenInspect;
     private bool m_HasUnsavedSettings;
     #endregion
 
     #region Properties
-    public string DeviceId { get; }
-    public string DisplayName { get; }
-    public DeviceType Type { get; }
+    public string DisplayName => m_Device.Definition.DisplayName;
+    public DeviceType Type => m_Device.Definition.Type;
     public DeviceConnectionConfig Connection => Config.Connection;
     public DeviceConfig Config { get; }
     public ObservableCollection<InspectFieldViewModel> InspectFields { get; }
-    public DeviceStatus Status { get => m_Status; set => SetProperty(ref m_Status, value); }
-    public bool IsConnected { get => m_IsConnected; set => SetProperty(ref m_IsConnected, value); }
+    public DeviceStatus Status => m_Device.Status;
+    public string? LastError => m_Device.LastError;
+    public string ConnectButtonText => Status == DeviceStatus.Connected ? "Disconnect" : (Status == DeviceStatus.Connecting ? "Connecting..." : "Connect");
+    public bool CanToggleConnect => Status != DeviceStatus.Connecting;
     public bool AutoReconnect
     {
         get => Config.AutoReconnect;
@@ -45,47 +47,54 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     #endregion
 
     #region Commands
-    public IRelayCommand ToggleConnectCommand { get; }
+    public IAsyncRelayCommand ToggleConnectCommand { get; }
     public IRelayCommand OpenSettingsCommand { get; }
     public IRelayCommand OpenInspectCommand { get; }
     #endregion
 
     #region Ctors
-    public DeviceCardViewModel(string i_DeviceId, string i_DisplayName, DeviceType i_Type, DeviceConfig i_Config, LogService i_LogService,
-        ObservableCollection<InspectFieldViewModel> i_InspectFields, Action<DeviceCardViewModel> i_OpenSettings, Action<DeviceCardViewModel> i_OpenInspect)
+    public DeviceCardViewModel(DeviceConfig i_Config, LogService i_LogService, ObservableCollection<InspectFieldViewModel> i_InspectFields, Action<DeviceCardViewModel> i_OpenSettings, Action<DeviceCardViewModel> i_OpenInspect, IInsDevice i_Device)
     {
-        DeviceId = i_DeviceId;
-        DisplayName = i_DisplayName;
-        Type = i_Type;
         Config = i_Config;
         InspectFields = i_InspectFields;
         m_LogService = i_LogService;
-        m_Status = DeviceStatus.Disconnected;
-        m_IsConnected = false;
         m_OpenSettings = i_OpenSettings;
         m_OpenInspect = i_OpenInspect;
+        m_Device = i_Device;
+        m_Device.StateChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(Status));
+            OnPropertyChanged(nameof(LastError));
+            OnPropertyChanged(nameof(ConnectButtonText));
+            OnPropertyChanged(nameof(CanToggleConnect));
+        };
 
-        ToggleConnectCommand = new RelayCommand(OnToggleConnect);
+        ToggleConnectCommand = new AsyncRelayCommand(OnToggleConnectAsync);
         OpenSettingsCommand = new RelayCommand(() => m_OpenSettings(this));
         OpenInspectCommand = new RelayCommand(() => m_OpenInspect(this));
     }
     #endregion
 
     #region Functions
-    // Toggles the device connection state (stub for now)
-    private void OnToggleConnect()
+    // Toggles the device connection state via the runtime device
+    private async Task OnToggleConnectAsync()
     {
-        if (IsConnected)
+        if (Status == DeviceStatus.Connected)
         {
-            IsConnected = false;
-            Status = DeviceStatus.Disconnected;
-            m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} disconnected");
+            m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} disconnect requested by user");
+            await m_Device.DisconnectAsync();
             return;
         }
 
-        IsConnected = true;
-        Status = DeviceStatus.Connected;
-        m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} connected");
+        if (Status == DeviceStatus.Connecting)
+        {
+            m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} connect canceled by user");
+            await m_Device.DisconnectAsync();
+            return;
+        }
+
+        m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} connect requested by user");
+        await m_Device.ConnectAsync();
     }
     #endregion
 }

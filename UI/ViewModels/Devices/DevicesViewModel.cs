@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
+using NavigationIntegrationSystem.Core.Devices;
+using NavigationIntegrationSystem.Core.Models;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Logging;
@@ -23,7 +25,6 @@ public sealed partial class DevicesViewModel : ObservableObject
     private readonly DevicesConfigService m_ConfigService;
     private readonly DevicesConfigFile m_ConfigFile;
     private readonly LogService m_LogService;
-    private readonly Window m_MainWindow;
     private DeviceCardViewModel? m_SelectedDevice;
     private bool m_IsPaneOpen;
     private DevicesPaneMode m_PaneMode;
@@ -51,33 +52,47 @@ public sealed partial class DevicesViewModel : ObservableObject
     #endregion
 
     #region Ctors
-    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, LogService i_LogService, MainWindow i_MainWindow, IDialogService i_DialogService)
+    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, LogService i_LogService, IDialogService i_DialogService, IInsDeviceFactory i_DeviceFactory)
     {
         m_ConfigService = i_ConfigService;
         m_LogService = i_LogService;
-        m_MainWindow = i_MainWindow;
         m_DialogService = i_DialogService;
+        m_ConfigFile = m_ConfigService.Load();
 
         m_IsPaneOpen = false;
         m_PaneMode = DevicesPaneMode.None;
 
-        m_ConfigFile = m_ConfigService.Load();
-
-        foreach (var def in i_CatalogService.GetDevices())
-        {
-            DeviceConfig cfg = m_ConfigService.GetOrCreateDevice(m_ConfigFile, def.DeviceId);
-
-            var fields = new ObservableCollection<InspectFieldViewModel>();
-            foreach (var f in def.Fields) { fields.Add(new InspectFieldViewModel(f.Key, f.DisplayName, f.Unit)); }
-
-            var vm = new DeviceCardViewModel(def.DeviceId, def.DisplayName, def.Type, cfg, m_LogService, fields, OnOpenSettingsFromCard, OnOpenInspectFromCard);
-            Devices.Add(vm);
-        }
+        BuildDeviceCards(i_CatalogService, i_DeviceFactory);
 
         OpenSettingsCommand = new RelayCommand<DeviceCardViewModel>(OnOpenSettings);
         OpenInspectCommand = new RelayCommand<DeviceCardViewModel>(OnOpenInspect);
         SaveDevicesConfigCommand = new AsyncRelayCommand(OnSaveConfigAsync);
         ApplySettingsCommand = new RelayCommand(OnApplySettings);
+    }
+
+    // Builds all device cards from the catalog and config
+    private void BuildDeviceCards(DeviceCatalogService i_CatalogService, IInsDeviceFactory i_DeviceFactory)
+    {
+        Devices.Clear();
+
+        // Create a device card for each device in the catalog
+        foreach (DeviceDefinition def in i_CatalogService.GetDevices())
+        {
+            DeviceConfig cfg = m_ConfigService.GetOrCreateDevice(m_ConfigFile, def.Type);
+
+            // Build inspect fields
+            var fields = new ObservableCollection<InspectFieldViewModel>();
+            foreach (var f in def.Fields)
+            {
+                fields.Add(new InspectFieldViewModel(f.Key, f.DisplayName, f.Unit));
+            }
+
+            // Create runtime device instance
+            IInsDevice runtimeDevice = i_DeviceFactory.Create(def, cfg);
+            var vm = new DeviceCardViewModel(cfg, m_LogService, fields, OnOpenSettingsFromCard, OnOpenInspectFromCard, runtimeDevice);
+
+            Devices.Add(vm);
+        }
     }
     #endregion
 

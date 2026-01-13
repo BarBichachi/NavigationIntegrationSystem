@@ -12,7 +12,7 @@
         </Grid.KeyboardAccelerators>
 
         <!--  Header  -->
-        <TextBlock FontSize="24" FontWeight="SemiBold" Text="Logs" />
+        <TextBlock FontSize="28" FontWeight="SemiBold" Text="Logs" />
 
         <!--  Filters + Actions (same row)  -->
         <Grid Grid.Row="1" VerticalAlignment="Center" ColumnDefinitions="360,80,*,120,120,120" ColumnSpacing="10">

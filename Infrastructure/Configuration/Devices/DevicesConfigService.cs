@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using NavigationIntegrationSystem.Core.Enums;
+
 namespace NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
 
 // Loads and saves devices.json configuration for the fixed device instances
@@ -48,12 +50,12 @@ public sealed class DevicesConfigService
     }
 
     // Gets an existing config for deviceId or creates a default one
-    public DeviceConfig GetOrCreateDevice(DevicesConfigFile i_Config, string i_DeviceId)
+    public DeviceConfig GetOrCreateDevice(DevicesConfigFile i_Config, DeviceType i_DeviceType)
     {
-        DeviceConfig? existing = i_Config.Devices.FirstOrDefault(d => d.DeviceId == i_DeviceId);
+        DeviceConfig? existing = i_Config.Devices.FirstOrDefault(d => d.DeviceType == i_DeviceType);
         if (existing != null) { return existing; }
 
-        var created = new DeviceConfig { DeviceId = i_DeviceId, AutoReconnect = true, Connection = new DeviceConnectionConfig() };
+        var created = new DeviceConfig { DeviceType = i_DeviceType, AutoReconnect = true, Connection = new DeviceConnectionConfig() };
         i_Config.Devices.Add(created);
         return created;
     }

@@ -22,8 +22,6 @@ public sealed class DeviceCatalogService
     private DeviceDefinition BuildVn310()
     {
         return new DeviceDefinition(
-            i_DeviceId: "VN310_1",
-            i_DisplayName: "VN310",
             i_Type: DeviceType.VN310,
             i_Fields: new List<DeviceFieldDefinition>
             {
@@ -57,8 +55,6 @@ public sealed class DeviceCatalogService
     private DeviceDefinition BuildTmaps100X()
     {
         return new DeviceDefinition(
-            i_DeviceId: "TMAPS100X_1",
-            i_DisplayName: "Tmaps100X",
             i_Type: DeviceType.Tmaps100X,
             i_Fields: new List<DeviceFieldDefinition>
             {

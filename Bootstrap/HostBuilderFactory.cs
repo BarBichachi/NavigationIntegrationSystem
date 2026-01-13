@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.UI.Dispatching;
 
 using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
@@ -11,8 +10,8 @@ using NavigationIntegrationSystem.Services.Devices;
 using NavigationIntegrationSystem.Services.UI.Dialog;
 using NavigationIntegrationSystem.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
-using NavigationIntegrationSystem.UI.ViewModels.Integration;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
+using NavigationIntegrationSystem.UI.ViewModels.Integration;
 
 namespace NavigationIntegrationSystem.Bootstrap;
 
@@ -32,18 +31,25 @@ public static class HostBuilderFactory
                 context.Configuration.GetSection("Nis").Bind(settings.Nis);
                 services.AddSingleton(settings);
 
-                // Configure Logging
+                // Register core services
+                services.AddSingleton<IDialogService, DialogService>();
+                services.AddSingleton<NavigationService>();
+
+                // Register device domain
+                services.AddSingleton<DeviceCatalogService>();
+                services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
+                services.AddSingleton<IInsDeviceFactory, InsDeviceFactory>();
+
+                // Configure logging
                 string logRoot = PathResolver.Resolve(settings.Nis.Log.Root);
                 services.AddSingleton(new LogService(logRoot, settings.Nis.Log.MaxUiEntries));
-
-                // Register Services and ViewModels
-                services.AddSingleton<NavigationService>();
                 services.AddSingleton<LogsViewModel>();
+
+                // Register ViewModels
                 services.AddSingleton<DevicesViewModel>();
-                services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
-                services.AddSingleton<DeviceCatalogService>();
-                services.AddSingleton<IDialogService, DialogService>();
                 services.AddSingleton<IntegrationViewModel>();
+
+                // Shell
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -16,6 +17,7 @@ public sealed partial class IntegrationFieldRowViewModel : ObservableObject
     public string FieldName { get; }
     public string Unit { get; }
     public ObservableCollection<SourceCandidateViewModel> Sources { get; }
+    public ObservableCollection<SourceCandidateViewModel> VisibleSources { get; } = new ObservableCollection<SourceCandidateViewModel>();
 
     public SourceCandidateViewModel? SelectedSource
     {
@@ -45,6 +47,24 @@ public sealed partial class IntegrationFieldRowViewModel : ObservableObject
         Unit = i_Unit;
         Sources = i_Sources;
         SelectedSource = Sources.Count > 0 ? Sources[0] : null;
+        foreach (SourceCandidateViewModel src in Sources) { VisibleSources.Add(src); }
+    }
+    #endregion
+
+    #region Functions
+    // Refreshes the connected candidate list based on a predicate and keeps SelectedSource valid
+    public void RefreshVisibleSources(Func<SourceCandidateViewModel, bool> i_IsVisible)
+    {
+        VisibleSources.Clear();
+
+        foreach (SourceCandidateViewModel src in Sources)
+        {
+            if (i_IsVisible(src)) { VisibleSources.Add(src); }
+        }
+
+        if (SelectedSource != null && VisibleSources.Contains(SelectedSource)) { return; }
+
+        SelectedSource = VisibleSources.Count > 0 ? VisibleSources[0] : null;
     }
     #endregion
 

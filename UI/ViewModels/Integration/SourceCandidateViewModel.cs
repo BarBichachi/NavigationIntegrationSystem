@@ -3,6 +3,8 @@ using System.ComponentModel;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
+using NavigationIntegrationSystem.Core.Enums;
+
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration;
 
 // Represents one source candidate value (per device) and provides display text for the selection UI
@@ -14,10 +16,10 @@ public sealed partial class SourceCandidateViewModel : ObservableObject
     #endregion
 
     #region Properties
-    public string DeviceName { get; }
-    public int SlotIndex { get; } // A/B/C mapping if you want it later
+    public DeviceType DeviceType { get; }
+    public string DisplayName { get; }
+    public string DisplayText => $"{DisplayName}: {CandidateValue:0.00000}";
     public double CandidateValue { get => m_CandidateValue; set { if (SetProperty(ref m_CandidateValue, value)) { OnPropertyChanged(nameof(DisplayText)); } } }
-    public string DisplayText => $"{DeviceName}: {CandidateValue:0.00000}";
     public IntegrationFieldRowViewModel Row { get; }
     public bool IsSelected
     {
@@ -32,12 +34,12 @@ public sealed partial class SourceCandidateViewModel : ObservableObject
     #endregion
 
     #region Constructors
-    public SourceCandidateViewModel(IntegrationFieldRowViewModel i_Row, string i_DeviceName, int i_SlotIndex, double i_InitialValue, Random i_Rng)
+    public SourceCandidateViewModel(IntegrationFieldRowViewModel i_Row, DeviceType i_DeviceType, string i_DisplayName, double i_InitialValue, Random i_Rng)
     {
         Row = i_Row;
         Row.PropertyChanged += OnRowPropertyChanged;
-        DeviceName = i_DeviceName;
-        SlotIndex = i_SlotIndex;
+        DeviceType = i_DeviceType;
+        DisplayName = i_DisplayName;
         m_Rng = i_Rng;
         m_CandidateValue = i_InitialValue;
     }
