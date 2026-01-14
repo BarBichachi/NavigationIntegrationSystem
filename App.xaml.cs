@@ -1,12 +1,11 @@
-﻿using System;
-
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
-
 using NavigationIntegrationSystem.Bootstrap;
 using NavigationIntegrationSystem.Infrastructure.Logging;
+using NavigationIntegrationSystem.Services.Devices;
+using System;
 
 namespace NavigationIntegrationSystem;
 
@@ -37,6 +36,8 @@ public partial class App : Application
         LogService logService = Services.GetRequiredService<LogService>();
         logService.AttachUiDispatcher(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
         logService.Info(nameof(App), "NIS starting");
+
+        _ = Services.GetRequiredService<DevicesModuleBootstrapper>();
 
         m_MainWindow = Services.GetRequiredService<MainWindow>();
         m_MainWindow.Activate();

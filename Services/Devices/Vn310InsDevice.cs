@@ -1,7 +1,8 @@
-﻿using System.Threading.Tasks;
-
-using NavigationIntegrationSystem.Core.Models;
+﻿using NavigationIntegrationSystem.Core.Models;
+using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
 using NavigationIntegrationSystem.Infrastructure.Logging;
+using NavigationIntegrationSystem.Services.UI.Dialog;
+using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.Services.Devices;
 
@@ -9,7 +10,7 @@ namespace NavigationIntegrationSystem.Services.Devices;
 public sealed class Vn310InsDevice : InsDeviceBase
 {
     #region Ctors
-    public Vn310InsDevice(DeviceDefinition i_Definition, LogService i_LogService) : base(i_Definition, i_LogService) { }
+    public Vn310InsDevice(DeviceDefinition i_Definition, DeviceConfig i_Config, LogService i_LogService) : base(i_Definition, i_Config, i_LogService) { }
     #endregion
 
     #region Functions

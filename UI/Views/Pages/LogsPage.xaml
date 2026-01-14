@@ -2,7 +2,13 @@
 <Page x:Class="NavigationIntegrationSystem.UI.Views.Pages.LogsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:logging="using:NavigationIntegrationSystem.Infrastructure.Logging"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d">
 
-    <Grid Padding="16" KeyboardAcceleratorPlacementMode="Hidden" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
+    <Grid Padding="16" KeyboardAcceleratorPlacementMode="Hidden" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <!--  Keyboard Accelerators  -->
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Key="C" Invoked="OnCopyAcceleratorInvoked" Modifiers="Control" />
@@ -15,7 +21,15 @@
         <TextBlock FontSize="28" FontWeight="SemiBold" Text="Logs" />
 
         <!--  Filters + Actions (same row)  -->
-        <Grid Grid.Row="1" VerticalAlignment="Center" ColumnDefinitions="360,80,*,120,120,120" ColumnSpacing="10">
+        <Grid Grid.Row="1" VerticalAlignment="Center" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" />
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="120" />
+            </Grid.ColumnDefinitions>
             <!--  Left: filters  -->
             <TextBox Grid.Column="0" Width="360" PlaceholderText="Search..." Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             <ComboBox Grid.Column="1" Width="80" SelectedValue="{x:Bind ViewModel.SelectedLevel, Mode=TwoWay}" SelectedValuePath="Content">
@@ -40,7 +54,12 @@
                 <!--  Log entry template  -->
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="logging:LogEntry">
-                        <Grid Padding="8" VerticalAlignment="Center" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="16">
+                        <Grid Padding="8" VerticalAlignment="Center" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" VerticalAlignment="Center" FontFamily="Consolas" Opacity="0.75" Text="{x:Bind TimestampText}" />
                             <TextBlock Grid.Column="1" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="SemiBold"
                                        Foreground="{x:Bind Level, Converter={StaticResource LogLevelToBrushConverter}}"
@@ -55,7 +74,11 @@
         </Border>
 
         <!--  Footer  -->
-        <Grid Grid.Row="3" VerticalAlignment="Center" ColumnDefinitions="*,Auto">
+        <Grid Grid.Row="3" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <TextBlock VerticalAlignment="Center" Opacity="0.7" Text="{x:Bind ViewModel.LogFolderPath, Mode=OneWay}" />
             <HyperlinkButton Grid.Column="1" Command="{x:Bind ViewModel.OpenLogFolderCommand}" Content="Open logs folder" />
         </Grid>

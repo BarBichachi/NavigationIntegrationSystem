@@ -52,7 +52,7 @@ public sealed partial class DevicesViewModel : ObservableObject
     #endregion
 
     #region Ctors
-    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, LogService i_LogService, IDialogService i_DialogService, IInsDeviceFactory i_DeviceFactory)
+    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, LogService i_LogService, IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry)
     {
         m_ConfigService = i_ConfigService;
         m_LogService = i_LogService;
@@ -62,7 +62,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         m_IsPaneOpen = false;
         m_PaneMode = DevicesPaneMode.None;
 
-        BuildDeviceCards(i_CatalogService, i_DeviceFactory);
+        BuildDeviceCards(i_CatalogService, i_DeviceRegistry);
 
         OpenSettingsCommand = new RelayCommand<DeviceCardViewModel>(OnOpenSettings);
         OpenInspectCommand = new RelayCommand<DeviceCardViewModel>(OnOpenInspect);
@@ -71,7 +71,7 @@ public sealed partial class DevicesViewModel : ObservableObject
     }
 
     // Builds all device cards from the catalog and config
-    private void BuildDeviceCards(DeviceCatalogService i_CatalogService, IInsDeviceFactory i_DeviceFactory)
+    private void BuildDeviceCards(DeviceCatalogService i_CatalogService, IInsDeviceRegistry i_DeviceRegistry)
     {
         Devices.Clear();
 
@@ -88,7 +88,7 @@ public sealed partial class DevicesViewModel : ObservableObject
             }
 
             // Create runtime device instance
-            IInsDevice runtimeDevice = i_DeviceFactory.Create(def, cfg);
+            IInsDevice runtimeDevice = i_DeviceRegistry.Create(def, cfg);
             var vm = new DeviceCardViewModel(cfg, m_LogService, fields, OnOpenSettingsFromCard, OnOpenInspectFromCard, runtimeDevice);
 
             Devices.Add(vm);

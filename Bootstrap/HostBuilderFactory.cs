@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-
 using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
@@ -31,19 +30,26 @@ public static class HostBuilderFactory
                 context.Configuration.GetSection("Nis").Bind(settings.Nis);
                 services.AddSingleton(settings);
 
+                // Configure logging
+                string logRoot = PathResolver.Resolve(settings.Nis.Log.Root);
+                services.AddSingleton(new LogService(logRoot, settings.Nis.Log.MaxUiEntries));
+                services.AddSingleton<LogsViewModel>();
+
                 // Register core services
                 services.AddSingleton<IDialogService, DialogService>();
                 services.AddSingleton<NavigationService>();
 
                 // Register device domain
+                services.AddSingleton<IInsDeviceRegistry, InsDeviceRegistry>();
                 services.AddSingleton<DeviceCatalogService>();
                 services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
-                services.AddSingleton<IInsDeviceFactory, InsDeviceFactory>();
 
-                // Configure logging
-                string logRoot = PathResolver.Resolve(settings.Nis.Log.Root);
-                services.AddSingleton(new LogService(logRoot, settings.Nis.Log.MaxUiEntries));
-                services.AddSingleton<LogsViewModel>();
+                // Register device modules
+                services.AddSingleton<IInsDeviceModule, Vn310DeviceModule>();
+                services.AddSingleton<IInsDeviceModule, Tmaps100XDeviceModule>();
+
+                // Bootstrap device modules into registry
+                services.AddSingleton<DevicesModuleBootstrapper>();
 
                 // Register ViewModels
                 services.AddSingleton<DevicesViewModel>();

@@ -13,7 +13,15 @@
 
                     <TextBlock FontSize="16" Opacity="0.8" Text="General" />
 
-                    <Grid HorizontalAlignment="Stretch" ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="10">
+                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Connection kind" />
                         <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding ConnectionKinds}" SelectedItem="{Binding DraftConfig.Connection.Kind, Mode=TwoWay}" />
 
@@ -29,7 +37,17 @@
                 <StackPanel HorizontalAlignment="Stretch" Spacing="10">
                     <TextBlock FontSize="16" Opacity="0.8" Text="UDP" />
 
-                    <Grid HorizontalAlignment="Stretch" ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Remote IP" />
                         <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding DraftConfig.Connection.Udp.RemoteIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -52,7 +70,15 @@
                 <StackPanel HorizontalAlignment="Stretch" Spacing="10">
                     <TextBlock FontSize="16" Opacity="0.8" Text="TCP" />
 
-                    <Grid HorizontalAlignment="Stretch" ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="10">
+                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Host" />
                         <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding DraftConfig.Connection.Tcp.Host, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -68,7 +94,16 @@
                 <StackPanel HorizontalAlignment="Stretch" Spacing="10">
                     <TextBlock FontSize="16" Opacity="0.8" Text="Serial" />
 
-                    <Grid HorizontalAlignment="Stretch" ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Line kind" />
                         <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding SerialLineKinds}" SelectedItem="{Binding DraftConfig.Connection.Serial.SerialLineKind, Mode=TwoWay}" />
 

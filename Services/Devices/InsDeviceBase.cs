@@ -1,11 +1,11 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-
-using NavigationIntegrationSystem.Core.Devices;
+﻿using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Models;
+using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
 using NavigationIntegrationSystem.Infrastructure.Logging;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.Services.Devices;
 
@@ -15,7 +15,6 @@ public abstract class InsDeviceBase : IInsDevice
     #region Private Fields
     private DeviceStatus m_Status;
     private string? m_LastError;
-    private readonly SemaphoreSlim m_StateLock = new SemaphoreSlim(1, 1);
     private CancellationTokenSource? m_ConnectCts;
     private readonly LogService m_LogService;
     #endregion
@@ -24,6 +23,7 @@ public abstract class InsDeviceBase : IInsDevice
     public DeviceDefinition Definition { get; }
     public DeviceStatus Status => m_Status;
     public string? LastError => m_LastError;
+    public DeviceConfig Config { get; }
     #endregion
 
     #region Events
@@ -31,10 +31,12 @@ public abstract class InsDeviceBase : IInsDevice
     #endregion
 
     #region Ctors
-    protected InsDeviceBase(DeviceDefinition i_Definition, LogService i_LogService)
+    protected InsDeviceBase(DeviceDefinition i_Definition, DeviceConfig i_Config, LogService i_LogService)
     {
         Definition = i_Definition;
+        Config = i_Config;
         m_LogService = i_LogService;
+
         m_Status = DeviceStatus.Disconnected;
         m_LastError = null;
     }
