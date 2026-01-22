@@ -2,14 +2,12 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using NavigationIntegrationSystem.Core.Enums;
-using NavigationIntegrationSystem.Infrastructure.Logging;
-using NavigationIntegrationSystem.Services.UI.Navigation;
+using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.UI.Navigation;
+using NavigationIntegrationSystem.UI.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
 using System;
 using Windows.Graphics;
-using Windows.UI;
 using WinRT.Interop;
 
 namespace NavigationIntegrationSystem;
@@ -19,13 +17,13 @@ public sealed partial class MainWindow : Window
 {
     #region Private Fields
     private readonly NavigationService m_NavigationService;
-    private readonly LogService m_LogService;
+    private readonly ILogService m_LogService;
     private const int c_DefaultWindowWidth = 1300;
     private const int c_DefaultWindowHeight = 820;
     #endregion
 
     #region Ctors
-    public MainWindow(MainViewModel i_ViewModel, NavigationService i_NavigationService, LogService i_LogService)
+    public MainWindow(MainViewModel i_ViewModel, NavigationService i_NavigationService, ILogService i_LogService)
     {
         InitializeComponent();
         RootGrid.DataContext = i_ViewModel;

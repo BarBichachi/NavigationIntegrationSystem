@@ -1,8 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using Microsoft.UI.Xaml;
+using System.Threading.Tasks;
 
-using Microsoft.UI.Xaml;
-
-namespace NavigationIntegrationSystem.Services.UI.Dialog;
+namespace NavigationIntegrationSystem.UI.Services.UI.Dialog;
 
 // Provides application dialogs
 public interface IDialogService

@@ -1,9 +1,8 @@
 ﻿using Microsoft.UI.Xaml.Controls;
-
 using NavigationIntegrationSystem.UI.Navigation;
 using NavigationIntegrationSystem.UI.Views.Pages;
 
-namespace NavigationIntegrationSystem.Services.UI.Navigation;
+namespace NavigationIntegrationSystem.UI.Services.UI.Navigation;
 
 // Centralizes page navigation so UI logic stays out of code-behind
 public sealed class NavigationService

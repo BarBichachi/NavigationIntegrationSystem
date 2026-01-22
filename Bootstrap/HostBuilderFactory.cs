@@ -1,18 +1,22 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using NavigationIntegrationSystem.Infrastructure.Configuration.Devices;
+using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Devices.Catalog;
+using NavigationIntegrationSystem.Devices.Modules;
+using NavigationIntegrationSystem.Devices.Runtime;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
 using NavigationIntegrationSystem.Infrastructure.Logging;
-using NavigationIntegrationSystem.Services.Devices;
-using NavigationIntegrationSystem.Services.UI.Dialog;
-using NavigationIntegrationSystem.Services.UI.Navigation;
+using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
+using NavigationIntegrationSystem.UI.Services.Logging;
+using NavigationIntegrationSystem.UI.Services.UI.Dialog;
+using NavigationIntegrationSystem.UI.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 using NavigationIntegrationSystem.UI.ViewModels.Integration;
 
-namespace NavigationIntegrationSystem.Bootstrap;
+namespace NavigationIntegrationSystem.UI.Bootstrap;
 
 // Builds the application DI container and configures logging/services
 public static class HostBuilderFactory
@@ -32,7 +36,9 @@ public static class HostBuilderFactory
 
                 // Configure logging
                 string logRoot = PathResolver.Resolve(settings.Nis.Log.Root);
-                services.AddSingleton(new LogService(logRoot, settings.Nis.Log.MaxUiEntries));
+                services.AddSingleton<ILogService>(sp => new FileLogService(logRoot));
+                services.AddSingleton<ILogPaths>(sp => (ILogPaths)sp.GetRequiredService<ILogService>());
+                services.AddSingleton(sp => new UiLogBuffer(sp.GetRequiredService<ILogService>(), settings.Nis.Log.MaxUiEntries));
                 services.AddSingleton<LogsViewModel>();
 
                 // Register core services

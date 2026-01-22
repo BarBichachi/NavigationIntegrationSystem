@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
-using NavigationIntegrationSystem.Bootstrap;
+using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Devices.Runtime;
 using NavigationIntegrationSystem.Infrastructure.Logging;
-using NavigationIntegrationSystem.Services.Devices;
+using NavigationIntegrationSystem.UI.Bootstrap;
+using NavigationIntegrationSystem.UI.Services.Logging;
 using System;
 
 namespace NavigationIntegrationSystem;
@@ -33,9 +35,11 @@ public partial class App : Application
     // Starts the application and opens the main window
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        LogService logService = Services.GetRequiredService<LogService>();
-        logService.AttachUiDispatcher(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
-        logService.Info(nameof(App), "NIS starting");
+        var uiLogBuffer = Services.GetRequiredService<UiLogBuffer>();
+        uiLogBuffer.AttachUiDispatcher(DispatcherQueue.GetForCurrentThread());
+
+        var log = Services.GetRequiredService<ILogService>();
+        log.Info(nameof(App), "NIS starting");
 
         _ = Services.GetRequiredService<DevicesModuleBootstrapper>();
 
