@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+	  <TargetFramework>net8.0</TargetFramework>
+	  <RootNamespace>NavigationIntegrationSystem.Infrastructure</RootNamespace>
+	  <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NavigationIntegrationSystem.Core\NavigationIntegrationSystem.Core.csproj" />
+    <ProjectReference Include="..\NavigationIntegrationSystem.Devices\NavigationIntegrationSystem.Devices.csproj" />
+  </ItemGroup>
+</Project>
