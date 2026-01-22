@@ -7,7 +7,7 @@
   <Project Path="../NavigationIntegrationSystem.Core/NavigationIntegrationSystem.Core.csproj" Id="93f942ad-d151-4358-b1d3-51f874a0f875" />
   <Project Path="../NavigationIntegrationSystem.Devices/NavigationIntegrationSystem.Devices.csproj" Id="a9d71f6a-c0fb-467b-bcca-3772dedb3d9f" />
   <Project Path="../NavigationIntegrationSystem.Infrastructure/NavigationIntegrationSystem.Infrastructure.csproj" Id="ae6c1e6d-4678-4aae-bc57-d161c70a029d" />
-  <Project Path="NavigationIntegrationSystem.UI.csproj">
+  <Project Path="src/NavigationIntegrationSystem.UI/NavigationIntegrationSystem.UI.csproj">
     <Platform Solution="*|ARM64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
