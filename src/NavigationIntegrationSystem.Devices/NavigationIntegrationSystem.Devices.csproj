@@ -3,6 +3,7 @@
 	  <TargetFramework>net8.0</TargetFramework>
 	  <RootNamespace>NavigationIntegrationSystem.Devices</RootNamespace>
 	  <Nullable>enable</Nullable>
+	  <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\NavigationIntegrationSystem.Core\NavigationIntegrationSystem.Core.csproj" />

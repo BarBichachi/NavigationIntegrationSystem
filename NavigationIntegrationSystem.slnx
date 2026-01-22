@@ -4,9 +4,18 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="src/NavigationIntegrationSystem.Core/NavigationIntegrationSystem.Core.csproj" />
-  <Project Path="src/NavigationIntegrationSystem.Devices/NavigationIntegrationSystem.Devices.csproj" />
-  <Project Path="src/NavigationIntegrationSystem.Infrastructure/NavigationIntegrationSystem.Infrastructure.csproj" />
+  <Folder Name="/Solution Items/">
+    <File Path="PROJECT_STATE.md" />
+  </Folder>
+  <Project Path="src/NavigationIntegrationSystem.Core/NavigationIntegrationSystem.Core.csproj">
+    <Platform Solution="Debug|x64" Project="x64" />
+  </Project>
+  <Project Path="src/NavigationIntegrationSystem.Devices/NavigationIntegrationSystem.Devices.csproj">
+    <Platform Solution="Debug|x64" Project="x64" />
+  </Project>
+  <Project Path="src/NavigationIntegrationSystem.Infrastructure/NavigationIntegrationSystem.Infrastructure.csproj">
+    <Platform Solution="Debug|x64" Project="x64" />
+  </Project>
   <Project Path="src/NavigationIntegrationSystem.UI/NavigationIntegrationSystem.UI.csproj">
     <Platform Solution="*|ARM64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />

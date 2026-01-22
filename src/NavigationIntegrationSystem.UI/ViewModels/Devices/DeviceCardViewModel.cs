@@ -4,7 +4,6 @@ using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Devices.Config;
-using NavigationIntegrationSystem.Infrastructure.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
