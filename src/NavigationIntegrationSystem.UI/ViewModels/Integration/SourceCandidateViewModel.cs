@@ -21,6 +21,7 @@ public sealed partial class SourceCandidateViewModel : ObservableObject
     public double CandidateValue { get => m_CandidateValue; set { if (SetProperty(ref m_CandidateValue, value)) { OnPropertyChanged(nameof(DisplayText)); } } }
     public IntegrationFieldRowViewModel Row { get; }
     public bool IsSelected { get => m_IsSelected; set { if (SetProperty(ref m_IsSelected, value) && value) { Row.UpdateSelection(this); } } }
+    public bool IsManualEntry => DeviceType == DeviceType.Manual;
     #endregion
 
     #region Constructors
@@ -38,6 +39,8 @@ public sealed partial class SourceCandidateViewModel : ObservableObject
     // Updates candidate value with a small random delta
     public void Tick(double i_StepScale)
     {
+        if (IsManualEntry) return;
+
         double delta = (m_Rng.NextDouble() - 0.5) * i_StepScale;
         CandidateValue += delta;
     }

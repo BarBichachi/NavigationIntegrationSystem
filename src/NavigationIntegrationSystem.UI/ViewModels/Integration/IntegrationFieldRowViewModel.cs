@@ -44,10 +44,6 @@ public sealed partial class IntegrationFieldRowViewModel : ObservableObject
     public string SelectedValueText => SelectedSource == null ? "—" : $"{SelectedSource.DisplayText}";
     #endregion
 
-    #region Events
-    public event EventHandler SourceChanged;
-    #endregion
-
     #region Constructors
     public IntegrationFieldRowViewModel(string i_FieldName, string i_Unit, ObservableCollection<SourceCandidateViewModel> i_Sources)
     {

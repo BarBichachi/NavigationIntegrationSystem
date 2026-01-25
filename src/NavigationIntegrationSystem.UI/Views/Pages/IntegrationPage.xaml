@@ -60,10 +60,10 @@
                                             <!--  Toggle device visibility as an input source  -->
                                             <CheckBox VerticalAlignment="Center" Content="{x:Bind DisplayName}" FontWeight="Bold" IsChecked="{x:Bind IsVisible, Mode=TwoWay}" />
 
-                                            <Rectangle Width="1" Height="24" Margin="4,0" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                            <Rectangle Width="1" Height="24" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                                             <!--  Applies this device as the source for all parameters  -->
-                                            <Button Padding="12,4"
+                                            <Button Padding="4,4"
                                                     Background="{ThemeResource SystemAccentColor}"
                                                     Command="{x:Bind ApplyToAllFieldsCommand}"
                                                     Content="Apply to All" FontSize="12" Foreground="White"
@@ -167,7 +167,18 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:SourceCandidateViewModel">
                                                 <Grid Width="185">
-                                                    <RadioButton VerticalAlignment="Center" Content="{x:Bind DisplayText, Mode=OneWay}" FontFamily="Consolas" FontSize="14" IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
+                                                    <RadioButton VerticalAlignment="Center" GroupName="{x:Bind Row.FieldName, Mode=OneTime}" IsChecked="{x:Bind IsSelected, Mode=TwoWay}">
+                                                        <RadioButton.Content>
+                                                            <Grid Height="32">
+                                                                <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" Text="{x:Bind DisplayText, Mode=OneWay}" Visibility="{x:Bind IsManualEntry, Converter={StaticResource InverseBoolToVisibilityConverter}, Mode=OneWay}" />
+
+                                                                <TextBox Width="110" Height="32" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                         FontFamily="Consolas" FontSize="13"
+                                                                         Text="{x:Bind CandidateValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Visibility="{x:Bind IsManualEntry, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}" />
+                                                            </Grid>
+                                                        </RadioButton.Content>
+                                                    </RadioButton>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

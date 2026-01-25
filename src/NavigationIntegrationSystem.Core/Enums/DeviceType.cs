@@ -4,7 +4,8 @@
 public enum DeviceType
 {
     VN310,
-    Tmaps100X
+    Tmaps100X,
+    Manual
 }
 
 // Adding new device

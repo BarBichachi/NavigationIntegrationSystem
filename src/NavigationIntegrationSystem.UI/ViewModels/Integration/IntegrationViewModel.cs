@@ -98,6 +98,12 @@ public sealed partial class IntegrationViewModel : ObservableObject
     {
         m_ConnectedDevices.Clear();
 
+        // Add the Virtual Manual Source first
+        var manualOpt = new IntegrationDeviceOptionViewModel(DeviceType.Manual, "Manual", true, ApplyDeviceToAllFields);
+        manualOpt.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IntegrationDeviceOptionViewModel.IsVisible)) RefreshAllRowsVisibility(); };
+        m_ConnectedDevices.Add(manualOpt);
+
+        // Add existing hardware devices...
         foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices)
         {
             if (device.Status != DeviceStatus.Connected) { continue; }
