@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.DeviceSettingsPaneView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" Loaded="OnLoaded">
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.DeviceSettingsPaneView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
 
     <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel HorizontalAlignment="Stretch" Spacing="14">
+        <StackPanel x:Name="RootPanel" HorizontalAlignment="Stretch" Spacing="14">
 
             <TextBlock FontSize="18" Text="Device Settings" />
 
             <!--  General  -->
             <Border Padding="12" BorderThickness="1" CornerRadius="10">
                 <StackPanel HorizontalAlignment="Stretch" Spacing="10">
+                    <Button x:Name="CommitFocusSink" Width="0" Height="0" IsTabStop="False" Opacity="0" />
 
                     <TextBlock FontSize="16" Opacity="0.8" Text="General" />
 
@@ -52,15 +53,13 @@
                         <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpRemoteIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Remote port" />
-                        <NumberBox Grid.Row="1" Grid.Column="1" MinWidth="220" HorizontalAlignment="Stretch" SpinButtonPlacementMode="Inline"
-                                   Value="{Binding Draft.UdpRemotePort, Mode=TwoWay}" />
+                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpRemotePortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                         <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Local IP" />
                         <TextBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpLocalIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                         <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Local port" />
-                        <NumberBox Grid.Row="3" Grid.Column="1" MinWidth="220" HorizontalAlignment="Stretch" SpinButtonPlacementMode="Inline"
-                                   Value="{Binding Draft.UdpLocalPort, Mode=TwoWay}" />
+                        <TextBox Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpLocalPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -83,8 +82,7 @@
                         <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.TcpHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Port" />
-                        <NumberBox Grid.Row="1" Grid.Column="1" MinWidth="220" HorizontalAlignment="Stretch" SpinButtonPlacementMode="Inline"
-                                   Value="{Binding Draft.TcpPort, Mode=TwoWay}" />
+                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.TcpPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -111,8 +109,7 @@
                         <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.SerialComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                         <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Baud rate" />
-                        <NumberBox Grid.Row="2" Grid.Column="1" MinWidth="220" HorizontalAlignment="Stretch" SpinButtonPlacementMode="Inline"
-                                   Value="{Binding Draft.SerialBaudRate, Mode=TwoWay}" />
+                        <TextBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
                 </StackPanel>
             </Border>

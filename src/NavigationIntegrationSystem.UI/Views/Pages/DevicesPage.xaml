@@ -14,7 +14,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock FontSize="28" FontWeight="SemiBold" Text="Devices" />
-            <Button Grid.Column="1" IsEnabled="{x:Bind ViewModel.CanSaveDevicesConfig, Mode=OneWay}" Command="{x:Bind ViewModel.SaveDevicesConfigCommand}" Style="{ThemeResource AccentButtonStyle}">
+            <Button Grid.Column="1" Command="{x:Bind ViewModel.SaveDevicesConfigCommand}" IsEnabled="{x:Bind ViewModel.CanSaveDevicesConfig, Mode=OneWay}" Style="{ThemeResource AccentButtonStyle}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <SymbolIcon Symbol="{x:Bind ViewModel.SaveButtonIcon, Mode=OneWay}" />
                     <TextBlock Text="{x:Bind ViewModel.SaveButtonText, Mode=OneWay}" />
@@ -115,8 +115,7 @@
 
             <SplitView.Pane>
                 <!--  Right pane: header + (Settings or Inspect) + footer actions  -->
-                <Grid Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                      BorderThickness="1" CornerRadius="12">
+                <Grid Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -138,7 +137,7 @@
 
                     <!--  Pane content: Settings OR Inspect (visibility controlled by PaneMode converters)  -->
                     <Grid Grid.Row="2" Margin="0,0,0,12">
-                        <panes:DeviceSettingsPaneView DataContext="{x:Bind ViewModel.CurrentSettingsPane, Mode=OneWay}" Visibility="{x:Bind ViewModel.PaneMode, Mode=OneWay, Converter={StaticResource PaneModeToSettingsVisibilityConverter}}" />
+                        <panes:DeviceSettingsPaneView x:Name="DeviceSettingsPaneView" DataContext="{x:Bind ViewModel.CurrentSettingsPane, Mode=OneWay}" Visibility="{x:Bind ViewModel.PaneMode, Mode=OneWay, Converter={StaticResource PaneModeToSettingsVisibilityConverter}}" />
                         <panes:DeviceInspectPaneView ViewModel="{x:Bind ViewModel.SelectedDevice, Mode=OneWay}" Visibility="{x:Bind ViewModel.PaneMode, Mode=OneWay, Converter={StaticResource PaneModeToInspectVisibilityConverter}}" />
                     </Grid>
 

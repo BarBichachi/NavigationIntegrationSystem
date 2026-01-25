@@ -43,8 +43,6 @@ public sealed partial class DevicesViewModel : ObservableObject
     public string SaveButtonText { get => m_SaveButtonText; private set => SetProperty(ref m_SaveButtonText, value); }
     public Symbol SaveButtonIcon { get => m_SaveButtonIcon; private set => SetProperty(ref m_SaveButtonIcon, value); }
     public bool CanSaveDevicesConfig { get => !IsPaneOpen; }
-    public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
-    public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
 
     public bool IsPaneOpen
     {
@@ -135,6 +133,8 @@ public sealed partial class DevicesViewModel : ObservableObject
     // Closes the right pane
     public void ClosePane()
     {
+        CurrentSettingsPane?.OnPaneClosing();
+
         IsPaneOpen = false;
         PaneMode = DevicesPaneMode.None;
         SelectedDevice = null;
@@ -196,9 +196,9 @@ public sealed partial class DevicesViewModel : ObservableObject
     }
 
     // Shows validation-failed dialog with summary
-    public async Task ShowValidationFailedAsync(XamlRoot i_XamlRoot, string i_Summary)
+    public Task ShowValidationFailedAsync(XamlRoot i_XamlRoot, string i_Summary)
     {
-        await m_DialogService.ShowValidationFailedDialogAsync(i_XamlRoot, i_Summary);
+        return m_DialogService.ShowValidationFailedDialogAsync(i_XamlRoot, i_Summary);
     }
 
     // Clears selection/pane state without touching IsPaneOpen (it already changed)

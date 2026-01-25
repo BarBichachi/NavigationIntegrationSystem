@@ -1,8 +1,10 @@
-﻿using NavigationIntegrationSystem.Devices.Config.Enums;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
+
+using NavigationIntegrationSystem.Devices.Config.Enums;
 
 namespace NavigationIntegrationSystem.Devices.Config.Validation;
 
@@ -58,7 +60,8 @@ public static class ConnectionSettingsValidator
     {
         if (i_Settings.Tcp == null) { io_Errors.Add("TCP settings are missing"); return; }
 
-        if (string.IsNullOrWhiteSpace(i_Settings.Tcp.Host)) { io_Errors.Add($"TCP host is required: '{i_Settings.Tcp.Host}'"); }
+        if (!IsIpValid(i_Settings.Tcp.Host)) { io_Errors.Add($"TCP Host IP is invalid: '{i_Settings.Tcp.Host}'"); }
+
         if (!IsPortValid(i_Settings.Tcp.Port)) { io_Errors.Add($"TCP port must be between 1 and 65535: {i_Settings.Tcp.Port}"); }
     }
 
@@ -77,28 +80,21 @@ public static class ConnectionSettingsValidator
         return i_Port >= 1 && i_Port <= 65535;
     }
 
-    // Checks whether a string is a valid IP address
+    // Checks whether a string is a strict IPv4 dotted-quad with each octet 0..255
     private static bool IsIpValid(string i_Ip)
     {
         if (string.IsNullOrWhiteSpace(i_Ip)) { return false; }
-        return IPAddress.TryParse(i_Ip, out _);
+
+        string[] parts = i_Ip.Trim().Split('.');
+        if (parts.Length != 4) { return false; }
+
+        for (int i = 0; i < 4; i++)
+        {
+            if (!int.TryParse(parts[i], NumberStyles.None, CultureInfo.InvariantCulture, out int octet)) { return false; }
+            if (octet < 0 || octet > 255) { return false; }
+        }
+
+        return true;
     }
-
-    // TODO - Start from here!
-    // Validates either an IP address or a hostname (rejects partial IPs like 127.0.0)
-    private static bool IsHostOrIpValid(string i_Host)
-    {
-        if (string.IsNullOrWhiteSpace(i_Host)) { return false; }
-
-        string host = i_Host.Trim();
-
-        // If it looks like an IP literal (digits/dots/colons only), require full IP parse
-        bool looksLikeIp = host.All(c => char.IsDigit(c) || c == '.' || c == ':');
-        if (looksLikeIp) { return IPAddress.TryParse(host, out _); }
-
-        // Otherwise treat as hostname
-        return Uri.CheckHostName(host) != UriHostNameType.Unknown;
-    }
-
     #endregion
 }

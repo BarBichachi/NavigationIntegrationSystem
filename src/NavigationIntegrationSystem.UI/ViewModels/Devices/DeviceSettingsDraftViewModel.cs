@@ -14,19 +14,23 @@ public sealed class DeviceSettingsDraftViewModel : ViewModelBase
 
     #region UDP (Private Fields)
     private string m_UdpRemoteIp = "127.0.0.1";
+    private string m_UdpRemotePortText = "5000";
     private int m_UdpRemotePort = 5000;
     private string m_UdpLocalIp = "0.0.0.0";
+    private string m_UdpLocalPortText = "5000";
     private int m_UdpLocalPort = 5000;
     #endregion
 
     #region TCP (Private Fields)
     private string m_TcpHost = "127.0.0.1";
+    private string m_TcpPortText = "5000";
     private int m_TcpPort = 5000;
     #endregion
 
     #region Serial (Private Fields)
     private SerialLineKind m_SerialLineKind = SerialLineKind.Rs232;
     private string m_SerialComPort = "COM1";
+    private string m_SerialBaudRateText = "115200";
     private int m_SerialBaudRate = 115200;
     #endregion
 
@@ -47,15 +51,19 @@ public sealed class DeviceSettingsDraftViewModel : ViewModelBase
 
     public string UdpRemoteIp { get => m_UdpRemoteIp; set => SetProperty(ref m_UdpRemoteIp, value); }
     public int UdpRemotePort { get => m_UdpRemotePort; set => SetProperty(ref m_UdpRemotePort, value); }
+    public string UdpRemotePortText { get => m_UdpRemotePortText; set { if (SetProperty(ref m_UdpRemotePortText, value)) { if (int.TryParse(value, out int port)) { UdpRemotePort = port; } } } }
     public string UdpLocalIp { get => m_UdpLocalIp; set => SetProperty(ref m_UdpLocalIp, value); }
     public int UdpLocalPort { get => m_UdpLocalPort; set => SetProperty(ref m_UdpLocalPort, value); }
+    public string UdpLocalPortText { get => m_UdpLocalPortText; set { if (SetProperty(ref m_UdpLocalPortText, value)) { if (int.TryParse(value, out int port)) { UdpLocalPort = port; } } } }
 
     public string TcpHost { get => m_TcpHost; set => SetProperty(ref m_TcpHost, value); }
     public int TcpPort { get => m_TcpPort; set => SetProperty(ref m_TcpPort, value); }
+    public string TcpPortText { get => m_TcpPortText; set { if (SetProperty(ref m_TcpPortText, value)) { if (int.TryParse(value, out int port)) { TcpPort = port; } } } }
 
     public SerialLineKind SerialLineKind { get => m_SerialLineKind; set => SetProperty(ref m_SerialLineKind, value); }
     public string SerialComPort { get => m_SerialComPort; set => SetProperty(ref m_SerialComPort, value); }
     public int SerialBaudRate { get => m_SerialBaudRate; set => SetProperty(ref m_SerialBaudRate, value); }
+    public string SerialBaudRateText { get => m_SerialBaudRateText; set { if (SetProperty(ref m_SerialBaudRateText, value)) { if (int.TryParse(value, out int rate)) { SerialBaudRate = rate; } } } }
     #endregion
 
     #region Derived UI State
@@ -85,15 +93,19 @@ public sealed class DeviceSettingsDraftViewModel : ViewModelBase
 
         UdpRemoteIp = i_Settings.Udp.RemoteIp;
         UdpRemotePort = i_Settings.Udp.RemotePort;
+        UdpRemotePortText = UdpRemotePort.ToString();
         UdpLocalIp = i_Settings.Udp.LocalIp;
         UdpLocalPort = i_Settings.Udp.LocalPort;
+        UdpLocalPortText = UdpLocalPort.ToString();
 
         TcpHost = i_Settings.Tcp.Host;
         TcpPort = i_Settings.Tcp.Port;
+        TcpPortText = TcpPort.ToString();
 
         SerialLineKind = i_Settings.Serial.SerialLineKind;
         SerialComPort = i_Settings.Serial.ComPort;
         SerialBaudRate = i_Settings.Serial.BaudRate;
+        SerialBaudRateText = SerialBaudRate.ToString();
     }
 
     // Applies draft values into an existing persisted device config (deep, safe)

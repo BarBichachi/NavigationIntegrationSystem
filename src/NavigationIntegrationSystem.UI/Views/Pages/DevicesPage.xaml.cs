@@ -1,8 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
+using NavigationIntegrationSystem.UI.Views.Panes;
 
 namespace NavigationIntegrationSystem.UI.Views.Pages;
 
@@ -27,7 +29,7 @@ public sealed partial class DevicesPage : Page
     {
         if (!ViewModel.ShouldConfirmPaneClose())
         {
-            ViewModel.IsPaneOpen = false;
+            ViewModel.ClosePane();
             return;
         }
 

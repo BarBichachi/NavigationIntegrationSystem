@@ -12,14 +12,15 @@ public sealed partial class DeviceSettingsPaneView : UserControl
     public DeviceSettingsPaneView()
     {
         InitializeComponent();
-        Loaded += OnLoaded;
+        DataContextChanged += OnDataContextChanged;
     }
     #endregion
 
     #region Functions
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    // Updates ViewModel with current XamlRoot when DataContext changes
+    private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
-        if (DataContext is DeviceSettingsPaneViewModel vm) { vm.SetXamlRoot(XamlRoot); }
+        if (args.NewValue is DeviceSettingsPaneViewModel vm) { vm.SetXamlRoot(XamlRoot); }
     }
     #endregion
 }

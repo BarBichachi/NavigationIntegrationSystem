@@ -1,12 +1,17 @@
-﻿using CommunityToolkit.Mvvm.Input;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+
+using CommunityToolkit.Mvvm.Input;
+
 using Microsoft.UI.Xaml;
+
 using NavigationIntegrationSystem.Devices.Config;
 using NavigationIntegrationSystem.Devices.Config.Enums;
 using NavigationIntegrationSystem.Devices.Config.Validation;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices;
 
@@ -16,16 +21,18 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
     #region Private Fields
     private readonly DevicesViewModel m_Parent;
     private readonly DeviceCardViewModel m_Device;
-    private readonly DeviceConfig m_OriginalSnapshot;
+    private DeviceConfig m_OriginalSnapshot;
     private bool m_HasUnsavedChanges;
     private bool m_IsLoadingDraft;
+    private bool m_IsSubscribed;
     private XamlRoot? m_XamlRoot;
     #endregion
 
     #region Properties
     public DeviceCardViewModel Device { get => m_Device; }
     public DeviceSettingsDraftViewModel Draft { get; }
-
+    public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
+    public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
     public bool HasUnsavedChanges { get => m_HasUnsavedChanges; private set => SetProperty(ref m_HasUnsavedChanges, value); }
     #endregion
 
@@ -48,8 +55,7 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
         m_OriginalSnapshot = m_Device.Config.DeepClone();
 
         LoadDraftFromSnapshot();
-
-        Draft.PropertyChanged += OnDraftPropertyChanged;
+        SubscribeDraft();
 
         HasUnsavedChanges = false;
         m_Device.HasUnsavedSettings = false;
@@ -79,6 +85,10 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
 
         m_Parent.SaveDevicesConfigCommand.Execute(null);
 
+        m_OriginalSnapshot = m_Device.Config.DeepClone();
+
+        UnsubscribeDraft();
+
         HasUnsavedChanges = false;
         m_Device.HasUnsavedSettings = false;
 
@@ -94,15 +104,18 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
         HasUnsavedChanges = false;
         m_Device.HasUnsavedSettings = false;
     }
-    #endregion
 
-    #region Private Functions
     // Loads the draft from the original snapshot without triggering dirty
     private void LoadDraftFromSnapshot()
     {
+        UnsubscribeDraft();
+
         m_IsLoadingDraft = true;
         Draft.LoadFrom(m_OriginalSnapshot);
         m_IsLoadingDraft = false;
+
+        SubscribeDraft();
+        UpdateDirtyState();
     }
 
     // Handles draft changes and updates dirty state based on snapshot-diff
@@ -112,24 +125,35 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
         UpdateDirtyState();
     }
 
-    // Dirty = Draft-applied config differs from original snapshot
+    // Updates HasUnsavedChanges based on snapshot diff + numeric editor state (empty/invalid text)
     private void UpdateDirtyState()
     {
-        var tempConfig = m_OriginalSnapshot.DeepClone();
-        Draft.ApplyTo(tempConfig);
-
-        bool isDirty = !AreEquivalent(tempConfig, m_OriginalSnapshot);
-
-        HasUnsavedChanges = isDirty;
-        m_Device.HasUnsavedSettings = isDirty;
+        bool isDirty = IsDraftDirtyAgainstSnapshot();
+        SetDirtyState(isDirty);
     }
 
-    // Compares only what we persist for this device (expand later if needed)
+    // Returns true when draft differs from original snapshot, including empty/invalid numeric text edits
+    private bool IsDraftDirtyAgainstSnapshot()
+    {
+        DeviceConfig tempConfig = m_OriginalSnapshot.DeepClone();
+        Draft.ApplyTo(tempConfig);
+
+        if (!AreEquivalent(tempConfig, m_OriginalSnapshot)) { return true; }
+        if (HasNumericTextEditsComparedToSnapshot()) { return true; }
+
+        return false;
+    }
+
+    // Compares only what we persist for this device
     private static bool AreEquivalent(DeviceConfig i_A, DeviceConfig i_B)
     {
         if (i_A.AutoReconnect != i_B.AutoReconnect) { return false; }
 
         if (i_A.Connection.Kind != i_B.Connection.Kind) { return false; }
+
+        // TCP
+        if (i_A.Connection.Tcp.Host != i_B.Connection.Tcp.Host) { return false; }
+        if (i_A.Connection.Tcp.Port != i_B.Connection.Tcp.Port) { return false; }
 
         // UDP
         if (i_A.Connection.Udp.RemoteIp != i_B.Connection.Udp.RemoteIp) { return false; }
@@ -137,16 +161,36 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
         if (i_A.Connection.Udp.LocalIp != i_B.Connection.Udp.LocalIp) { return false; }
         if (i_A.Connection.Udp.LocalPort != i_B.Connection.Udp.LocalPort) { return false; }
 
-        // TCP
-        if (i_A.Connection.Tcp.Host != i_B.Connection.Tcp.Host) { return false; }
-        if (i_A.Connection.Tcp.Port != i_B.Connection.Tcp.Port) { return false; }
-
         // Serial
         if (i_A.Connection.Serial.SerialLineKind != i_B.Connection.Serial.SerialLineKind) { return false; }
         if (i_A.Connection.Serial.ComPort != i_B.Connection.Serial.ComPort) { return false; }
         if (i_A.Connection.Serial.BaudRate != i_B.Connection.Serial.BaudRate) { return false; }
 
         return true;
+    }
+
+    // Returns true if any numeric textbox is empty/invalid or doesn't match the snapshot value
+    private bool HasNumericTextEditsComparedToSnapshot()
+    {
+        return !IsNumericTextEquivalent(Draft.TcpPortText, m_OriginalSnapshot.Connection.Tcp.Port)
+            || !IsNumericTextEquivalent(Draft.UdpRemotePortText, m_OriginalSnapshot.Connection.Udp.RemotePort)
+            || !IsNumericTextEquivalent(Draft.UdpLocalPortText, m_OriginalSnapshot.Connection.Udp.LocalPort)
+            || !IsNumericTextEquivalent(Draft.SerialBaudRateText, m_OriginalSnapshot.Connection.Serial.BaudRate);
+    }
+
+    // Checks if numeric editor text represents the same value as the persisted snapshot
+    private static bool IsNumericTextEquivalent(string i_Text, int i_Value)
+    {
+        if (string.IsNullOrWhiteSpace(i_Text)) { return false; }
+        if (!int.TryParse(i_Text, out int parsed)) { return false; }
+        return parsed == i_Value;
+    }
+
+    // Applies dirty state to both the pane and the card (single source of truth)
+    private void SetDirtyState(bool i_IsDirty)
+    {
+        HasUnsavedChanges = i_IsDirty;
+        m_Device.HasUnsavedSettings = i_IsDirty;
     }
 
     // Logs validation errors once per apply attempt
@@ -164,9 +208,34 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
         string first = i_Errors.FirstOrDefault() ?? "Invalid settings";
         string summary = i_Errors.Count == 1 ? first : $"{first}\n(+{i_Errors.Count - 1} more)";
 
-        await m_Parent.ShowValidationFailedAsync(m_XamlRoot, summary);
+        try { await m_Parent.ShowValidationFailedAsync(m_XamlRoot, summary); }
+        catch (Exception ex) { m_Device.LogService.Error(nameof(DeviceSettingsPaneViewModel), "Failed showing validation dialog", ex); }
+
     }
 
+    // Attaches Draft.PropertyChanged once
+    private void SubscribeDraft()
+    {
+        if (m_IsSubscribed) { return; }
+        Draft.PropertyChanged += OnDraftPropertyChanged;
+        m_IsSubscribed = true;
+    }
+
+    // Detaches Draft.PropertyChanged once
+    private void UnsubscribeDraft()
+    {
+        if (!m_IsSubscribed) { return; }
+        Draft.PropertyChanged -= OnDraftPropertyChanged;
+        m_IsSubscribed = false;
+    }
+
+    // Cleans up event handlers so late UI updates won't re-mark dirty after pane closes
+    public void OnPaneClosing()
+    {
+        UnsubscribeDraft();
+    }
+
+    // Discard command handler
     private void OnDiscard() { Discard(); }
     #endregion
 }
