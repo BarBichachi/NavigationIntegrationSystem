@@ -1,7 +1,11 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+
+using NavigationIntegrationSystem.Core.Enums;
+
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration;
 
@@ -10,33 +14,38 @@ public sealed partial class IntegrationFieldRowViewModel : ObservableObject
 {
     #region Private Fields
     private SourceCandidateViewModel? m_SelectedSource;
+    private string m_IntegratedOutputDisplay = "—";
     #endregion
 
     #region Properties
     public string FieldName { get; }
     public string Unit { get; }
     public ObservableCollection<SourceCandidateViewModel> Sources { get; }
-    public ObservableCollection<SourceCandidateViewModel> VisibleSources { get; } = new ObservableCollection<SourceCandidateViewModel>();
-
+    public ObservableCollection<SourceCandidateViewModel> VisibleSources { get; } = new();
+    public string IntegratedOutputDisplay
+    {
+        get => m_IntegratedOutputDisplay;
+        private set => SetProperty(ref m_IntegratedOutputDisplay, value);
+    }
     public SourceCandidateViewModel? SelectedSource
     {
         get => m_SelectedSource;
         set
         {
-            if (m_SelectedSource == value) { return; }
-
             if (m_SelectedSource != null) { m_SelectedSource.PropertyChanged -= OnSelectedSourceChanged; }
-
             m_SelectedSource = value;
-            OnPropertyChanged();
-
             if (m_SelectedSource != null) { m_SelectedSource.PropertyChanged += OnSelectedSourceChanged; }
 
+            OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedValueText));
         }
     }
 
-    public string SelectedValueText => SelectedSource == null ? "—" : $"{SelectedSource.CandidateValue:0.00000}";
+    public string SelectedValueText => SelectedSource == null ? "—" : $"{SelectedSource.DisplayText}";
+    #endregion
+
+    #region Events
+    public event EventHandler SourceChanged;
     #endregion
 
     #region Constructors
@@ -51,19 +60,49 @@ public sealed partial class IntegrationFieldRowViewModel : ObservableObject
     #endregion
 
     #region Functions
-    // Refreshes the connected candidate list based on a predicate and keeps SelectedSource valid
+
+    // Updates selection state when a new source is selected
+    public void UpdateSelection(SourceCandidateViewModel selected)
+    {
+        foreach (var src in VisibleSources)
+        {
+            if (src != selected) src.IsSelected = false;
+        }
+        SelectedSource = selected;
+    }
+
+    // Rebuilds the VisibleSources collection based on the provided visibility function
     public void RefreshVisibleSources(Func<SourceCandidateViewModel, bool> i_IsVisible)
     {
+        DeviceType? previousType = SelectedSource?.DeviceType;
+
         VisibleSources.Clear();
 
+        // Filter and add visible sources
         foreach (SourceCandidateViewModel src in Sources)
         {
-            if (i_IsVisible(src)) { VisibleSources.Add(src); }
+            if (i_IsVisible(src))
+            {
+                VisibleSources.Add(src);
+                // Ensure IsSelected starts as false for all new additions
+                src.IsSelected = false;
+            }
         }
 
-        if (SelectedSource != null && VisibleSources.Contains(SelectedSource)) { return; }
+        // Find the best candidate to select
+        SourceCandidateViewModel? nextToSelect = VisibleSources.FirstOrDefault(s => s.DeviceType == previousType)
+                                               ?? VisibleSources.FirstOrDefault();
 
-        SelectedSource = VisibleSources.Count > 0 ? VisibleSources[0] : null;
+        // Use UpdateSelection to ensure only ONE is selected and the output is updated
+        if (nextToSelect != null)
+        {
+            nextToSelect.IsSelected = true;
+            UpdateSelection(nextToSelect);
+        }
+        else
+        {
+            SelectedSource = null;
+        }
     }
     #endregion
 

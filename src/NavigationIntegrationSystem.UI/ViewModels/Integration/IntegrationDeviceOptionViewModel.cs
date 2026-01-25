@@ -6,7 +6,7 @@ using System;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration;
 
 // Represents a connected device option in the Integration header (visible toggle + apply-to-all)
-public sealed class IntegrationDeviceOptionViewModel : ObservableObject
+public sealed partial class IntegrationDeviceOptionViewModel : ObservableObject
 {
     #region Private Fields
     private bool m_IsVisible;

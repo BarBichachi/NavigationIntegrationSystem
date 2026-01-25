@@ -5,7 +5,7 @@ using NavigationIntegrationSystem.UI.ViewModels.Base;
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices;
 
 // Draft/form state for the settings pane (UI-only)
-public sealed class DeviceSettingsDraftViewModel : ViewModelBase
+public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
 {
     #region General (Private Fields)
     private bool m_AutoReconnect = true;

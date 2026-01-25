@@ -117,12 +117,13 @@ public sealed partial class IntegrationViewModel : ObservableObject
     {
         foreach (IntegrationFieldRowViewModel row in Rows)
         {
-            foreach (SourceCandidateViewModel src in row.Sources)
+            foreach (SourceCandidateViewModel src in row.VisibleSources)
             {
-                if (src.DeviceType != i_DeviceType)
-                { continue; }
-                row.SelectedSource = src;
-                break;
+                if (src.DeviceType == i_DeviceType)
+                {
+                    src.IsSelected = true;
+                    break;
+                }
             }
         }
     }
@@ -130,6 +131,9 @@ public sealed partial class IntegrationViewModel : ObservableObject
     // Rebuilds the candidate list for a row based on currently connected devices
     private void BuildRowCandidates(IntegrationFieldRowViewModel i_Row)
     {
+        // Store the type we had selected before clearing
+        DeviceType? previousSelectedType = i_Row.SelectedSource?.DeviceType;
+
         i_Row.Sources.Clear();
 
         foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices)
@@ -139,7 +143,17 @@ public sealed partial class IntegrationViewModel : ObservableObject
             double initial = CreateInitialValue(i_Row.FieldName, i_Row.Unit, device.Type);
             i_Row.Sources.Add(new SourceCandidateViewModel(i_Row, device.Type, device.DisplayName, initial, m_Rng));
         }
+
+        // This method handles filtering and re-setting IsSelected = true on the correct object
+        i_Row.RefreshVisibleSources(IsCandidateVisible);
+
+        // If nothing was selected but we have visible sources, default to the first one
+        if (i_Row.SelectedSource == null && i_Row.VisibleSources.Count > 0)
+        {
+            i_Row.VisibleSources[0].IsSelected = true;
+        }
     }
+
 
     // Creates a dummy initial value per field/device-type so candidates look distinct
     private double CreateInitialValue(string i_FieldName, string i_Unit, DeviceType i_DeviceType)
@@ -167,8 +181,7 @@ public sealed partial class IntegrationViewModel : ObservableObject
     {
         foreach (IntegrationDeviceOptionViewModel dev in m_ConnectedDevices)
         {
-            if (dev.DeviceType == i_Source.DeviceType)
-            { return dev.IsVisible; }
+            if (dev.DeviceType == i_Source.DeviceType) { return dev.IsVisible; }
         }
         return false;
     }
@@ -196,7 +209,6 @@ public sealed partial class IntegrationViewModel : ObservableObject
                 foreach (IntegrationFieldRowViewModel row in Rows)
                 {
                     BuildRowCandidates(row);
-                    row.RefreshVisibleSources(IsCandidateVisible);
                 }
             };
         }

@@ -16,7 +16,7 @@ using NavigationIntegrationSystem.UI.ViewModels.Base;
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices;
 
 // ViewModel for the settings pane of a selected device (draft-based)
-public sealed class DeviceSettingsPaneViewModel : ViewModelBase
+public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly DevicesViewModel m_Parent;
@@ -205,7 +205,7 @@ public sealed class DeviceSettingsPaneViewModel : ViewModelBase
     {
         if (m_XamlRoot == null) { return; }
 
-        string first = i_Errors.FirstOrDefault() ?? "Invalid settings";
+        string first = i_Errors.Count > 0 ? i_Errors[0] : "Invalid settings";
         string summary = i_Errors.Count == 1 ? first : $"{first}\n(+{i_Errors.Count - 1} more)";
 
         try { await m_Parent.ShowValidationFailedAsync(m_XamlRoot, summary); }

@@ -6,7 +6,7 @@ using System;
 namespace NavigationIntegrationSystem.UI.Converters;
 
 // Converts boolean to Visibility
-public sealed class BoolToVisibilityConverter : IValueConverter
+public sealed partial class BoolToVisibilityConverter : IValueConverter
 {
     #region Functions
     public object Convert(object value, Type targetType, object parameter, string language)

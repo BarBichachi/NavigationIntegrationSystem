@@ -4,7 +4,7 @@ using System;
 namespace NavigationIntegrationSystem.UI.Converters;
 
 // Converts connection state boolean to Connect/Disconnect label
-public sealed class BoolToConnectTextConverter : IValueConverter
+public sealed partial class BoolToConnectTextConverter : IValueConverter
 {
     #region Functions
     public object Convert(object value, Type targetType, object parameter, string language)
