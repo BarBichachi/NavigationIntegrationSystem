@@ -27,7 +27,7 @@ public sealed partial class DevicesPage : Page
     {
         if (!ViewModel.ShouldConfirmPaneClose())
         {
-            ViewModel.ClosePane();
+            ViewModel.IsPaneOpen = false;
             return;
         }
 

@@ -1,7 +1,7 @@
 ﻿namespace NavigationIntegrationSystem.Devices.Config.Connections;
 
 // UDP connection parameters
-public sealed class UdpConnectionConfig
+public sealed class UdpConnectionSettings
 {
     #region Properties
     public string RemoteIp { get; set; } = "127.0.0.1";
@@ -12,21 +12,13 @@ public sealed class UdpConnectionConfig
 
     #region Functions
     // Copies values from another instance
-    public void CopyFrom(UdpConnectionConfig i_Source)
+    public void CopyFrom(UdpConnectionSettings i_Source)
     {
         if (i_Source == null) { return; }
         RemoteIp = i_Source.RemoteIp;
         RemotePort = i_Source.RemotePort;
         LocalIp = i_Source.LocalIp;
         LocalPort = i_Source.LocalPort;
-    }
-
-    // Creates a deep clone of this instance
-    public UdpConnectionConfig DeepClone()
-    {
-        var clone = new UdpConnectionConfig();
-        clone.CopyFrom(this);
-        return clone;
     }
     #endregion
 }

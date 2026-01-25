@@ -7,11 +7,13 @@ using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Models;
 using NavigationIntegrationSystem.Devices.Catalog;
 using NavigationIntegrationSystem.Devices.Config;
+using NavigationIntegrationSystem.Devices.Config.Enums;
 using NavigationIntegrationSystem.Devices.Runtime;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.ViewModels.Devices;
+using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 
@@ -38,9 +40,21 @@ public sealed partial class DevicesViewModel : ObservableObject
     public DeviceCardViewModel? SelectedDevice { get => m_SelectedDevice; set => SetProperty(ref m_SelectedDevice, value);}
     public DevicesPaneMode PaneMode { get => m_PaneMode; set => SetProperty(ref m_PaneMode, value); }
     public DeviceSettingsPaneViewModel? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
-    public bool IsPaneOpen { get => m_IsPaneOpen; set => SetProperty(ref m_IsPaneOpen, value); }
     public string SaveButtonText { get => m_SaveButtonText; private set => SetProperty(ref m_SaveButtonText, value); }
     public Symbol SaveButtonIcon { get => m_SaveButtonIcon; private set => SetProperty(ref m_SaveButtonIcon, value); }
+    public bool CanSaveDevicesConfig { get => !IsPaneOpen; }
+    public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
+    public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
+
+    public bool IsPaneOpen
+    {
+        get => m_IsPaneOpen;
+        set
+        {
+            if (!SetProperty(ref m_IsPaneOpen, value)) { return; }
+            OnPropertyChanged(nameof(CanSaveDevicesConfig));
+        }
+    }
     #endregion
 
     #region Commands
@@ -118,12 +132,10 @@ public sealed partial class DevicesViewModel : ObservableObject
         IsPaneOpen = true;
     }
 
-    // Closes the right pane (public for pane VMs)
+    // Closes the right pane
     public void ClosePane()
     {
-        if ((PaneMode == DevicesPaneMode.Settings) && (SelectedDevice != null) && (CurrentSettingsPane != null) && CurrentSettingsPane.HasUnsavedChanges)
-        { SelectedDevice.HasUnsavedSettings = true; }
-
+        IsPaneOpen = false;
         PaneMode = DevicesPaneMode.None;
         SelectedDevice = null;
         CurrentSettingsPane = null;
@@ -159,20 +171,16 @@ public sealed partial class DevicesViewModel : ObservableObject
     // Forces close after dialog decision
     public void ForceClosePaneAfterDecision(DialogCloseDecision i_Decision)
     {
-        if (PaneMode != DevicesPaneMode.Settings || CurrentSettingsPane == null)
-        { IsPaneOpen = false; ClosePane(); return; }
+        if (PaneMode != DevicesPaneMode.Settings || CurrentSettingsPane == null) { ClosePane(); return; }
 
         switch (i_Decision)
         {
             case DialogCloseDecision.Apply:
-                CurrentSettingsPane.Apply();
-                IsPaneOpen = false;
-                ClosePane();
+                CurrentSettingsPane.TryApply();
                 return;
 
             case DialogCloseDecision.Discard:
                 CurrentSettingsPane.Discard();
-                IsPaneOpen = false;
                 ClosePane();
                 return;
 
@@ -185,6 +193,12 @@ public sealed partial class DevicesViewModel : ObservableObject
     public async Task<DialogCloseDecision> ConfirmCloseSettingsAsync(XamlRoot i_XamlRoot)
     {
         return await m_DialogService.ShowUnsavedChangesDialogAsync(i_XamlRoot);
+    }
+
+    // Shows validation-failed dialog with summary
+    public async Task ShowValidationFailedAsync(XamlRoot i_XamlRoot, string i_Summary)
+    {
+        await m_DialogService.ShowValidationFailedDialogAsync(i_XamlRoot, i_Summary);
     }
 
     // Clears selection/pane state without touching IsPaneOpen (it already changed)

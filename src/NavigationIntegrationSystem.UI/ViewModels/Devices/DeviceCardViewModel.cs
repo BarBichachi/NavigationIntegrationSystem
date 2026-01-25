@@ -24,7 +24,7 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     #region Properties
     public string DisplayName => m_Device.Definition.DisplayName;
     public DeviceType Type => m_Device.Definition.Type;
-    public DeviceConnectionConfig Connection => Config.Connection;
+    public DeviceConnectionSettings Connection => Config.Connection;
     public DeviceConfig Config { get; }
     public ObservableCollection<InspectFieldViewModel> InspectFields { get; }
     public DeviceStatus Status => m_Device.Status;
@@ -42,6 +42,7 @@ public sealed partial class DeviceCardViewModel : ObservableObject
         }
     }
     public bool HasUnsavedSettings { get => m_HasUnsavedSettings; set => SetProperty(ref m_HasUnsavedSettings, value); }
+    public ILogService LogService => m_LogService;
     #endregion
 
     #region Commands

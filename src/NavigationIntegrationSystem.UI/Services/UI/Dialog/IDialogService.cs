@@ -7,4 +7,6 @@ namespace NavigationIntegrationSystem.UI.Services.UI.Dialog;
 public interface IDialogService
 {
     Task<DialogCloseDecision> ShowUnsavedChangesDialogAsync(XamlRoot i_XamlRoot);
+
+    Task ShowValidationFailedDialogAsync(XamlRoot i_XamlRoot, string i_Summary);
 }

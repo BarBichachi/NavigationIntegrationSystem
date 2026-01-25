@@ -54,7 +54,7 @@ public sealed class DevicesConfigService
         DeviceConfig? existing = i_Config.Devices.FirstOrDefault(d => d.DeviceType == i_DeviceType);
         if (existing != null) { return existing; }
 
-        var created = new DeviceConfig { DeviceType = i_DeviceType, AutoReconnect = true, Connection = new DeviceConnectionConfig() };
+        var created = new DeviceConfig { DeviceType = i_DeviceType, AutoReconnect = true, Connection = new DeviceConnectionSettings() };
         i_Config.Devices.Add(created);
         return created;
     }

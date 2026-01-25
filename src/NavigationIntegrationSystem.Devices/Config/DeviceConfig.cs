@@ -8,7 +8,7 @@ public sealed class DeviceConfig
     #region Properties
     public DeviceType DeviceType { get; set; }
     public bool AutoReconnect { get; set; } = true;
-    public DeviceConnectionConfig Connection { get; set; } = new DeviceConnectionConfig();
+    public DeviceConnectionSettings Connection { get; set; } = new DeviceConnectionSettings();
     #endregion
 
     #region Functions
@@ -20,7 +20,7 @@ public sealed class DeviceConfig
         DeviceType = i_Source.DeviceType;
         AutoReconnect = i_Source.AutoReconnect;
 
-        if (Connection == null) { Connection = new DeviceConnectionConfig(); }
+        if (Connection == null) { Connection = new DeviceConnectionSettings(); }
 
         Connection.CopyFrom(i_Source.Connection);
     }

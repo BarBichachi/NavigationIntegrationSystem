@@ -1,19 +1,12 @@
-﻿using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-
-using NavigationIntegrationSystem.Devices.Config;
+﻿using NavigationIntegrationSystem.Devices.Config;
 using NavigationIntegrationSystem.Devices.Config.Enums;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices;
 
 // Draft/form state for the settings pane (UI-only)
-public sealed class DeviceSettingsDraftViewModel : INotifyPropertyChanged
+public sealed class DeviceSettingsDraftViewModel : ViewModelBase
 {
-    #region Events
-    public event PropertyChangedEventHandler? PropertyChanged;
-    #endregion
-
     #region General (Private Fields)
     private bool m_AutoReconnect = true;
     private DeviceConnectionKind m_ConnectionKind = DeviceConnectionKind.Udp;
@@ -38,19 +31,17 @@ public sealed class DeviceSettingsDraftViewModel : INotifyPropertyChanged
     #endregion
 
     #region Properties
-    public bool AutoReconnect { get => m_AutoReconnect; set { if (SetProperty(ref m_AutoReconnect, value)) { } } }
+    public bool AutoReconnect { get => m_AutoReconnect; set => SetProperty(ref m_AutoReconnect, value); }
 
     public DeviceConnectionKind ConnectionKind
     {
         get => m_ConnectionKind;
         set
         {
-            if (SetProperty(ref m_ConnectionKind, value))
-            {
-                OnPropertyChanged(nameof(IsUdpSelected));
-                OnPropertyChanged(nameof(IsTcpSelected));
-                OnPropertyChanged(nameof(IsSerialSelected));
-            }
+            if (!SetProperty(ref m_ConnectionKind, value)) { return; }
+            OnPropertyChanged(nameof(IsUdpSelected));
+            OnPropertyChanged(nameof(IsTcpSelected));
+            OnPropertyChanged(nameof(IsSerialSelected));
         }
     }
 
@@ -80,19 +71,29 @@ public sealed class DeviceSettingsDraftViewModel : INotifyPropertyChanged
         if (i_Config == null) { return; }
 
         AutoReconnect = i_Config.AutoReconnect;
-        ConnectionKind = i_Config.Connection.Kind;
 
-        UdpRemoteIp = i_Config.Connection.Udp.RemoteIp;
-        UdpRemotePort = i_Config.Connection.Udp.RemotePort;
-        UdpLocalIp = i_Config.Connection.Udp.LocalIp;
-        UdpLocalPort = i_Config.Connection.Udp.LocalPort;
+        if (i_Config.Connection == null) { i_Config.Connection = new DeviceConnectionSettings(); }
+        LoadFrom(i_Config.Connection);
+    }
 
-        TcpHost = i_Config.Connection.Tcp.Host;
-        TcpPort = i_Config.Connection.Tcp.Port;
+    // Loads draft values from persisted connection settings
+    public void LoadFrom(DeviceConnectionSettings i_Settings)
+    {
+        if (i_Settings == null) { return; }
 
-        SerialLineKind = i_Config.Connection.Serial.SerialLineKind;
-        SerialComPort = i_Config.Connection.Serial.ComPort;
-        SerialBaudRate = i_Config.Connection.Serial.BaudRate;
+        ConnectionKind = i_Settings.Kind;
+
+        UdpRemoteIp = i_Settings.Udp.RemoteIp;
+        UdpRemotePort = i_Settings.Udp.RemotePort;
+        UdpLocalIp = i_Settings.Udp.LocalIp;
+        UdpLocalPort = i_Settings.Udp.LocalPort;
+
+        TcpHost = i_Settings.Tcp.Host;
+        TcpPort = i_Settings.Tcp.Port;
+
+        SerialLineKind = i_Settings.Serial.SerialLineKind;
+        SerialComPort = i_Settings.Serial.ComPort;
+        SerialBaudRate = i_Settings.Serial.BaudRate;
     }
 
     // Applies draft values into an existing persisted device config (deep, safe)
@@ -102,38 +103,33 @@ public sealed class DeviceSettingsDraftViewModel : INotifyPropertyChanged
 
         io_Config.AutoReconnect = AutoReconnect;
 
-        if (io_Config.Connection == null) { io_Config.Connection = new DeviceConnectionConfig(); }
-
-        io_Config.Connection.Kind = ConnectionKind;
-
-        io_Config.Connection.Udp.RemoteIp = UdpRemoteIp;
-        io_Config.Connection.Udp.RemotePort = UdpRemotePort;
-        io_Config.Connection.Udp.LocalIp = UdpLocalIp;
-        io_Config.Connection.Udp.LocalPort = UdpLocalPort;
-
-        io_Config.Connection.Tcp.Host = TcpHost;
-        io_Config.Connection.Tcp.Port = TcpPort;
-
-        io_Config.Connection.Serial.SerialLineKind = SerialLineKind;
-        io_Config.Connection.Serial.ComPort = SerialComPort;
-        io_Config.Connection.Serial.BaudRate = SerialBaudRate;
+        if (io_Config.Connection == null) { io_Config.Connection = new DeviceConnectionSettings(); }
+        ApplyTo(io_Config.Connection);
     }
-    #endregion
 
-    #region Helpers
-    // Raises PropertyChanged for a property name
-    private void OnPropertyChanged([CallerMemberName] string? i_PropertyName = null)
+    // Applies draft values into persisted connection settings (deep, safe)
+    public void ApplyTo(DeviceConnectionSettings io_Settings)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(i_PropertyName));
+        if (io_Settings == null) { return; }
+
+        io_Settings.Kind = ConnectionKind;
+
+        if (io_Settings.Udp == null) { io_Settings.Udp = new(); }
+        if (io_Settings.Tcp == null) { io_Settings.Tcp = new(); }
+        if (io_Settings.Serial == null) { io_Settings.Serial = new(); }
+
+        io_Settings.Udp.RemoteIp = UdpRemoteIp;
+        io_Settings.Udp.RemotePort = UdpRemotePort;
+        io_Settings.Udp.LocalIp = UdpLocalIp;
+        io_Settings.Udp.LocalPort = UdpLocalPort;
+
+        io_Settings.Tcp.Host = TcpHost;
+        io_Settings.Tcp.Port = TcpPort;
+
+        io_Settings.Serial.SerialLineKind = SerialLineKind;
+        io_Settings.Serial.ComPort = SerialComPort;
+        io_Settings.Serial.BaudRate = SerialBaudRate;
     }
 
-    // Sets a backing field and raises PropertyChanged when the value changes
-    private bool SetProperty<T>(ref T io_Field, T i_Value, [CallerMemberName] string? i_PropertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(io_Field, i_Value)) { return false; }
-        io_Field = i_Value;
-        OnPropertyChanged(i_PropertyName);
-        return true;
-    }
     #endregion
 }

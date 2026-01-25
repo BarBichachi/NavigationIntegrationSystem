@@ -1,7 +1,7 @@
 ﻿namespace NavigationIntegrationSystem.Devices.Config.Connections;
 
 // TCP connection parameters
-public sealed class TcpConnectionConfig
+public sealed class TcpConnectionSettings
 {
     #region Properties
     public string Host { get; set; } = "127.0.0.1";
@@ -10,19 +10,11 @@ public sealed class TcpConnectionConfig
 
     #region Functions
     // Copies values from another instance
-    public void CopyFrom(TcpConnectionConfig i_Source)
+    public void CopyFrom(TcpConnectionSettings i_Source)
     {
         if (i_Source == null) { return; }
         Host = i_Source.Host;
         Port = i_Source.Port;
-    }
-
-    // Creates a deep clone of this instance
-    public TcpConnectionConfig DeepClone()
-    {
-        var clone = new TcpConnectionConfig();
-        clone.CopyFrom(this);
-        return clone;
     }
     #endregion
 }

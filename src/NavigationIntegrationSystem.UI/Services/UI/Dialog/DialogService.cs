@@ -8,7 +8,7 @@ namespace NavigationIntegrationSystem.UI.Services.UI.Dialog;
 // Handles user-facing dialogs
 public sealed class DialogService : IDialogService
 {
-    #region Public Methods
+    #region Functions
     // Shows a confirmation dialog for unsaved changes
     public async Task<DialogCloseDecision> ShowUnsavedChangesDialogAsync(XamlRoot i_XamlRoot)
     {
@@ -32,5 +32,21 @@ public sealed class DialogService : IDialogService
 
         return DialogCloseDecision.Cancel;
     }
+
+    // Shows a validation-failed dialog with summary
+    public async Task ShowValidationFailedDialogAsync(XamlRoot i_XamlRoot, string i_Summary)
+    {
+        ContentDialog dialog = new ContentDialog
+        {
+            Title = "Invalid settings",
+            Content = i_Summary,
+            CloseButtonText = "OK",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = i_XamlRoot
+        };
+
+        await dialog.ShowAsync().AsTask();
+    }
+
     #endregion
 }
