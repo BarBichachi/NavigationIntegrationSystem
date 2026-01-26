@@ -1,8 +1,9 @@
 ﻿using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
-using NavigationIntegrationSystem.Core.Models;
-using NavigationIntegrationSystem.Devices.Config;
+using NavigationIntegrationSystem.Core.Models.DeviceCatalog;
+using NavigationIntegrationSystem.Core.Models.Devices;
 using NavigationIntegrationSystem.Devices.Implementations;
+using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Runtime;
 using System.Collections.Generic;
 

@@ -4,12 +4,13 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels.Integration"
+      xmlns:candidates="using:NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates"
+      xmlns:layout="using:NavigationIntegrationSystem.UI.ViewModels.Integration.Layout"
       mc:Ignorable="d">
 
     <Page.Resources>
         <!-- Numeric candidate: RadioButton + Text -->
-        <DataTemplate x:Key="NumericCandidateTemplate" x:DataType="vm:NumericSourceCandidateViewModel">
+        <DataTemplate x:Key="NumericCandidateTemplate" x:DataType="candidates:NumericSourceCandidateViewModel">
             <Grid Width="150">
                 <RadioButton VerticalAlignment="Center" IsChecked="{x:Bind IsSelected, Mode=OneWay}" Click="OnSourceRadioButtonClicked">
                     <RadioButton.Content>
@@ -20,7 +21,7 @@
         </DataTemplate>
 
         <!-- Manual candidate: RadioButton + TextBox (enabled only when selected) -->
-        <DataTemplate x:Key="ManualCandidateTemplate" x:DataType="vm:ManualSourceCandidateViewModel">
+        <DataTemplate x:Key="ManualCandidateTemplate" x:DataType="candidates:ManualSourceCandidateViewModel">
             <Grid Width="150">
                 <Grid VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
@@ -40,7 +41,7 @@
         </DataTemplate>
 
         <!-- Chooses template by candidate type -->
-        <vm:IntegrationCandidateTemplateSelector x:Key="IntegrationCandidateTemplateSelector"
+        <candidates:IntegrationCandidateTemplateSelector x:Key="IntegrationCandidateTemplateSelector"
                                                 NumericTemplate="{StaticResource NumericCandidateTemplate}"
                                                 ManualTemplate="{StaticResource ManualCandidateTemplate}" />
     </Page.Resources>
@@ -83,7 +84,7 @@
                             </ItemsControl.ItemsPanel>
 
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:IntegrationDeviceOptionViewModel">
+                                <DataTemplate x:DataType="layout:IntegrationDeviceOptionViewModel">
                                     <Border Padding="8,4" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <CheckBox VerticalAlignment="Center" FontWeight="Bold" Content="{x:Bind DisplayName}" IsChecked="{x:Bind IsVisible, Mode=TwoWay}" />
@@ -134,7 +135,7 @@
                                 </ItemsControl.ItemsPanel>
 
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:IntegrationDeviceOptionViewModel">
+                                    <DataTemplate x:DataType="layout:IntegrationDeviceOptionViewModel">
                                         <Grid Width="150" Visibility="{x:Bind IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <TextBlock FontWeight="SemiBold" Opacity="0.6" Text="{x:Bind DisplayName}" />
                                         </Grid>
@@ -154,7 +155,7 @@
 
                     <!-- One row per integration field -->
                     <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:IntegrationFieldRowViewModel">
+                        <DataTemplate x:DataType="layout:IntegrationFieldRowViewModel">
                             <Border Margin="0,0,0,10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
                                 <Grid MinHeight="50">
                                     <Grid.ColumnDefinitions>

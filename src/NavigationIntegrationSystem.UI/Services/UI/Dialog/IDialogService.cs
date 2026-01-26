@@ -1,4 +1,5 @@
 ﻿using Microsoft.UI.Xaml;
+using NavigationIntegrationSystem.UI.Enums;
 using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.Services.UI.Dialog;

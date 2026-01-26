@@ -1,6 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
-using NavigationIntegrationSystem.Devices.Config.Enums;
+using NavigationIntegrationSystem.Devices.Enums;
 using System;
 
 namespace NavigationIntegrationSystem.UI.Converters;

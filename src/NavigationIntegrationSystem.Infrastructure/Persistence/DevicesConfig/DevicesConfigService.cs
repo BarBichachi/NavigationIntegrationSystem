@@ -1,5 +1,5 @@
 ﻿using NavigationIntegrationSystem.Core.Enums;
-using NavigationIntegrationSystem.Devices.Config;
+using NavigationIntegrationSystem.Devices.Models;
 using System.IO;
 using System.Linq;
 using System.Text.Json;

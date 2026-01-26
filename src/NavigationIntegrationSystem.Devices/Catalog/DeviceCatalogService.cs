@@ -1,4 +1,4 @@
-﻿using NavigationIntegrationSystem.Core.Models;
+﻿using NavigationIntegrationSystem.Core.Models.Devices;
 using NavigationIntegrationSystem.Devices.Modules;
 using System.Collections.Generic;
 using System.Linq;

@@ -1,5 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using NavigationIntegrationSystem.UI.Enums;
 using System;
 using System.Threading.Tasks;
 

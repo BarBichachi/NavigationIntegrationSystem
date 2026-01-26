@@ -13,8 +13,8 @@ using NavigationIntegrationSystem.UI.Services.Logging;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
-using NavigationIntegrationSystem.UI.ViewModels.Devices;
-using NavigationIntegrationSystem.UI.ViewModels.Integration;
+using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
+using NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
 
 namespace NavigationIntegrationSystem.UI.Bootstrap;
 

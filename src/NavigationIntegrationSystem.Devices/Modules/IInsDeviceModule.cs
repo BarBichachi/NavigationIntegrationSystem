@@ -1,6 +1,6 @@
 ﻿using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
-using NavigationIntegrationSystem.Core.Models;
+using NavigationIntegrationSystem.Core.Models.Devices;
 using NavigationIntegrationSystem.Devices.Runtime;
 
 namespace NavigationIntegrationSystem.Devices.Modules;

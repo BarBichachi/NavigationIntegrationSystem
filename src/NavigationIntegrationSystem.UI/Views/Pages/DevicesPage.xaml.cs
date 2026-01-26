@@ -1,10 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-
-using NavigationIntegrationSystem.UI.Services.UI.Dialog;
-using NavigationIntegrationSystem.UI.ViewModels.Devices;
-using NavigationIntegrationSystem.UI.Views.Panes;
+using NavigationIntegrationSystem.UI.Enums;
+using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 
 namespace NavigationIntegrationSystem.UI.Views.Pages;
 

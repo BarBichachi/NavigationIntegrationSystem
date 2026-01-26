@@ -1,4 +1,4 @@
-﻿using NavigationIntegrationSystem.Devices.Config;
+﻿using NavigationIntegrationSystem.Devices.Models;
 using System.Collections.Generic;
 
 namespace NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;

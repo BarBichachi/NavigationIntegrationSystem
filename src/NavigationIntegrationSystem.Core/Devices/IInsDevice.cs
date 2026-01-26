@@ -1,5 +1,5 @@
 ﻿using NavigationIntegrationSystem.Core.Enums;
-using NavigationIntegrationSystem.Core.Models;
+using NavigationIntegrationSystem.Core.Models.Devices;
 using System;
 using System.Threading.Tasks;
 

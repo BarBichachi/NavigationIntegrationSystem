@@ -1,7 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-
-using NavigationIntegrationSystem.UI.ViewModels.Devices;
+using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
 namespace NavigationIntegrationSystem.UI.Views.Panes;
 

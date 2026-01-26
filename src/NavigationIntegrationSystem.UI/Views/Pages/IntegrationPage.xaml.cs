@@ -2,7 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using NavigationIntegrationSystem.UI.ViewModels.Integration;
+using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
+using NavigationIntegrationSystem.UI.ViewModels.Integration.Layout;
+using NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
 
 namespace NavigationIntegrationSystem.UI.Views.Pages;
 
