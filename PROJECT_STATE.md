@@ -53,7 +53,7 @@ All INS device-specific logic lives here.
 Adding a new INS device should only require changes inside this project.
 
 Responsibilities:
-- INS device implementations (e.g. Vn310InsDevice, Tmaps100XInsDevice)
+- INS device implementations (e.g. Vn310InsDevice, Tmaps100XInsDevice, ManualInsDevice)
 - Device modules (IInsDeviceModule implementations)
 - Device runtime registry and lifecycle management
 - Device catalog / device metadata
@@ -62,7 +62,7 @@ Responsibilities:
 
 Device Registration Model (Locked):
 - Devices are registered explicitly (no reflection-based auto-discovery)
-- There is a single registration entry point inside Devices (e.g. DevicesRegistration)
+- There is a single registration entry point inside Devices
 - UI/Bootstrap calls a single method to register all devices
 - HostBuilderFactory is never modified when adding new devices
 
@@ -70,7 +70,7 @@ Adding a new device conceptually involves:
 1. Add a new DeviceType value in Core
 2. Add a new InsDevice implementation
 3. Add a new DeviceModule implementation
-4. Register the module in the Devices registration file
+4. Register the module in the Devices registration entry point
 
 ---
 
@@ -107,7 +107,7 @@ MVVM Rules (Locked):
 - No ObservableProperty / RelayCommand generators
 - Manual MVVM implementation using a shared ViewModelBase
 - ViewModelBase implements INotifyPropertyChanged with SetProperty
-- Commands implemented via an internal RelayCommand / AsyncRelayCommand abstraction
+- Commands implemented via explicit ICommand implementations
 - ViewModels contain UI logic only, no device-specific logic
 
 UI Foldering Standard (Type-first):
@@ -122,15 +122,15 @@ UI Foldering Standard (Type-first):
 - Resources/
 
 Subfolders may be used inside type folders for domain clarity
-(e.g. Services/Logging, Converters/Devices, Enums/Devices)
+(e.g. ViewModels/Integration/Candidates, ViewModels/Devices/Cards)
 
 ---
 
 ## Commands Architecture (Locked)
-- Custom RelayCommand / AsyncRelayCommand implementation owned by UI
+- Explicit ICommand implementations owned by UI
 - No dependency on toolkit generators
 - ICommand-based, explicit, debuggable, framework-agnostic
-- Suitable for reuse in .NET Framework 4.7.2 projects
+- Suitable for reuse in legacy .NET projects
 
 ---
 
@@ -151,6 +151,10 @@ Subfolders may be used inside type folders for domain clarity
   - Each device has:
     - Visibility toggle (show/hide its inputs across all rows)
     - "Apply to All" (select this device as the source for all rows)
+- Manual source supported:
+  - Manual appears as a virtual device
+  - Manual input uses a RadioButton + TextBox per row
+  - TextBox enabled only when selected
 - Live dummy updates:
   - Candidate values update via DispatcherQueueTimer (250ms)
   - Integrated output reflects the currently selected candidate per row
@@ -161,6 +165,9 @@ Subfolders may be used inside type folders for domain clarity
   - Rebuilds per-row Sources
   - Refreshes VisibleSources based on header toggles
 - Selection survives device rebuilds by re-selecting by DeviceType when possible
+- Manual device:
+  - Has Connect/Disconnect only
+  - No Inspect or Settings panes
 
 ## Logs Page (baseline improvements)
 - Keyboard shortcuts supported: Ctrl+C, Ctrl+A, Delete, Esc
@@ -172,37 +179,28 @@ Subfolders may be used inside type folders for domain clarity
 
 # Next Steps
 
-## 1) Manual source per field (UI + VM)
-- Add a per-row "Manual" source option alongside device candidates
-- When "Manual" is selected:
-  - Show an inline input (TextBox) for numeric value
-  - Validate (double.TryParse), show invalid state but don’t crash selection
-  - Manual value becomes the row’s SelectedValueText / integrated output
-- Ensure manual selection survives visibility toggles and device reconnects (same selection model as today: IsSelected + row-enforced single selection)
-
-## 2) Record inputs + outputs to a single file (MVP)
-- Create a recorder service (UI/Infrastructure boundary decision later) that writes a single file containing:
+## 1) Record inputs + outputs to a single file (MVP)
+- Create a recorder service that writes a single append-only file containing:
   - Timestamp (UTC)
-  - Per-row selected source (DeviceType or Manual or File)
-  - Per-row input values (all visible candidates, plus selected)
+  - Per-row selected source (DeviceType / Manual / File)
+  - Per-row input values
   - Per-row integrated output
 - Start/Stop recording controls on Integration page
-- Use append-only format (JSONL recommended) so it’s safe for long runs and easy to stream
+- Use JSONL format for safety and streaming
 
-## 3) “Recorded file” as a virtual INS source
-- Add a new virtual source option “File” (per device-like candidate) that feeds values from a loaded recording file
+## 2) “Recorded file” as a virtual INS source
+- Add a new virtual source option “File”
+- Treat file playback exactly like a device source:
+  - Appears in Active Sources
+  - Appears per-row as a selectable candidate
 - Provide:
-  - “Load file” action (file picker) and playback controls (Play/Pause/Seek/Speed optional, can be v1 minimal)
-  - Treat the file source exactly like an INS device in the UI (appears in Active Sources + per-row candidates)
-- Add “Download template file” action:
-  - Writes a template (CSV/JSONL) that shows required columns/fields and an example row
-  - Clear mapping: FieldName + Unit + Value (+ optional DeviceId/DeviceType if you want multiple streams)
+  - Load file action
+  - Basic playback controls
+- Provide “Download template file” action with example rows
 
-## 4) Make integration real (replace dummy tick)
-- Replace Tick() random deltas with real device telemetry:
-  - Each device publishes field updates (Azimuth, Elevation, etc.)
-  - CandidateValue updates from that stream
-  - UI updates are marshaled via DispatcherQueue
-- Keep the same selection/visibility behavior:
-  - Selected source drives integrated output immediately
-  - Fallback rules when a source disappears (manual/file/device disconnect)
+## 3) Make integration real (replace dummy tick)
+- Replace Tick() random deltas with real device telemetry
+- Devices publish field updates
+- Candidate values update from live streams
+- UI updates marshaled via DispatcherQueue
+- Preserve existing selection, visibility, and fallback behavior
