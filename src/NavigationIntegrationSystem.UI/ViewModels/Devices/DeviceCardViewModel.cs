@@ -43,6 +43,8 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     }
     public bool HasUnsavedSettings { get => m_HasUnsavedSettings; set => SetProperty(ref m_HasUnsavedSettings, value); }
     public ILogService LogService => m_LogService;
+    public bool IsManual => Type == DeviceType.Manual;
+    public bool ShowSettingsInspect => !IsManual;
     #endregion
 
     #region Commands

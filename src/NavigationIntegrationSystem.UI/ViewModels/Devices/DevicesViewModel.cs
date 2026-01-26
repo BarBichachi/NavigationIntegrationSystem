@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NavigationIntegrationSystem.Core.Devices;
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Models;
 using NavigationIntegrationSystem.Devices.Catalog;
@@ -15,6 +16,7 @@ using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.ViewModels.Devices;
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices;
@@ -87,7 +89,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         Devices.Clear();
 
         // Create a device card for each device in the catalog
-        foreach (DeviceDefinition def in i_CatalogService.GetDevices())
+        foreach (DeviceDefinition def in i_CatalogService.GetDevices().OrderByDescending(d => d.Type == DeviceType.Manual).ThenBy(d => d.Type))
         {
             DeviceConfig cfg = m_ConfigService.GetOrCreateDevice(m_ConfigFile, def.Type);
 
