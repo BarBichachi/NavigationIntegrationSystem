@@ -27,7 +27,7 @@ public sealed partial class IntegrationPage : Page
     private void OnSourceRadioButtonClicked(object i_Sender, RoutedEventArgs i_E)
     {
         if (i_Sender is not RadioButton radioButton) { return; }
-        if (radioButton.DataContext is not SourceCandidateViewModel src) { return; }
+        if (radioButton.DataContext is not IntegrationSourceCandidateViewModel src) { return; }
 
         DependencyObject current = radioButton;
         while (current != null && current is not ListViewItem) { current = VisualTreeHelper.GetParent(current); }

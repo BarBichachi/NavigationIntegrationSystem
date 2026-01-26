@@ -53,6 +53,7 @@ public static class HostBuilderFactory
                 // Register device modules
                 services.AddSingleton<IInsDeviceModule, Vn310DeviceModule>();
                 services.AddSingleton<IInsDeviceModule, Tmaps100XDeviceModule>();
+                services.AddSingleton<IInsDeviceModule, ManualDeviceModule>();
 
                 // Bootstrap device modules into registry
                 services.AddSingleton<DevicesModuleBootstrapper>();

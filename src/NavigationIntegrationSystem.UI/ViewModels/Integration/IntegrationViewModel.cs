@@ -72,7 +72,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     {
         foreach (IntegrationFieldRowViewModel row in Rows)
         {
-            SourceCandidateViewModel? match = row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_DeviceType);
+            IntegrationSourceCandidateViewModel? match = row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_DeviceType);
             if (match != null) { row.SelectSource(match); }
         }
     }
@@ -86,7 +86,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         foreach (IntegrationFieldRowViewModel row in Rows)
         {
             double step = GetStepScale(row.Unit, row.FieldName);
-            foreach (SourceCandidateViewModel src in row.Sources) { src.Tick(step); }
+            foreach (IntegrationSourceCandidateViewModel src in row.Sources) { src.Tick(step); }
         }
     }
 
@@ -130,8 +130,14 @@ public sealed partial class IntegrationViewModel : ViewModelBase
             row.Sources.Clear();
             foreach (DeviceCardViewModel device in i_Connected)
             {
+                if (device.Type == DeviceType.Manual)
+                {
+                    row.Sources.Add(new ManualSourceCandidateViewModel(device.DisplayName));
+                    continue;
+                }
+
                 double initial = CreateInitialValue(row.FieldName, row.Unit, device.Type);
-                row.Sources.Add(new SourceCandidateViewModel(device.Type, device.DisplayName, initial, m_Rng));
+                row.Sources.Add(new NumericSourceCandidateViewModel(device.Type, device.DisplayName, initial, m_Rng));
             }
 
             row.RestoreSelection(previousDeviceType);
@@ -145,7 +151,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     }
 
     // Candidate is visible only if its device is toggled visible in the header
-    private bool IsCandidateVisible(SourceCandidateViewModel i_Source)
+    private bool IsCandidateVisible(IntegrationSourceCandidateViewModel i_Source)
     {
         return m_DeviceVisibility.TryGetValue(i_Source.DeviceType, out bool isVisible) && isVisible;
     }
@@ -157,7 +163,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         {
             if (!row.IsOutputEmpty) { continue; }
 
-            SourceCandidateViewModel? match = row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_DeviceType);
+            IntegrationSourceCandidateViewModel? match = row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_DeviceType);
             if (match != null) { row.SelectSource(match); }
         }
     }

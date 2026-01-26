@@ -7,6 +7,44 @@
       xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels.Integration"
       mc:Ignorable="d">
 
+    <Page.Resources>
+        <!-- Numeric candidate: RadioButton + Text -->
+        <DataTemplate x:Key="NumericCandidateTemplate" x:DataType="vm:NumericSourceCandidateViewModel">
+            <Grid Width="150">
+                <RadioButton VerticalAlignment="Center" IsChecked="{x:Bind IsSelected, Mode=OneWay}" Click="OnSourceRadioButtonClicked">
+                    <RadioButton.Content>
+                        <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" Text="{x:Bind DisplayText, Mode=OneWay}" />
+                    </RadioButton.Content>
+                </RadioButton>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Manual candidate: RadioButton + TextBox (enabled only when selected) -->
+        <DataTemplate x:Key="ManualCandidateTemplate" x:DataType="vm:ManualSourceCandidateViewModel">
+            <Grid Width="150">
+                <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="24" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <RadioButton Grid.Column="0" Width="32" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                 IsChecked="{x:Bind IsSelected, Mode=OneWay}" Click="OnSourceRadioButtonClicked" />
+
+                    <TextBox Grid.Column="1" Margin="4,0,0,0" FontFamily="Consolas" FontSize="14"
+             Text="{x:Bind Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+             IsEnabled="{x:Bind IsSelected, Mode=OneWay}"
+             PlaceholderText="Value" />
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Chooses template by candidate type -->
+        <vm:IntegrationCandidateTemplateSelector x:Key="IntegrationCandidateTemplateSelector"
+                                                NumericTemplate="{StaticResource NumericCandidateTemplate}"
+                                                ManualTemplate="{StaticResource ManualCandidateTemplate}" />
+    </Page.Resources>
+
     <!-- Page layout: Title + Integration surface -->
     <Grid Padding="16" RowSpacing="12">
         <Grid.RowDefinitions>
@@ -83,10 +121,10 @@
 
                             <TextBlock Grid.Column="0" Margin="16,0" FontWeight="SemiBold" Opacity="0.6" Text="Parameter" />
                             <TextBlock Grid.Column="1" HorizontalAlignment="Center" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColorLight2}" Text="Integrated Output" />
-                            
+
                             <!-- Spacer -->
                             <Grid Grid.Column="2"/>
-                            
+
                             <!-- Source columns (visible-only) -->
                             <ItemsControl Grid.Column="3" ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
                                 <ItemsControl.ItemsPanel>
@@ -143,24 +181,12 @@
                                     <Grid Grid.Column="2"/>
 
                                     <!-- Per-source candidates -->
-                                    <ItemsControl Grid.Column="3" ItemsSource="{x:Bind VisibleSources, Mode=OneWay}">
+                                    <ItemsControl Grid.Column="3" ItemsSource="{x:Bind VisibleSources, Mode=OneWay}" ItemTemplateSelector="{StaticResource IntegrationCandidateTemplateSelector}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <StackPanel Orientation="Horizontal" />
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
-
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:SourceCandidateViewModel">
-                                                <Grid Width="150">
-                                                    <RadioButton VerticalAlignment="Center" IsChecked="{x:Bind IsSelected, Mode=OneWay}" Click="OnSourceRadioButtonClicked">
-                                                        <RadioButton.Content>
-                                                            <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" Text="{x:Bind DisplayText, Mode=OneWay}" />
-                                                        </RadioButton.Content>
-                                                    </RadioButton>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </Grid>
                             </Border>

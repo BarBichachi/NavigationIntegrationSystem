@@ -11,15 +11,15 @@ namespace NavigationIntegrationSystem.UI.ViewModels.Integration;
 public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 {
     #region Private Fields
-    private SourceCandidateViewModel? m_SelectedSource;
+    private IntegrationSourceCandidateViewModel? m_SelectedSource;
     #endregion
 
     #region Properties
     public string FieldName { get; }
     public string Unit { get; }
 
-    public ObservableCollection<SourceCandidateViewModel> Sources { get; } = [];
-    public ObservableCollection<SourceCandidateViewModel> VisibleSources { get; } = [];
+    public ObservableCollection<IntegrationSourceCandidateViewModel> Sources { get; } = [];
+    public ObservableCollection<IntegrationSourceCandidateViewModel> VisibleSources { get; } = [];
 
     public DeviceType? SelectedDeviceType => m_SelectedSource?.DeviceType;
 
@@ -46,11 +46,11 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 
     #region Functions
     // Rebuilds visible sources and keeps selection valid
-    public void RefreshVisibleSources(Func<SourceCandidateViewModel, bool> i_IsVisible)
+    public void RefreshVisibleSources(Func<IntegrationSourceCandidateViewModel, bool> i_IsVisible)
     {
         VisibleSources.Clear();
 
-        foreach (SourceCandidateViewModel src in Sources)
+        foreach (IntegrationSourceCandidateViewModel src in Sources)
         {
             if (!i_IsVisible(src)) { continue; }
             VisibleSources.Add(src);
@@ -64,7 +64,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     }
 
     // Selects a source (row-owned selection)
-    public void SelectSource(SourceCandidateViewModel i_Source)
+    public void SelectSource(IntegrationSourceCandidateViewModel i_Source)
     {
         if (i_Source == null) { return; }
         if (ReferenceEquals(i_Source, m_SelectedSource)) { return; }
@@ -81,7 +81,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     {
         if (i_PreviousDeviceType == null) { EnforceValidSelection(); return; }
 
-        SourceCandidateViewModel? match = VisibleSources.FirstOrDefault(s => s.DeviceType == i_PreviousDeviceType);
+        IntegrationSourceCandidateViewModel? match = VisibleSources.FirstOrDefault(s => s.DeviceType == i_PreviousDeviceType);
         if (match != null) { SelectSource(match); return; }
 
         EnforceValidSelection();
@@ -92,14 +92,14 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     {
         if (m_SelectedSource != null && VisibleSources.Contains(m_SelectedSource)) { return; }
 
-        SourceCandidateViewModel? fallback = VisibleSources.FirstOrDefault();
+        IntegrationSourceCandidateViewModel? fallback = VisibleSources.FirstOrDefault();
         if (fallback != null) { SetSelectedSource(fallback); return; }
 
         ClearSelectedSource();
     }
 
     // Sets the selected source and manages subscriptions in one place
-    private void SetSelectedSource(SourceCandidateViewModel i_Source)
+    private void SetSelectedSource(IntegrationSourceCandidateViewModel i_Source)
     {
         if (m_SelectedSource != null) { m_SelectedSource.PropertyChanged -= OnSelectedSourceChanged; }
 
@@ -118,7 +118,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     // Keeps RadioButtons synced (selection state owned by row)
     private void SyncSelectionFlags()
     {
-        foreach (SourceCandidateViewModel src in Sources)
+        foreach (IntegrationSourceCandidateViewModel src in Sources)
         {
             bool shouldBeSelected = ReferenceEquals(src, m_SelectedSource);
             if (src.IsSelected == shouldBeSelected) { continue; }
@@ -134,7 +134,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     // Keeps Integrated Output live when selected source value updates
     private void OnSelectedSourceChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SourceCandidateViewModel.Value) || e.PropertyName == nameof(SourceCandidateViewModel.DisplayText))
+        if (e.PropertyName == nameof(IntegrationSourceCandidateViewModel.DisplayText))
         {
             RefreshIntegratedOutput();
         }

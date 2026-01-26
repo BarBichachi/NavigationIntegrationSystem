@@ -7,9 +7,3 @@ public enum DeviceType
     Tmaps100X,
     Manual
 }
-
-// Adding new device
-// 1) Add -> DeviceType.NewIns
-// 2) Create -> NewInsInsDevice : InsDeviceBase
-// 3) Create -> NewInsDeviceModule : IInsDeviceModule
-// 4) In HostBuilderFactory -> services.AddSingleton<IInsDeviceModule, NewInsDeviceModule>()

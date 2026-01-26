@@ -23,12 +23,12 @@ public sealed class Tmaps100XDeviceModule : IInsDeviceModule
             i_Type: DeviceType.Tmaps100X,
             i_Fields: new List<DeviceFieldDefinition>
             {
-                new DeviceFieldDefinition("UtcTime", "UTC Time", ""),
-                new DeviceFieldDefinition("LatDeg", "Latitude", "deg"),
-                new DeviceFieldDefinition("LonDeg", "Longitude", "deg"),
-                new DeviceFieldDefinition("AltM", "Altitude", "m"),
+                new("UtcTime", "UTC Time", ""),
+                new("LatDeg", "Latitude", "deg"),
+                new("LonDeg", "Longitude", "deg"),
+                new("AltM", "Altitude", "m"),
 
-                new DeviceFieldDefinition("AzimuthDeg", "Azimuth", "deg"),
+                new("AzimuthDeg", "Azimuth", "deg"),
                 new DeviceFieldDefinition("PitchDeg", "Pitch", "deg"),
                 new DeviceFieldDefinition("RollDeg", "Roll", "deg"),
 
