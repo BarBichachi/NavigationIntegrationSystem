@@ -1,12 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using NavigationIntegrationSystem.Core.Enums;
+using Microsoft.UI.Xaml.Media;
 using NavigationIntegrationSystem.UI.ViewModels.Integration;
 
 namespace NavigationIntegrationSystem.UI.Views.Pages;
 
-// Displays the Fusion grid and binds it to the IntegrationViewModel
+// Displays the Integration grid and binds it to the IntegrationViewModel
 public sealed partial class IntegrationPage : Page
 {
     #region Properties
@@ -23,29 +23,18 @@ public sealed partial class IntegrationPage : Page
     #endregion
 
     #region Event Handlers
-    // Handles manual source selection via click to avoid RadioButton binding re-entrancy
-    private void OnManualRadioButtonClicked(object i_Sender, RoutedEventArgs i_E)
+    // Routes candidate selection click to the owning row
+    private void OnSourceRadioButtonClicked(object i_Sender, RoutedEventArgs i_E)
     {
-        if (i_Sender is RadioButton rb && rb.DataContext is IntegrationFieldRowViewModel row)
-        {
-            row.ManualSource.IsSelected = true;
-        }
-    }
+        if (i_Sender is not RadioButton radioButton) { return; }
+        if (radioButton.DataContext is not SourceCandidateViewModel src) { return; }
 
-    // Handles device source selection via click to avoid RadioButton binding re-entrancy
-    private void OnDeviceRadioButtonClicked(object i_Sender, RoutedEventArgs i_E)
-    {
-        if (i_Sender is RadioButton rb && rb.DataContext is SourceCandidateViewModel src)
-        {
-            src.IsSelected = true;
-        }
+        DependencyObject current = radioButton;
+        while (current != null && current is not ListViewItem) { current = VisualTreeHelper.GetParent(current); }
+        if (current is not ListViewItem listViewItem) { return; }
+        if (listViewItem.Content is not IntegrationFieldRowViewModel row) { return; }
+
+        row.SelectSource(src);
     }
     #endregion
-
-    // Relays the manual "Apply to All" request to the ViewModel
-    private void OnApplyManualToAllClicked(object i_Sender, RoutedEventArgs i_E)
-    {
-        // Calling the same logic as hardware devices, passing DeviceType.Manual
-        ViewModel.ApplyDeviceToAllFields(DeviceType.Manual);
-    }
 }

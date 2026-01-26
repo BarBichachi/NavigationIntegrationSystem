@@ -1,215 +1,204 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.UI.Dispatching;
+﻿using Microsoft.UI.Dispatching;
 using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration;
 
-// Owns the Integration page state: connected device options, per-field row selection, and dummy live updates
-public sealed partial class IntegrationViewModel : ObservableObject
+// Owns the Integration page state: header device toggles, per-row source selection, and dummy live updates
+public sealed partial class IntegrationViewModel : ViewModelBase
 {
     #region Private Fields
-    private DispatcherQueueTimer? m_Timer;
-    private readonly Random m_Rng;
     private readonly DevicesViewModel m_DevicesViewModel;
-    private readonly ObservableCollection<IntegrationDeviceOptionViewModel> m_ConnectedDevices;
-    private bool m_IsManualVisible = true;
+    private readonly Random m_Rng = new();
+    private readonly Dictionary<DeviceType, bool> m_DeviceVisibility = new();
+    private DispatcherQueueTimer? m_Timer;
     #endregion
 
     #region Properties
-    public ObservableCollection<IntegrationFieldRowViewModel> Rows { get; }
-    public ObservableCollection<IntegrationDeviceOptionViewModel> ConnectedDevices => m_ConnectedDevices;
-    public bool IsManualVisible { get => m_IsManualVisible; set { if (SetProperty(ref m_IsManualVisible, value)) { RefreshAllRowsVisibility(); } } }
+    public ObservableCollection<IntegrationFieldRowViewModel> Rows { get; } = [];
+    public ObservableCollection<IntegrationDeviceOptionViewModel> ConnectedDevices { get; } = [];
     #endregion
 
     #region Constructors
     public IntegrationViewModel(DevicesViewModel i_DevicesViewModel)
     {
-        m_Rng = new Random();
         m_DevicesViewModel = i_DevicesViewModel;
-        m_ConnectedDevices = new ObservableCollection<IntegrationDeviceOptionViewModel>();
 
-        Rows =
-        [
-            CreateRow("Azimuth", "deg"),
-            CreateRow("Elevation", "deg"),
-            CreateRow("Latitude", "deg"),
-            CreateRow("Longitude", "deg"),
-            CreateRow("Altitude", "m"),
-            CreateRow("Pitch", "deg"),
-            CreateRow("Roll", "deg"),
-            CreateRow("Speed", "m/s"),
-        ];
+        Rows.Add(new IntegrationFieldRowViewModel("Azimuth", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Elevation", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Latitude", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Longitude", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Altitude", "m"));
+        Rows.Add(new IntegrationFieldRowViewModel("Pitch", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Roll", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Speed", "m/s"));
 
-        HookDeviceConnectionNotifications();
-        RebuildConnectedDevices();
-        RefreshAllRowsVisibility();
+        HookDevices();
+        RebuildFromConnectedDevices();
     }
     #endregion
 
     #region Functions
-    // Starts the dummy live updates using the UI dispatcher
+    // Starts dummy live updates using DispatcherQueue
     public void Initialize(DispatcherQueue i_DispatcherQueue)
     {
         if (m_Timer != null) { return; }
 
         m_Timer = i_DispatcherQueue.CreateTimer();
         m_Timer.Interval = TimeSpan.FromMilliseconds(250);
-        m_Timer.Tick += (_, _) => OnTick();
+        m_Timer.Tick += OnTimerTick;
         m_Timer.Start();
     }
 
-    // Creates a single row and builds its candidate sources from currently connected devices
-    private IntegrationFieldRowViewModel CreateRow(string i_Field, string i_Unit)
+    // Called by header option when visibility changes
+    public void OnHeaderVisibilityChanged(DeviceType i_DeviceType, bool i_IsVisible)
     {
-        // Pass m_Rng to the new constructor signature
-        var row = new IntegrationFieldRowViewModel(this, i_Field, i_Unit, m_Rng);
+        m_DeviceVisibility[i_DeviceType] = i_IsVisible;
 
-        BuildRowCandidates(row);
-        row.RefreshVisibleSources(IsCandidateVisible);
+        RefreshAllRowsVisibility();
 
-        return row;
+        if (i_IsVisible) { TryAutoSelectNewlyVisibleSource(i_DeviceType); }
     }
 
-    // Updates all candidate values so the UI proves live interaction works
-    private void OnTick()
+    // Applies a selected source for all rows (by device type)
+    public void ApplyDeviceToAllFields(DeviceType i_DeviceType)
+    {
+        foreach (IntegrationFieldRowViewModel row in Rows)
+        {
+            SourceCandidateViewModel? match = row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_DeviceType);
+            if (match != null) { row.SelectSource(match); }
+        }
+    }
+
+    // Handles dummy telemetry tick
+    private void OnTimerTick(DispatcherQueueTimer i_Sender, object i_Args) { Tick(); }
+
+    // Updates dummy candidate values
+    private void Tick()
     {
         foreach (IntegrationFieldRowViewModel row in Rows)
         {
             double step = GetStepScale(row.Unit, row.FieldName);
-            foreach (SourceCandidateViewModel src in row.Sources)
-            {
-                src.Tick(step);
-            }
+            foreach (SourceCandidateViewModel src in row.Sources) { src.Tick(step); }
         }
     }
 
-    // Returns an appropriate random step size per unit/field
+    // Rebuilds header + per-row sources based on current connected devices
+    private void RebuildFromConnectedDevices()
+    {
+        DeviceCardViewModel[] connected = m_DevicesViewModel.Devices.Where(d => d.Status == DeviceStatus.Connected).ToArray();
+
+        RebuildHeaderDevices(connected);
+        RebuildRowSources(connected);
+
+        RefreshAllRowsVisibility();
+    }
+
+    // Rebuilds header options from connected devices and preserves toggle state
+    private void RebuildHeaderDevices(DeviceCardViewModel[] i_Connected)
+    {
+        ConnectedDevices.Clear();
+
+        foreach (DeviceCardViewModel device in i_Connected)
+        {
+            bool isVisible = m_DeviceVisibility.TryGetValue(device.Type, out bool cached) ? cached : true;
+
+            var opt = new IntegrationDeviceOptionViewModel(device.Type, device.DisplayName, isVisible);
+
+            opt.VisibilityChanged += (_, _) => OnHeaderVisibilityChanged(opt.DeviceType, opt.IsVisible);
+            opt.ApplyToAllRequested += (_, _) => ApplyDeviceToAllFields(opt.DeviceType);
+
+            ConnectedDevices.Add(opt);
+            m_DeviceVisibility[device.Type] = isVisible;
+        }
+    }
+
+    // Rebuilds each row candidate list and restores selection by device type
+    private void RebuildRowSources(DeviceCardViewModel[] i_Connected)
+    {
+        foreach (IntegrationFieldRowViewModel row in Rows)
+        {
+            DeviceType? previousDeviceType = row.SelectedDeviceType;
+
+            row.Sources.Clear();
+            foreach (DeviceCardViewModel device in i_Connected)
+            {
+                double initial = CreateInitialValue(row.FieldName, row.Unit, device.Type);
+                row.Sources.Add(new SourceCandidateViewModel(device.Type, device.DisplayName, initial, m_Rng));
+            }
+
+            row.RestoreSelection(previousDeviceType);
+        }
+    }
+
+    // Refreshes device visibility across all rows
+    private void RefreshAllRowsVisibility()
+    {
+        foreach (IntegrationFieldRowViewModel row in Rows) { row.RefreshVisibleSources(IsCandidateVisible); }
+    }
+
+    // Candidate is visible only if its device is toggled visible in the header
+    private bool IsCandidateVisible(SourceCandidateViewModel i_Source)
+    {
+        return m_DeviceVisibility.TryGetValue(i_Source.DeviceType, out bool isVisible) && isVisible;
+    }
+
+    // Attempts to auto-select a newly visible device for rows that are currently "—"
+    private void TryAutoSelectNewlyVisibleSource(DeviceType i_DeviceType)
+    {
+        foreach (IntegrationFieldRowViewModel row in Rows)
+        {
+            if (!row.IsOutputEmpty) { continue; }
+
+            SourceCandidateViewModel? match = row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_DeviceType);
+            if (match != null) { row.SelectSource(match); }
+        }
+    }
+
+    // Hooks device status changes (connect/disconnect) and keeps integration rebuilt
+    private void HookDevices()
+    {
+        if (m_DevicesViewModel.Devices is INotifyCollectionChanged cc) { cc.CollectionChanged += OnDevicesCollectionChanged; }
+        foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices) { device.PropertyChanged += OnDevicePropertyChanged; }
+    }
+
+    // Hooks added/removed devices
+    private void OnDevicesCollectionChanged(object? i_Sender, NotifyCollectionChangedEventArgs i_E)
+    {
+        if (i_E.NewItems != null)
+        {
+            foreach (DeviceCardViewModel device in i_E.NewItems) { device.PropertyChanged += OnDevicePropertyChanged; }
+        }
+
+        if (i_E.OldItems != null)
+        {
+            foreach (DeviceCardViewModel device in i_E.OldItems) { device.PropertyChanged -= OnDevicePropertyChanged; }
+        }
+
+        RebuildFromConnectedDevices();
+    }
+
+    // Rebuilds only when Status changes
+    private void OnDevicePropertyChanged(object? i_Sender, PropertyChangedEventArgs i_E)
+    {
+        if (i_E.PropertyName != nameof(DeviceCardViewModel.Status)) { return; }
+        RebuildFromConnectedDevices();
+    }
+
+    // Returns appropriate random step size per unit/field
     private double GetStepScale(string i_Unit, string i_FieldName)
     {
         if (i_Unit == "deg" && (i_FieldName == "Latitude" || i_FieldName == "Longitude")) { return 0.00005; }
         if (i_Unit == "m") { return 0.20; }
         if (i_Unit == "m/s") { return 0.15; }
         return 0.05;
-    }
-
-    // Rebuilds the header device options list and hooks auto-selection logic
-    private void RebuildConnectedDevices()
-    {
-        m_ConnectedDevices.Clear();
-
-        foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices)
-        {
-            if (device.Status != DeviceStatus.Connected) { continue; }
-
-            var opt = new IntegrationDeviceOptionViewModel(device.Type, device.DisplayName, true, ApplyDeviceToAllFields);
-            opt.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(IntegrationDeviceOptionViewModel.IsVisible))
-                {
-                    HandleSourceVisibilityChanged(opt);
-                }
-            };
-
-            m_ConnectedDevices.Add(opt);
-        }
-    }
-
-    // Refreshes UI visibility and automatically selects a source if it just became visible
-    private void HandleSourceVisibilityChanged(IntegrationDeviceOptionViewModel i_Option)
-    {
-        RefreshAllRowsVisibility();
-
-        // If a source becomes visible, automatically select it for all rows
-        if (i_Option.IsVisible)
-        {
-            TryAutoSelectSource(i_Option.DeviceType);
-        }
-    }
-
-    // Attempts to select a device for all rows only if the row is currently displaying "-"
-    private void TryAutoSelectSource(DeviceType i_DeviceType)
-    {
-        foreach (IntegrationFieldRowViewModel row in Rows)
-        {
-            if (row.SelectedValueText != "—") { continue; }
-
-            ApplySourceToRow(row, i_DeviceType);
-        }
-    }
-
-    // Applies a selected device (or manual mode) as the source for all integration fields
-    public void ApplyDeviceToAllFields(DeviceType i_DeviceType)
-    {
-        foreach (IntegrationFieldRowViewModel row in Rows)
-        {
-            ApplySourceToRow(row, i_DeviceType);
-        }
-    }
-
-    // Sub-function to handle the selection logic for a specific row
-    private void ApplySourceToRow(IntegrationFieldRowViewModel i_Row, DeviceType i_DeviceType)
-    {
-        // Check if we are applying the Manual source first
-        if (i_DeviceType == DeviceType.Manual)
-        {
-            i_Row.ManualSource.ForceSelect();
-            return;
-        }
-
-        // Otherwise, look for the matching hardware device in the visible collection
-        SourceCandidateViewModel? target = i_Row.VisibleSources.FirstOrDefault(src => src.DeviceType == i_DeviceType);
-
-        if (target != null) { target.ForceSelect(); }
-    }
-
-    // Rebuilds the candidate list for a row based on currently connected devices
-    private void BuildRowCandidates(IntegrationFieldRowViewModel i_Row)
-    {
-        DeviceType? previousType = i_Row.SelectedSource?.DeviceType;
-
-        i_Row.Sources.Clear();
-        PopulateDeviceSources(i_Row);
-        i_Row.RefreshVisibleSources(IsCandidateVisible);
-
-        RestoreSelection(i_Row, previousType);
-    }
-
-    // Iterates through connected hardware devices to add them as candidates
-    private void PopulateDeviceSources(IntegrationFieldRowViewModel i_Row)
-    {
-        foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices)
-        {
-            if (device.Status != DeviceStatus.Connected) { continue; }
-
-            double initial = CreateInitialValue(i_Row.FieldName, i_Row.Unit, device.Type);
-            var candidate = new SourceCandidateViewModel(i_Row, device.Type, device.DisplayName, initial, m_Rng);
-
-            // Ensure new candidate is logically deselected before adding to collection
-            candidate.NotifySelectionChanged(false);
-
-            i_Row.Sources.Add(candidate);
-        }
-    }
-
-    // Attempts to re-select the previously chosen source type or defaults to Manual
-    private void RestoreSelection(IntegrationFieldRowViewModel i_Row, DeviceType? i_PreviousType)
-    {
-        SourceCandidateViewModel? next = i_Row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_PreviousType);
-
-        if (next != null)
-        {
-            next.IsSelected = true;
-        }
-        else if (i_PreviousType != DeviceType.Manual)
-        {
-            // Fallback to manual if the specific device disappeared
-            i_Row.ManualSource.IsSelected = true;
-            i_Row.UpdateSelection(i_Row.ManualSource);
-        }
     }
 
     // Creates a dummy initial value per field/device-type so candidates look distinct
@@ -229,50 +218,8 @@ public sealed partial class IntegrationViewModel : ObservableObject
                 _ => 0.0
             };
 
-        double deviceOffset = i_DeviceType == DeviceType.VN310 ? 0.0 : 0.15;
+        double deviceOffset = i_DeviceType == DeviceType.VN310 ? 0.0 : 5.0;
         return baseValue + deviceOffset;
-    }
-
-    // Returns true only if the candidate device is currently enabled in the header toggles
-    private bool IsCandidateVisible(SourceCandidateViewModel i_Source)
-    {
-        foreach (IntegrationDeviceOptionViewModel dev in m_ConnectedDevices)
-        {
-            if (dev.DeviceType == i_Source.DeviceType) { return dev.IsVisible; }
-        }
-        return false;
-    }
-
-    // Refreshes VisibleSources for every row and keeps SelectedSource valid
-    private void RefreshAllRowsVisibility()
-    {
-        foreach (IntegrationFieldRowViewModel row in Rows)
-        {
-            row.NotifyManualVisibilityChanged();
-            row.RefreshVisibleSources(IsCandidateVisible);
-            row.HandleVisibilityFallback();
-            row.ReassertVisualSelection();
-            row.RefreshIntegratedOutput();
-        }
-    }
-
-    // Hooks Status changes so Integration reacts to connect/disconnect events
-    private void HookDeviceConnectionNotifications()
-    {
-        foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices)
-        {
-            device.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName != nameof(DeviceCardViewModel.Status)) { return; }
-
-                RebuildConnectedDevices();
-
-                foreach (IntegrationFieldRowViewModel row in Rows)
-                {
-                    BuildRowCandidates(row);
-                }
-            };
-        }
     }
     #endregion
 }

@@ -1,7 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-
-using NavigationIntegrationSystem.Core.Enums;
-
+﻿using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -9,156 +7,136 @@ using System.Linq;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration;
 
-// Represents a single fused field row, exposing candidate sources and the currently selected output value
-public sealed partial class IntegrationFieldRowViewModel : ObservableObject
+// Represents a single integration field row (parameter + selectable sources)
+public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 {
     #region Private Fields
     private SourceCandidateViewModel? m_SelectedSource;
-    private readonly SourceCandidateViewModel m_ManualSource;
-    private readonly IntegrationViewModel m_Parent;
     #endregion
 
     #region Properties
     public string FieldName { get; }
     public string Unit { get; }
-    public SourceCandidateViewModel ManualSource => m_ManualSource;
-    public ObservableCollection<SourceCandidateViewModel> Sources { get; }
-    public ObservableCollection<SourceCandidateViewModel> VisibleSources { get; } = new();
-    public bool IsManualVisible { get => m_Parent.IsManualVisible; }
-    public SourceCandidateViewModel? SelectedSource
-    {
-        get => m_SelectedSource;
-        set
-        {
-            if (m_SelectedSource != null) { m_SelectedSource.PropertyChanged -= OnSelectedSourceChanged; }
-            m_SelectedSource = value;
-            if (m_SelectedSource != null) { m_SelectedSource.PropertyChanged += OnSelectedSourceChanged; }
 
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(SelectedValueText));
-        }
-    }
+    public ObservableCollection<SourceCandidateViewModel> Sources { get; } = [];
+    public ObservableCollection<SourceCandidateViewModel> VisibleSources { get; } = [];
+
+    public DeviceType? SelectedDeviceType => m_SelectedSource?.DeviceType;
+
+    public bool IsOutputEmpty => m_SelectedSource == null || !VisibleSources.Contains(m_SelectedSource);
 
     public string SelectedValueText
     {
         get
         {
-            if (m_SelectedSource == m_ManualSource && !IsManualVisible) { return "—"; }
-            if (m_SelectedSource != m_ManualSource && !VisibleSources.Contains(m_SelectedSource)) { return "—"; }
-            return m_SelectedSource?.DisplayText ?? "—";
+            if (m_SelectedSource == null) { return "—"; }
+            if (!VisibleSources.Contains(m_SelectedSource)) { return "—"; }
+            return m_SelectedSource.DisplayText;
         }
     }
     #endregion
 
     #region Constructors
-    public IntegrationFieldRowViewModel(IntegrationViewModel i_Parent, string i_FieldName, string i_Unit, Random i_Rng)
+    public IntegrationFieldRowViewModel(string i_FieldName, string i_Unit)
     {
-        m_Parent = i_Parent;
         FieldName = i_FieldName;
         Unit = i_Unit;
-        Sources = new ObservableCollection<SourceCandidateViewModel>();
-
-        // Initialize fixed manual source
-        m_ManualSource = new SourceCandidateViewModel(this, DeviceType.Manual, "Manual", 0.0, i_Rng);
-
-        // Default to Manual on creation
-        SelectedSource = m_ManualSource;
-        m_ManualSource.IsSelected = true;
     }
     #endregion
 
     #region Functions
-
-    // Synchronizes selection state across the fixed manual source and dynamic device sources
-    public void UpdateSelection(SourceCandidateViewModel i_Selected)
-    {
-        if (i_Selected == m_ManualSource) { DeselectAllDeviceSources(); }
-        else if (m_ManualSource.IsSelected) { m_ManualSource.IsSelected = false; }
-
-        SelectedSource = i_Selected;
-    }
-
-    // Ensures no dynamic device source remains selected
-    private void DeselectAllDeviceSources()
-    {
-        foreach (SourceCandidateViewModel src in VisibleSources)
-        {
-            if (src.IsSelected) { src.IsSelected = false; }
-        }
-    }
-
-    // Rebuilds the VisibleSources collection based on the provided visibility function
+    // Rebuilds visible sources and keeps selection valid
     public void RefreshVisibleSources(Func<SourceCandidateViewModel, bool> i_IsVisible)
     {
         VisibleSources.Clear();
 
         foreach (SourceCandidateViewModel src in Sources)
         {
-            if (i_IsVisible(src))
-            {
-                if (src != m_SelectedSource)
-                {
-                    src.NotifySelectionChanged(false);
-                }
-
-                VisibleSources.Add(src);
-            }
+            if (!i_IsVisible(src)) { continue; }
+            VisibleSources.Add(src);
         }
+
+        EnforceValidSelection();
+        SyncSelectionFlags();
+
+        RefreshIntegratedOutput();
+        OnPropertyChanged(nameof(IsOutputEmpty));
     }
 
-    // Automatically selects the first available visible source if the current one is hidden
-    public void HandleVisibilityFallback()
+    // Selects a source (row-owned selection)
+    public void SelectSource(SourceCandidateViewModel i_Source)
     {
-        // If current source is still visible, do nothing
-        if (IsSourceVisible(m_SelectedSource)) { return; }
+        if (i_Source == null) { return; }
+        if (ReferenceEquals(i_Source, m_SelectedSource)) { return; }
 
-        // Fallback order: 1. First visible device, 2. Manual (if visible), 3. Null
-        SourceCandidateViewModel? fallback = VisibleSources.FirstOrDefault() ?? (IsManualVisible ? m_ManualSource : null);
+        SetSelectedSource(i_Source);
 
-        if (fallback != null)
-        {
-            fallback.ForceSelect();
-        }
-        else
-        {
-            SelectedSource = null;
-        }
+        SyncSelectionFlags();
+        RefreshIntegratedOutput();
+        OnPropertyChanged(nameof(IsOutputEmpty));
     }
 
-    // Explicitly notifies the UI to refresh the selection dot for the active source
-    public void ReassertVisualSelection()
+    // Restores selection by DeviceType if possible
+    public void RestoreSelection(DeviceType? i_PreviousDeviceType)
+    {
+        if (i_PreviousDeviceType == null) { EnforceValidSelection(); return; }
+
+        SourceCandidateViewModel? match = VisibleSources.FirstOrDefault(s => s.DeviceType == i_PreviousDeviceType);
+        if (match != null) { SelectSource(match); return; }
+
+        EnforceValidSelection();
+    }
+
+    // Ensures there is always a valid selection
+    private void EnforceValidSelection()
+    {
+        if (m_SelectedSource != null && VisibleSources.Contains(m_SelectedSource)) { return; }
+
+        SourceCandidateViewModel? fallback = VisibleSources.FirstOrDefault();
+        if (fallback != null) { SetSelectedSource(fallback); return; }
+
+        ClearSelectedSource();
+    }
+
+    // Sets the selected source and manages subscriptions in one place
+    private void SetSelectedSource(SourceCandidateViewModel i_Source)
+    {
+        if (m_SelectedSource != null) { m_SelectedSource.PropertyChanged -= OnSelectedSourceChanged; }
+
+        m_SelectedSource = i_Source;
+        m_SelectedSource.PropertyChanged += OnSelectedSourceChanged;
+    }
+
+    // Clears selection and unsubscribes safely
+    private void ClearSelectedSource()
     {
         if (m_SelectedSource == null) { return; }
-
-        m_SelectedSource.NotifySelectionChanged(true);
+        m_SelectedSource.PropertyChanged -= OnSelectedSourceChanged;
+        m_SelectedSource = null;
     }
 
-    // Determines if a specific source is currently visible in the UI
-    private bool IsSourceVisible(SourceCandidateViewModel? i_Source)
+    // Keeps RadioButtons synced (selection state owned by row)
+    private void SyncSelectionFlags()
     {
-        if (i_Source == null) { return false; }
-        if (i_Source == m_ManualSource) { return IsManualVisible; }
-        return VisibleSources.Contains(i_Source);
+        foreach (SourceCandidateViewModel src in Sources)
+        {
+            bool shouldBeSelected = ReferenceEquals(src, m_SelectedSource);
+            if (src.IsSelected == shouldBeSelected) { continue; }
+            src.SetSelected(shouldBeSelected);
+        }
     }
 
-    // Forces the UI to re-evaluate the integrated output text
-    public void RefreshIntegratedOutput() => OnPropertyChanged(nameof(SelectedValueText));
-
-    // Notifies that the Manual source visibility may have changed
-    internal void NotifyManualVisibilityChanged()
-    {
-        OnPropertyChanged(nameof(IsManualVisible));
-        RefreshIntegratedOutput();
-    }    
+    // Forces UI update
+    private void RefreshIntegratedOutput() { OnPropertyChanged(nameof(SelectedValueText)); }
     #endregion
 
     #region Event Handlers
-    // Keeps Value column live when the selected candidate changes
+    // Keeps Integrated Output live when selected source value updates
     private void OnSelectedSourceChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SourceCandidateViewModel.CandidateValue))
+        if (e.PropertyName == nameof(SourceCandidateViewModel.Value) || e.PropertyName == nameof(SourceCandidateViewModel.DisplayText))
         {
-            OnPropertyChanged(nameof(SelectedValueText));
+            RefreshIntegratedOutput();
         }
     }
     #endregion
