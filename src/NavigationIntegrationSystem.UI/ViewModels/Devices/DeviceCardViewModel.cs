@@ -51,7 +51,7 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     public IRelayCommand OpenInspectCommand { get; }
     #endregion
 
-    #region Ctors
+    #region Constructors
     public DeviceCardViewModel(DeviceConfig i_Config, ILogService i_LogService, ObservableCollection<InspectFieldViewModel> i_InspectFields, Action<DeviceCardViewModel> i_OpenSettings, Action<DeviceCardViewModel> i_OpenInspect, IInsDevice i_Device)
     {
         Config = i_Config;

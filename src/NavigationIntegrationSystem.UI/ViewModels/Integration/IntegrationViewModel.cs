@@ -4,6 +4,7 @@ using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration;
 
@@ -15,11 +16,13 @@ public sealed partial class IntegrationViewModel : ObservableObject
     private readonly Random m_Rng;
     private readonly DevicesViewModel m_DevicesViewModel;
     private readonly ObservableCollection<IntegrationDeviceOptionViewModel> m_ConnectedDevices;
+    private bool m_IsManualVisible = true;
     #endregion
 
     #region Properties
     public ObservableCollection<IntegrationFieldRowViewModel> Rows { get; }
     public ObservableCollection<IntegrationDeviceOptionViewModel> ConnectedDevices => m_ConnectedDevices;
+    public bool IsManualVisible { get => m_IsManualVisible; set { if (SetProperty(ref m_IsManualVisible, value)) { RefreshAllRowsVisibility(); } } }
     #endregion
 
     #region Constructors
@@ -62,10 +65,10 @@ public sealed partial class IntegrationViewModel : ObservableObject
     // Creates a single row and builds its candidate sources from currently connected devices
     private IntegrationFieldRowViewModel CreateRow(string i_Field, string i_Unit)
     {
-        var row = new IntegrationFieldRowViewModel(i_Field, i_Unit, new ObservableCollection<SourceCandidateViewModel>());
+        // Pass m_Rng to the new constructor signature
+        var row = new IntegrationFieldRowViewModel(this, i_Field, i_Unit, m_Rng);
 
         BuildRowCandidates(row);
-        row.SelectedSource = row.Sources.Count > 0 ? row.Sources[0] : null;
         row.RefreshVisibleSources(IsCandidateVisible);
 
         return row;
@@ -93,17 +96,11 @@ public sealed partial class IntegrationViewModel : ObservableObject
         return 0.05;
     }
 
-    // Rebuilds the header device options list from currently connected devices
+    // Rebuilds the header device options list and hooks auto-selection logic
     private void RebuildConnectedDevices()
     {
         m_ConnectedDevices.Clear();
 
-        // Add the Virtual Manual Source first
-        var manualOpt = new IntegrationDeviceOptionViewModel(DeviceType.Manual, "Manual", true, ApplyDeviceToAllFields);
-        manualOpt.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IntegrationDeviceOptionViewModel.IsVisible)) RefreshAllRowsVisibility(); };
-        m_ConnectedDevices.Add(manualOpt);
-
-        // Add existing hardware devices...
         foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices)
         {
             if (device.Status != DeviceStatus.Connected) { continue; }
@@ -111,55 +108,109 @@ public sealed partial class IntegrationViewModel : ObservableObject
             var opt = new IntegrationDeviceOptionViewModel(device.Type, device.DisplayName, true, ApplyDeviceToAllFields);
             opt.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(IntegrationDeviceOptionViewModel.IsVisible)) { RefreshAllRowsVisibility(); }
+                if (e.PropertyName == nameof(IntegrationDeviceOptionViewModel.IsVisible))
+                {
+                    HandleSourceVisibilityChanged(opt);
+                }
             };
 
             m_ConnectedDevices.Add(opt);
         }
     }
 
-    // Applies a selected device as the source for all fields (when that device exists in the row)
-    private void ApplyDeviceToAllFields(DeviceType i_DeviceType)
+    // Refreshes UI visibility and automatically selects a source if it just became visible
+    private void HandleSourceVisibilityChanged(IntegrationDeviceOptionViewModel i_Option)
+    {
+        RefreshAllRowsVisibility();
+
+        // If a source becomes visible, automatically select it for all rows
+        if (i_Option.IsVisible)
+        {
+            TryAutoSelectSource(i_Option.DeviceType);
+        }
+    }
+
+    // Attempts to select a device for all rows only if the row is currently displaying "-"
+    private void TryAutoSelectSource(DeviceType i_DeviceType)
     {
         foreach (IntegrationFieldRowViewModel row in Rows)
         {
-            foreach (SourceCandidateViewModel src in row.VisibleSources)
-            {
-                if (src.DeviceType == i_DeviceType)
-                {
-                    src.IsSelected = true;
-                    break;
-                }
-            }
+            if (row.SelectedValueText != "—") { continue; }
+
+            ApplySourceToRow(row, i_DeviceType);
         }
+    }
+
+    // Applies a selected device (or manual mode) as the source for all integration fields
+    public void ApplyDeviceToAllFields(DeviceType i_DeviceType)
+    {
+        foreach (IntegrationFieldRowViewModel row in Rows)
+        {
+            ApplySourceToRow(row, i_DeviceType);
+        }
+    }
+
+    // Sub-function to handle the selection logic for a specific row
+    private void ApplySourceToRow(IntegrationFieldRowViewModel i_Row, DeviceType i_DeviceType)
+    {
+        // Check if we are applying the Manual source first
+        if (i_DeviceType == DeviceType.Manual)
+        {
+            i_Row.ManualSource.ForceSelect();
+            return;
+        }
+
+        // Otherwise, look for the matching hardware device in the visible collection
+        SourceCandidateViewModel? target = i_Row.VisibleSources.FirstOrDefault(src => src.DeviceType == i_DeviceType);
+
+        if (target != null) { target.ForceSelect(); }
     }
 
     // Rebuilds the candidate list for a row based on currently connected devices
     private void BuildRowCandidates(IntegrationFieldRowViewModel i_Row)
     {
-        // Store the type we had selected before clearing
-        DeviceType? previousSelectedType = i_Row.SelectedSource?.DeviceType;
+        DeviceType? previousType = i_Row.SelectedSource?.DeviceType;
 
         i_Row.Sources.Clear();
+        PopulateDeviceSources(i_Row);
+        i_Row.RefreshVisibleSources(IsCandidateVisible);
 
+        RestoreSelection(i_Row, previousType);
+    }
+
+    // Iterates through connected hardware devices to add them as candidates
+    private void PopulateDeviceSources(IntegrationFieldRowViewModel i_Row)
+    {
         foreach (DeviceCardViewModel device in m_DevicesViewModel.Devices)
         {
             if (device.Status != DeviceStatus.Connected) { continue; }
 
             double initial = CreateInitialValue(i_Row.FieldName, i_Row.Unit, device.Type);
-            i_Row.Sources.Add(new SourceCandidateViewModel(i_Row, device.Type, device.DisplayName, initial, m_Rng));
-        }
+            var candidate = new SourceCandidateViewModel(i_Row, device.Type, device.DisplayName, initial, m_Rng);
 
-        // This method handles filtering and re-setting IsSelected = true on the correct object
-        i_Row.RefreshVisibleSources(IsCandidateVisible);
+            // Ensure new candidate is logically deselected before adding to collection
+            candidate.NotifySelectionChanged(false);
 
-        // If nothing was selected but we have visible sources, default to the first one
-        if (i_Row.SelectedSource == null && i_Row.VisibleSources.Count > 0)
-        {
-            i_Row.VisibleSources[0].IsSelected = true;
+            i_Row.Sources.Add(candidate);
         }
     }
 
+    // Attempts to re-select the previously chosen source type or defaults to Manual
+    private void RestoreSelection(IntegrationFieldRowViewModel i_Row, DeviceType? i_PreviousType)
+    {
+        SourceCandidateViewModel? next = i_Row.VisibleSources.FirstOrDefault(s => s.DeviceType == i_PreviousType);
+
+        if (next != null)
+        {
+            next.IsSelected = true;
+        }
+        else if (i_PreviousType != DeviceType.Manual)
+        {
+            // Fallback to manual if the specific device disappeared
+            i_Row.ManualSource.IsSelected = true;
+            i_Row.UpdateSelection(i_Row.ManualSource);
+        }
+    }
 
     // Creates a dummy initial value per field/device-type so candidates look distinct
     private double CreateInitialValue(string i_FieldName, string i_Unit, DeviceType i_DeviceType)
@@ -197,7 +248,11 @@ public sealed partial class IntegrationViewModel : ObservableObject
     {
         foreach (IntegrationFieldRowViewModel row in Rows)
         {
+            row.NotifyManualVisibilityChanged();
             row.RefreshVisibleSources(IsCandidateVisible);
+            row.HandleVisibilityFallback();
+            row.ReassertVisualSelection();
+            row.RefreshIntegratedOutput();
         }
     }
 

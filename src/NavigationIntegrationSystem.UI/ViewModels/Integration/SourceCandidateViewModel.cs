@@ -20,7 +20,19 @@ public sealed partial class SourceCandidateViewModel : ObservableObject
     public string DisplayText => $"{CandidateValue:0.00000}";
     public double CandidateValue { get => m_CandidateValue; set { if (SetProperty(ref m_CandidateValue, value)) { OnPropertyChanged(nameof(DisplayText)); } } }
     public IntegrationFieldRowViewModel Row { get; }
-    public bool IsSelected { get => m_IsSelected; set { if (SetProperty(ref m_IsSelected, value) && value) { Row.UpdateSelection(this); } } }
+    public bool IsSelected
+    {
+        get => m_IsSelected;
+        set
+        {
+            if (m_IsSelected == value) return;
+
+            m_IsSelected = value;
+
+            if (value) { OnPropertyChanged(nameof(IsSelected)); Row.UpdateSelection(this); }
+            else { OnPropertyChanged(nameof(IsSelected)); }
+        }
+    }
     public bool IsManualEntry => DeviceType == DeviceType.Manual;
     #endregion
 
@@ -43,6 +55,20 @@ public sealed partial class SourceCandidateViewModel : ObservableObject
 
         double delta = (m_Rng.NextDouble() - 0.5) * i_StepScale;
         CandidateValue += delta;
+    }
+
+    // Silently updates the selection state for UI synchronization only
+    public void NotifySelectionChanged(bool i_IsSelected)
+    {
+        m_IsSelected = i_IsSelected;
+        OnPropertyChanged(nameof(IsSelected));
+    }
+
+    // Force-refreshes the selection state to ensure One-Way UI bindings update
+    public void ForceSelect()
+    {
+        NotifySelectionChanged(true);
+        Row.UpdateSelection(this);
     }
     #endregion
 }

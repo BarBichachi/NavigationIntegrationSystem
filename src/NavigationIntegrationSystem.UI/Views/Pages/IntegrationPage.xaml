@@ -43,47 +43,51 @@
 
                     <!--  Horizontally scrollable list of connected devices  -->
                     <ScrollViewer Grid.Column="1" HorizontalAlignment="Right" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled" VerticalScrollBarVisibility="Disabled">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
 
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" Spacing="12" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
+                            <Border Padding="8,4" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <CheckBox VerticalAlignment="Center" Content="Manual" FontWeight="Bold" IsChecked="{x:Bind ViewModel.IsManualVisible, Mode=TwoWay}" />
+                                    <Rectangle Width="1" Height="24" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                    <Button Padding="4,4" Content="Apply to All" FontSize="12" Foreground="White"
+                            Background="{ThemeResource SystemAccentColor}" Style="{StaticResource AccentButtonStyle}"
+                            IsEnabled="{x:Bind ViewModel.IsManualVisible, Mode=OneWay}"
+                            Click="OnApplyManualToAllClicked" />
+                                </StackPanel>
+                            </Border>
 
-                            <!--  One card per connected INS  -->
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:IntegrationDeviceOptionViewModel">
-                                    <Border Padding="8,4" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <!--  Toggle device visibility as an input source  -->
-                                            <CheckBox VerticalAlignment="Center" Content="{x:Bind DisplayName}" FontWeight="Bold" IsChecked="{x:Bind IsVisible, Mode=TwoWay}" />
-
-                                            <Rectangle Width="1" Height="24" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
-
-                                            <!--  Applies this device as the source for all parameters  -->
-                                            <Button Padding="4,4"
-                                                    Background="{ThemeResource SystemAccentColor}"
-                                                    Command="{x:Bind ApplyToAllFieldsCommand}"
-                                                    Content="Apply to All" FontSize="12" Foreground="White"
-                                                    Style="{StaticResource AccentButtonStyle}" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="12" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:IntegrationDeviceOptionViewModel">
+                                        <Border Padding="8,4" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <CheckBox VerticalAlignment="Center" Content="{x:Bind DisplayName}" FontWeight="Bold" IsChecked="{x:Bind IsVisible, Mode=TwoWay}" />
+                                                <Rectangle Width="1" Height="24" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                                <Button Padding="4,4" Background="{ThemeResource SystemAccentColor}"
+                                        Content="Apply to All" FontSize="12" Foreground="White"
+                                        Command="{x:Bind ApplyToAllFieldsCommand}"
+                                        IsEnabled="{x:Bind IsVisible, Mode=OneWay}"
+                                        Style="{StaticResource AccentButtonStyle}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
                 <!--  Visual separation between source selection and table  -->
                 <Rectangle Grid.Row="1" Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-                <!--
-                    Main integration table:
+                <!-- Main integration table:
                     Each row = one parameter
-                    Columns = output + per-source input selection
-                -->
+                    Columns = output + per-source input selection -->
                 <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}" SelectionMode="None">
 
                     <!--  Table header  -->
@@ -92,28 +96,32 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150" />
                                 <ColumnDefinition Width="150" />
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="150" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
                             <!--  Parameter column  -->
                             <TextBlock Grid.Column="0" Margin="16,0" FontWeight="SemiBold" Opacity="0.6" Text="Parameter" />
-
+                            
                             <!--  Integrated output column  -->
                             <TextBlock Grid.Column="1" HorizontalAlignment="Center" FontWeight="Bold" Foreground="{ThemeResource SystemAccentColorLight2}" Text="Integrated Output" />
 
+                            <!--  Manual input column  -->
+                            <TextBlock Grid.Column="3" Margin="12,0" FontWeight="SemiBold" Opacity="0.6" Text="Manual" Visibility="{x:Bind ViewModel.IsManualVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            
                             <!--  Dynamic headers for visible INS inputs  -->
-                            <ItemsControl Grid.Column="3" ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
+                            <ItemsControl Grid.Column="4" ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
-
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:IntegrationDeviceOptionViewModel">
-                                        <Grid Width="185" Margin="0,0" Visibility="{x:Bind IsVisible, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
-                                            <TextBlock FontWeight="SemiBold" Opacity="0.6" Text="{x:Bind DisplayName}" />
+                                        <Grid Width="150" Visibility="{x:Bind IsVisible, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}">
+                                            <TextBlock FontWeight="SemiBold" Opacity="0.6" Text="{x:Bind DisplayName}" 
+                   Visibility="{x:Bind IsManual, Converter={StaticResource InverseBoolToVisibilityConverter}, Mode=OneWay}"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -133,32 +141,43 @@
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:IntegrationFieldRowViewModel">
                             <Border Margin="0,0,0,10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-
                                 <Grid MinHeight="50">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="150" />
                                         <ColumnDefinition Width="150" />
-                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="50" />
+                                        <ColumnDefinition Width="150" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!--  Parameter name + unit  -->
                                     <StackPanel Grid.Column="0" Margin="16,0" VerticalAlignment="Center">
                                         <TextBlock FontSize="15" FontWeight="Bold" Text="{x:Bind FieldName}" />
                                         <TextBlock FontSize="11" Opacity="0.5" Text="{x:Bind Unit}" />
                                     </StackPanel>
 
-                                    <!--  Highlighted integrated output  -->
                                     <Grid Grid.Column="1">
                                         <Border Background="{ThemeResource SystemAccentColor}" CornerRadius="6" Opacity="0.1" />
-
                                         <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Consolas" FontSize="20" FontWeight="Bold"
-                                                   Foreground="{ThemeResource SystemAccentColorLight3}"
-                                                   Text="{x:Bind SelectedValueText, Mode=OneWay}" />
+                               Foreground="{ThemeResource SystemAccentColorLight3}"
+                               Text="{x:Bind SelectedValueText, Mode=OneWay}" />
                                     </Grid>
 
-                                    <!--  Input selection per INS (radio = exactly one source)  -->
-                                    <ItemsControl Grid.Column="3" ItemsSource="{x:Bind VisibleSources, Mode=OneWay}">
+                                    <Grid Grid.Column="3" Margin="12,0"
+      Visibility="{x:Bind IsManualVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <RadioButton VerticalAlignment="Center" 
+                 GroupName="{x:Bind FieldName, Mode=OneTime}" 
+                 IsChecked="{x:Bind ManualSource.IsSelected, Mode=OneWay}"
+                 Click="OnManualRadioButtonClicked">
+                                            <RadioButton.Content>
+                                                <TextBox Width="80" Height="32" Padding="8,0" 
+         VerticalContentAlignment="Center" 
+         FontFamily="Consolas" FontSize="13"
+         Text="{x:Bind ManualSource.CandidateValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </RadioButton.Content>
+                                        </RadioButton>
+                                    </Grid>
+
+                                    <ItemsControl Grid.Column="4" ItemsSource="{x:Bind VisibleSources, Mode=OneWay}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
                                                 <StackPanel Orientation="Horizontal" />
@@ -166,17 +185,13 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:SourceCandidateViewModel">
-                                                <Grid Width="185">
-                                                    <RadioButton VerticalAlignment="Center" GroupName="{x:Bind Row.FieldName, Mode=OneTime}" IsChecked="{x:Bind IsSelected, Mode=TwoWay}">
+                                                <Grid Width="150">
+                                                    <RadioButton VerticalAlignment="Center" 
+                                             GroupName="{x:Bind Row.FieldName, Mode=OneTime}" 
+                                             IsChecked="{x:Bind IsSelected, Mode=OneWay}"
+                                             Click="OnDeviceRadioButtonClicked">
                                                         <RadioButton.Content>
-                                                            <Grid Height="32">
-                                                                <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" Text="{x:Bind DisplayText, Mode=OneWay}" Visibility="{x:Bind IsManualEntry, Converter={StaticResource InverseBoolToVisibilityConverter}, Mode=OneWay}" />
-
-                                                                <TextBox Width="110" Height="32" Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                                         FontFamily="Consolas" FontSize="13"
-                                                                         Text="{x:Bind CandidateValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                         Visibility="{x:Bind IsManualEntry, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}" />
-                                                            </Grid>
+                                                            <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" Text="{x:Bind DisplayText, Mode=OneWay}" />
                                                         </RadioButton.Content>
                                                     </RadioButton>
                                                 </Grid>

@@ -17,6 +17,7 @@ public sealed partial class IntegrationDeviceOptionViewModel : ObservableObject
     public DeviceType DeviceType { get; }
     public string DisplayName { get; }
     public bool IsVisible { get => m_IsVisible; set => SetProperty(ref m_IsVisible, value); }
+    public bool IsManual => DeviceType == DeviceType.Manual;
     #endregion
 
     #region Commands
