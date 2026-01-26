@@ -25,7 +25,7 @@
                 <Grid VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="24" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="100" />
                     </Grid.ColumnDefinitions>
 
                     <RadioButton Grid.Column="0" Width="32" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Center"
