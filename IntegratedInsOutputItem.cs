@@ -99,10 +99,10 @@ namespace RecordDecoderPro.ItemTemplates
                 Dictionary.Add(IntegratedInsOutputColumns[i++], $"{rcvTime.TimeOfDay.TotalSeconds:F4},");
 
                 DateTime outputTime = frame.Data.OutputTimeUtc;
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{outputTime:HH:mm:ss.fff},");
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{outputTime.TimeOfDay.TotalSeconds:F4},");
                 Dictionary.Add(IntegratedInsOutputColumns[i++], $"{frame.Data.OutputTimeDeviceCode},");
                 Dictionary.Add(IntegratedInsOutputColumns[i++], $"{frame.Data.OutputTimeDeviceId},");
+                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{outputTime:HH:mm:ss.fff},");
+                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{outputTime.TimeOfDay.TotalSeconds:F4},");
 
                 AddTriplet(ref i, frame.Data.PositionLat);
                 AddTriplet(ref i, frame.Data.PositionLon);

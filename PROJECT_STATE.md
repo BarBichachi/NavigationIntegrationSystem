@@ -28,11 +28,7 @@ Dependency direction is strictly one-way:
 ```
 UI -> Devices -> Core
 UI -> Infrastructure -> Core
-Infrastructure -> Core
-Devices -> Core
 ```
-
-No reverse references are allowed.
 
 ---
 
@@ -90,8 +86,8 @@ No reverse references are allowed.
 - Preferred region order:
   1. `Properties`
   2. `Private Fields`
-  3. `Constructors`
-  4. `Commands`
+  3. `Commands`
+  4. `Constructors`
   5. `Functions`
   6. `Event Handlers`
 - Functions should be short and focused
@@ -280,7 +276,6 @@ Resources/
 ```
 
 Subfolders may be used inside type folders for domain clarity
-(e.g. `ViewModels/Integration/Candidates`, `ViewModels/Devices/Cards`)
 
 ---
 
@@ -366,35 +361,6 @@ Based on the existing `BinaryFileRecorderEnhanced` pattern:
 
 ---
 
-# Key Decisions Log
-
-## Why no CommunityToolkit.Mvvm source generators?
-CommunityToolkit.Mvvm caused problems in past projects. Manual MVVM provides:
-- Full control and visibility
-- Easier debugging (no generated code)
-- Better for team members unfamiliar with source generators
-- More suitable for potential legacy .NET integration
-
-## Why explicit device registration?
-Explicit registration makes it easy for other developers to:
-- Discover what devices exist (single registration point)
-- Add new devices without "magic" reflection
-- Understand the full device list at compile-time
-- Catch registration errors early
-
-## Why binary .dat files for recording?
-- Must match existing RecordDecoderPro tool format
-- Integration with larger system requires format consistency
-- Binary is compact and efficient for high-frequency recording
-- Streaming-friendly for playback
-
-## Why singleton for BinaryFileRecorderEnhanced?
-- Matches existing larger system architecture
-- Single recording session across all subsystems
-- Centralized file management and disk space monitoring
-
----
-
 # Current State (Implemented)
 
 ## Integration Page (UI locked + working)
@@ -419,15 +385,13 @@ Explicit registration makes it easy for other developers to:
   - Rebuilds per-row Sources
   - Refreshes VisibleSources based on header toggles
 - Selection survives device rebuilds by re-selecting by DeviceType when possible
+- Real devices:
+  - Connect/Disconnect button + Inspect/Settings panes
 - Manual device:
   - Has Connect/Disconnect only
-  - No Inspect or Settings panes
 
-## Logs Page (baseline improvements)
-- Keyboard shortcuts supported: Ctrl+C, Ctrl+A, Delete, Esc
-- Tooltip disabled on list items
-- Filters/actions row + layout fixes applied
-- Main window hamburger pane sizing fix applied
+## Logs Page (Locked)
+- Search, filters, copy, delete, select
 
 ---
 
@@ -437,7 +401,7 @@ Explicit registration makes it easy for other developers to:
 - Create a recorder service in Infrastructure that:
   - Uses singleton `BinaryFileRecorderEnhanced` pattern
   - Writes binary `.dat` format matching RecordDecoderPro
-- Start/Stop recording controls on Integration page
+- Start/Stop recording controls on the top of the software (always visible)
 - Compatible with existing RecordDecoderPro tool
 
 ## 2) "Recorded file" as a virtual INS source
@@ -464,8 +428,9 @@ Explicit registration makes it easy for other developers to:
 # Integrated INS Output Recording (DataRecordType = 50) — LOCKED
 
 ## Purpose
-Add a unified “Integrated INS Output” binary record that represents the **final integrated output per field**, while preserving full source traceability.
-The record must be fully compatible with the existing RecordDecoderPro tool **without modifying its core logic**.
+Add a unified “Integrated INS Output” binary record that represents the **final integrated output per field**, 
+while preserving full source traceability. The record must be fully compatible with the existing RecordDecoderPro
+tool **without modifying its core logic**.
 
 This is achieved by introducing a new `DataRecordType`, a dedicated binary payload + comm frame, and a RecordDecoderPro Item template.
 
@@ -476,7 +441,6 @@ This is achieved by introducing a new `DataRecordType`, a dedicated binary paylo
 - RecordDecoderPro handles it via a new Item:
 - case DataRecordType.IntegratedInsOutputRawData: IntegratedInsOutputItem.InitializeDict(header, rawData); break;
 
-- 
 ---
 
 ## Integrated Fields (Final Order — Locked)
@@ -570,7 +534,7 @@ Example: LatitudeDevice, LatitudeId, LatitudeValue
 ---
 
 ## Header.ID (Locked)
-- `header.ID` for integrated records is always `0`
+- `header.ID` for integrated output is always `0`, for devices of the same type, increment by one starting from 0
 - Per-field source identity is represented by `(DeviceCode, DeviceId)`
 - No reliance on `header.ID` for source tracking
 
@@ -641,3 +605,71 @@ At this point:
 
 Next continuation starts with:
 **validating the binary layout and wiring encode -> record -> decode -> CSV**
+
+# NavigationIntegrationSystem – PROJECT_STATE (Update – 2026-02-05)
+
+# Summary of what we decided today (stop point)
+
+## VelocityTotal policy (UPDATED)
+- VelocityTotal is **not taken directly from a device** in our integration UI
+- VelocityTotal is **calculated from the selected Velocity North/East/Down** values
+- Recorder will still **store VelocityTotal as its own field** in the IntegratedInsOutput record (DataRecordType=50)
+- UI must indicate this clearly (e.g. "Velocity Total (calc)" or similar)
+
+## IntegratedInsOutputItem column order bug (FIX REQUIRED)
+- In `IntegratedInsOutputItem.Process()` the OutputTime columns were added in the wrong order
+- Required order is **DeviceCode, DeviceId, then Value** (for time: hms + sec)
+- Fix required inside `IntegratedInsOutputItem.Process()`:
+  - Add `OutputTimeDeviceCode`
+  - Add `OutputTimeDeviceId`
+  - Add `OutputTime[hms]`
+  - Add `OutputTime[sec]`
+- Note: This is still in TEMP and not yet part of the big solution, so we are free to change it now without breaking anything
+
+## “TEMP IntegratedInsOutput files” status (UPDATED CLARIFICATION)
+- The 4 integrated-output files currently live at repo root / TEMP area only to define the contract and decoding behavior
+- They are **not yet integrated into the big solution**
+- We can still adapt naming, ordering, properties, and the decoder mapping now
+- NIS will implement a recorder that outputs a `.dat` file compatible with RecordDecoderPro
+
+## Recording infrastructure in NIS (UPDATED)
+- We added a temporary copy of `DataRecordHeader` inside NIS:
+  - `NavigationIntegrationSystem.Infrastructure.Recording.DataRecordHeader`
+  - SyncWord = `0x7E55`
+  - Header layout matches RecordDecoderPro expectations
+- This file is explicitly temporary; when NIS is embedded into the big solution, we will delete/replace it and fix usings
+
+## “Record everything” requirement (UPDATED)
+- Recorder must record:
+  1) **All raw device telemetry** (everything a device provides), even if not shown in Integration UI
+  2) **Integrated output record** (DataRecordType=50) containing only the final integrated fields (below)
+
+## Final integrated output rows list (LOCKED FOR RECORDER MAPPING)
+The integrated output fields (and UI integration rows) are exactly the ones represented by `IntegratedInsOutput_Data`:
+
+1) Output Time
+2) Position: Latitude, Longitude, Altitude
+3) Euler: Roll, Pitch, Azimuth
+4) Euler Rates: Roll Rate, Pitch Rate, Azimuth Rate
+5) Velocity: Velocity North, Velocity East, Velocity Down
+6) Velocity Total: **calculated from selected N/E/D**
+7) Status: StatusValue (bitmask)
+8) Course
+
+## UI placement decision (CONFIRMED DIRECTION)
+- Start/Stop recording controls should live in the **MainWindow title bar row** (`AppTitleBar`) so it’s always visible
+- We did not implement it yet
+
+## Next continuation (tomorrow)
+We will continue with a cleaner “other way” approach (not started yet), but the immediate technical tasks waiting are:
+
+1) Fix TEMP `IntegratedInsOutputItem.Process()` OutputTime column ordering
+2) Define NIS recorder architecture:
+   - Raw device recording (per device type payloads)
+   - Integrated output recording (DataRecordType=50)
+   - Stable device instance indexing per session (DeviceCode + DeviceId)
+3) Decide the exact sampling strategy (timer vs event-driven) for recording
+4) Add shell-level recording controls in MainWindow title bar + ViewModel commands
+5) Wire Integration selection snapshot -> `IntegratedInsOutput_Data` builder (including VelocityTotal derived rule)
+
+Stop point: **No implementation started yet**

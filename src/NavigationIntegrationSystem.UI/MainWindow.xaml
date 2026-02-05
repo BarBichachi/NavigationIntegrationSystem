@@ -23,7 +23,7 @@
                 <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Text="Navigation Integration System" />
             </StackPanel>
         </Grid>
-
+0
         <!--  Hamburger Menu  -->
         <NavigationView x:Name="Nav" Grid.Row="1" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True"
                         IsSettingsVisible="False" OpenPaneLength="200" PaneDisplayMode="Left" SelectionChanged="OnNavSelectionChanged">
