@@ -2,7 +2,7 @@
 
 public class RecordFieldItem : ViewModelBase
 {
-    public string recordFieldName { get; set; }
+    public string recordFieldName { get; set; } = string.Empty;
 
     public RecordFieldItem()
     {
@@ -21,4 +21,3 @@ public class RecordFieldItem : ViewModelBase
         }
     }
 }
-
