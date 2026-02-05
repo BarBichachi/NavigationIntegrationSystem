@@ -44,6 +44,30 @@ namespace RecordDecoderPro.ItemTemplates
 
         #endregion
 
+        #region Triplet Helpers
+
+        public IntegratedValueTriplet PositionLat => new(LatitudeDeviceCode, LatitudeDeviceId, Position.Lat);
+        public IntegratedValueTriplet PositionLon => new(LongitudeDeviceCode, LongitudeDeviceId, Position.Lon);
+        public IntegratedValueTriplet PositionAlt => new(AltitudeDeviceCode, AltitudeDeviceId, Position.Alt);
+
+        public IntegratedValueTriplet EulerRoll => new(RollDeviceCode, RollDeviceId, EulerData.Angles.Roll);
+        public IntegratedValueTriplet EulerPitch => new(PitchDeviceCode, PitchDeviceId, EulerData.Angles.Pitch);
+        public IntegratedValueTriplet EulerAzimuth => new(AzimuthDeviceCode, AzimuthDeviceId, EulerData.Angles.Yaw);
+
+        public IntegratedValueTriplet EulerRollRate => new(RollRateDeviceCode, RollRateDeviceId, EulerData.Rates.Roll);
+        public IntegratedValueTriplet EulerPitchRate => new(PitchRateDeviceCode, PitchRateDeviceId, EulerData.Rates.Pitch);
+        public IntegratedValueTriplet EulerAzimuthRate => new(AzimuthRateDeviceCode, AzimuthRateDeviceId, EulerData.Rates.Yaw);
+
+        public IntegratedValueTriplet VelocityTotal => new(VelocityTotalDeviceCode, VelocityTotalDeviceId, VelocityTotal);
+        public IntegratedValueTriplet VelocityNorth => new(VelocityNorthDeviceCode, VelocityNorthDeviceId, VelocityVector.North);
+        public IntegratedValueTriplet VelocityEast => new(VelocityEastDeviceCode, VelocityEastDeviceId, VelocityVector.East);
+        public IntegratedValueTriplet VelocityDown => new(VelocityDownDeviceCode, VelocityDownDeviceId, VelocityVector.Down);
+
+        public IntegratedValueTriplet Status => new(StatusDeviceCode, StatusDeviceId, StatusValue);
+        public IntegratedValueTriplet Course => new(CourseDeviceCode, CourseDeviceId, Course);
+
+        #endregion
+
         #region Constructors
 
         public IntegratedInsOutputItem() : base()
