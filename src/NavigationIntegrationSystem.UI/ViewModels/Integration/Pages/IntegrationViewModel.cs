@@ -66,7 +66,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         Rows.Add(new IntegrationFieldRowViewModel("Velocity Down", "m/s"));
 
         // Derived/Calculated Fields
-        Rows.Add(new IntegrationFieldRowViewModel("Velocity Total (calc)", "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel("Velocity Total", "m/s"));
 
         // Miscellaneous
         Rows.Add(new IntegrationFieldRowViewModel("Course", "deg"));

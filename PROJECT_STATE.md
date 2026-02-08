@@ -519,7 +519,34 @@ These files currently live in Infrastructure/UI but are destined for the main so
 
 ## 1. Feature Implementation
 
-* Playback Mode (File as Source): Implement "Recorded file" as a virtual INS source with play/pause/seek controls.
+### 1.1 Core Infrastructure (Playback Service)
+- [ ] **CSV Data Engine:** Implement line-by-line `StreamReader` to handle large files without memory spikes.
+- [ ] **Timing Engine:** Logic to calculate deltas between CSV timestamps to maintain authentic 1x playback speed.
+- [ ] **State Machine:** Track Play/Pause/Stop/Seek states and the current line index/total lines.
+- [ ] **Data Dispatcher:** Broadcast the current CSV row as a telemetry object to the Playback Device.
+
+### 1.2 Device Domain (Playback Device)
+- [ ] **Type Registration:** Add `DeviceType.Playback` to Core Enums.
+- [ ] **Device Implementation:** Create `PlaybackInsDevice` (inherits `InsDeviceBase`).
+- [ ] **Lifecycle Management:** - Disconnected: No file selected.
+    - Ready: File validated (header check).
+    - Connected: Playback column active in Integration Grid.
+- [ ] **Telemetry Mapping:** Map CSV columns to `InspectFields` for live viewing in the Inspect pane.
+
+### 1.3 UI & UX (Settings & Controls)
+- [ ] **Playback Settings Pane:** - Implement File Picker for `.csv` selection.
+    - Implement **"Export Playback Template"** button (generates CSV with required headers).
+    - Add "Loop" toggle.
+- [ ] **Global Playback Tray:**
+    - Create a persistent bottom bar in `MainWindow`.
+    - Controls: Play/Pause, Stop (Reset), and a Seeker Slider (Line 0 to Line Count).
+    - Visibility: Only visible when the Playback Device is "Connected".
+
+### 1.4 Integration Logic
+- [ ] **Column Injection:** Ensure `IntegrationViewModel` detects the Playback device and adds the column automatically.
+- [ ] **Source Selection:** Allow users to select "Playback" as the source for any specific field (Lat, Lon, Roll, etc.).
+
+
 * Real Device Telemetry: Replace Tick() dummy random deltas with actual data parsing from connected devices.
 
 ## 2. Final Verification

@@ -4,6 +4,7 @@
 public enum DeviceType
 {
     Manual,
+    Playback,
     VN310,
     Tmaps100X
 }
