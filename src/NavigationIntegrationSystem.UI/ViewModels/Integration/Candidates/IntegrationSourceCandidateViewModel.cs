@@ -1,4 +1,5 @@
-﻿using NavigationIntegrationSystem.Core.Enums;
+﻿using NavigationIntegrationSystem.Core.Devices;
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
@@ -15,6 +16,7 @@ public abstract partial class IntegrationSourceCandidateViewModel : ViewModelBas
     public string DisplayName { get; }
     public abstract string DisplayText { get; }
     public bool IsSelected { get => m_IsSelected; private set => SetProperty(ref m_IsSelected, value); }
+    public IInsDevice? SourceDevice { get; protected set; }
     #endregion
 
     #region Ctors

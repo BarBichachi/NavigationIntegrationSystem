@@ -2,11 +2,14 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Devices.Runtime;
 using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.UI.Bootstrap;
 using NavigationIntegrationSystem.UI.Services.Logging;
+using NavigationIntegrationSystem.UI.Services.Recording;
+
 using System;
 
 namespace NavigationIntegrationSystem;
@@ -32,17 +35,22 @@ public partial class App : Application
     #endregion
 
     #region Overrides
-    // Starts the application and opens the main window
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // 1. Warm up the UI Log Buffer
         var uiLogBuffer = Services.GetRequiredService<UiLogBuffer>();
         uiLogBuffer.AttachUiDispatcher(DispatcherQueue.GetForCurrentThread());
 
         var log = Services.GetRequiredService<ILogService>();
         log.Info(nameof(App), "NIS starting");
 
+        // 2. Initialize device modules
         _ = Services.GetRequiredService<DevicesModuleBootstrapper>();
+        
+        // 3. Warm up the Recording Snapshot Service
+        _ = Services.GetRequiredService<IntegrationSnapshotService>();
 
+        // 4. Show MainWindow
         m_MainWindow = Services.GetRequiredService<MainWindow>();
         m_MainWindow.Activate();
     }

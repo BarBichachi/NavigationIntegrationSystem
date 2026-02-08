@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<Window x:Class="NavigationIntegrationSystem.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:local="using:NavigationIntegrationSystem"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" Title="NavigationIntegrationSystem" mc:Ignorable="d">
+<Window x:Class="NavigationIntegrationSystem.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:NavigationIntegrationSystem.UI.Views.Controls" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="using:NavigationIntegrationSystem" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" Title="NavigationIntegrationSystem" mc:Ignorable="d">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -12,17 +12,8 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32" Padding="12,0,12,0" VerticalAlignment="Top"
-              Background="{ThemeResource LayerFillColorDefaultBrush}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="10">
-                <Image Width="18" Height="18" VerticalAlignment="Center" Source="ms-appx:///Assets/Square44x44Logo.png" Stretch="Uniform" />
-                <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Text="Navigation Integration System" />
-            </StackPanel>
-        </Grid>
+        <!--  Custom Title Bar  -->
+        <controls:ShellHeaderControl x:Name="ShellHeader" Grid.Row="0" />
 
         <!--  Hamburger Menu  -->
         <NavigationView x:Name="Nav" Grid.Row="1" CompactPaneLength="48" IsBackButtonVisible="Collapsed" IsPaneOpen="True"

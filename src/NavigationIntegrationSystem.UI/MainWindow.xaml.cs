@@ -2,12 +2,16 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.UI.Navigation;
 using NavigationIntegrationSystem.UI.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
+
 using System;
+
 using Windows.Graphics;
+
 using WinRT.Interop;
 
 namespace NavigationIntegrationSystem;
@@ -15,6 +19,10 @@ namespace NavigationIntegrationSystem;
 // Hosts the main navigation shell and routes between pages
 public sealed partial class MainWindow : Window
 {
+    #region Properties
+    public MainViewModel ViewModel { get; }
+    #endregion
+
     #region Private Fields
     private readonly NavigationService m_NavigationService;
     private readonly ILogService m_LogService;
@@ -26,8 +34,9 @@ public sealed partial class MainWindow : Window
     public MainWindow(MainViewModel i_ViewModel, NavigationService i_NavigationService, ILogService i_LogService)
     {
         InitializeComponent();
-        RootGrid.DataContext = i_ViewModel;
 
+        ViewModel = i_ViewModel;
+        RootGrid.DataContext = i_ViewModel;
         m_LogService = i_LogService;
         m_NavigationService = i_NavigationService;
 
@@ -39,11 +48,16 @@ public sealed partial class MainWindow : Window
     #endregion
 
     #region Private Functions
-    // Enables custom title bar
+    // Enables custom title bar using the exposed element from our header control
     private void InitializeTitleBar()
     {
         ExtendsContentIntoTitleBar = true;
-        SetTitleBar(AppTitleBar);
+
+        // Access the public property we just created
+        if (ShellHeader != null)
+        {
+            SetTitleBar(ShellHeader.TitleBarElement);
+        }
     }
 
     // Initializes the window size and centers it on screen

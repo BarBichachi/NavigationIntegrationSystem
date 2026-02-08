@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Controls.ShellHeaderControl" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels">
+
+    <Grid x:Name="AppTitleBar" Height="32" Padding="12,0,12,0" Background="{ThemeResource LayerFillColorDefaultBrush}">
+
+        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center" Orientation="Horizontal" Spacing="10">
+            <Image Width="18" Height="18" Source="ms-appx:///Assets/Square44x44Logo.png" />
+            <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Text="Navigation Integration System" />
+        </StackPanel>
+
+        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse Width="8" Height="8" Fill="Red" Visibility="{x:Bind ViewModel.IsRecording, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                <Button Padding="8,2" Command="{x:Bind ViewModel.ToggleRecordingCommand}" FontSize="12">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <SymbolIcon Symbol="{x:Bind ViewModel.IsRecording, Mode=OneWay, Converter={StaticResource RecordingStatusToIconConverter}}" />
+                        <TextBlock Text="{x:Bind ViewModel.IsRecording, Mode=OneWay, Converter={StaticResource RecordingStatusToTextConverter}}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+    </Grid>
+</UserControl>

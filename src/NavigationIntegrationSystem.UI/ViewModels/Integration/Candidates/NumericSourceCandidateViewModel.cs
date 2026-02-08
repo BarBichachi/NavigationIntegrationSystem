@@ -1,5 +1,7 @@
-﻿using NavigationIntegrationSystem.Core.Enums;
+﻿using NavigationIntegrationSystem.Core.Devices;
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
+
 using System;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
@@ -23,9 +25,10 @@ public sealed partial class NumericSourceCandidateViewModel : IntegrationSourceC
     #endregion
 
     #region Ctors
-    public NumericSourceCandidateViewModel(DeviceType i_DeviceType, string i_DisplayName, double i_InitialValue, Random i_Rng)
-        : base(i_DeviceType, i_DisplayName)
+    public NumericSourceCandidateViewModel(IInsDevice i_Device, string i_DisplayName, double i_InitialValue, Random i_Rng)
+        : base(i_Device.Definition.Type, i_DisplayName)
     {
+        SourceDevice = i_Device;
         m_Value = i_InitialValue;
         m_Rng = i_Rng;
     }

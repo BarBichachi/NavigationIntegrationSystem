@@ -14,6 +14,9 @@
             <converters:DeviceStatusToBrushConverter x:Key="DeviceStatusToBrushConverter" />
             <converters:LogLevelToBrushConverter x:Key="LogLevelToBrushConverter" />
             <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
+            <converters:RecordingStatusToTextConverter x:Key="RecordingStatusToTextConverter" />
+            <converters:RecordingStatusToIconConverter x:Key="RecordingStatusToIconConverter" />
+
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToSettingsVisibilityConverter" TargetMode="Settings" />
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToInspectVisibilityConverter" TargetMode="Inspect" />
         </ResourceDictionary>

@@ -6,4 +6,5 @@ public static class NavKeys
     public const string Integration = "integration";
     public const string Devices = "devices";
     public const string Logs = "logs";
+    public const string Settings = "settings";
 }

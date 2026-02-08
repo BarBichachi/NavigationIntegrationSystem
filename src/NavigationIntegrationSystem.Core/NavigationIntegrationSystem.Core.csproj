@@ -5,4 +5,7 @@
 	<Nullable>enable</Nullable>
 	<Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Models\Recording\" />
+  </ItemGroup>
 </Project>

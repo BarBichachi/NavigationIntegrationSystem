@@ -24,8 +24,10 @@
     <None Remove="Assets\Icons\Home.svg" />
     <None Remove="Assets\Icons\Logs.svg" />
     <None Remove="Assets\Icons\Settings.svg" />
+    <None Remove="Views\Controls\ShellHeaderControl.xaml" />
     <None Remove="Views\Pages\DevicesPage.xaml" />
     <None Remove="Views\Pages\LogsPage.xaml" />
+    <None Remove="Views\Pages\SettingsPage.xaml" />
     <None Remove="Views\Panes\DeviceInspectPaneView.xaml" />
     <None Remove="Views\Panes\DeviceSettingsPaneView.xaml" />
   </ItemGroup>
@@ -68,6 +70,16 @@
     <ProjectReference Include="..\NavigationIntegrationSystem.Core\NavigationIntegrationSystem.Core.csproj" />
     <ProjectReference Include="..\NavigationIntegrationSystem.Devices\NavigationIntegrationSystem.Devices.csproj" />
     <ProjectReference Include="..\NavigationIntegrationSystem.Infrastructure\NavigationIntegrationSystem.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Pages\SettingsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Controls\ShellHeaderControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <!--

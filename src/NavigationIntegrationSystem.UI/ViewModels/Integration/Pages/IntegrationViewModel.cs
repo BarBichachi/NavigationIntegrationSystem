@@ -35,21 +35,43 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     {
         m_DevicesViewModel = i_DevicesViewModel;
 
-        Rows.Add(new IntegrationFieldRowViewModel("Azimuth", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Elevation", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Latitude", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Longitude", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Altitude", "m"));
-        Rows.Add(new IntegrationFieldRowViewModel("Pitch", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Roll", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Speed", "m/s"));
-
+        InitializeIntegrationRows();
         HookDevices();
         RebuildFromConnectedDevices();
     }
     #endregion
 
     #region Functions
+    // Initializes the fixed set of integration rows based on the required output fields
+    private void InitializeIntegrationRows()
+    {
+        // Position
+        Rows.Add(new IntegrationFieldRowViewModel("Latitude", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Longitude", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Altitude", "m"));
+
+        // Euler Angles
+        Rows.Add(new IntegrationFieldRowViewModel("Roll", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Pitch", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel("Azimuth", "deg"));
+
+        // Euler Rates
+        Rows.Add(new IntegrationFieldRowViewModel("Roll Rate", "deg/s"));
+        Rows.Add(new IntegrationFieldRowViewModel("Pitch Rate", "deg/s"));
+        Rows.Add(new IntegrationFieldRowViewModel("Azimuth Rate", "deg/s"));
+
+        // Velocity Components (Required for calculated Total)
+        Rows.Add(new IntegrationFieldRowViewModel("Velocity North", "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel("Velocity East", "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel("Velocity Down", "m/s"));
+
+        // Derived/Calculated Fields
+        Rows.Add(new IntegrationFieldRowViewModel("Velocity Total (calc)", "m/s"));
+
+        // Miscellaneous
+        Rows.Add(new IntegrationFieldRowViewModel("Course", "deg"));
+    }
+
     // Starts dummy live updates using DispatcherQueue
     public void Initialize(DispatcherQueue i_DispatcherQueue)
     {
@@ -89,9 +111,42 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     {
         foreach (IntegrationFieldRowViewModel row in Rows)
         {
+            if (row.IsCalculated)
+            {
+                UpdateCalculatedRow(row);
+                continue;
+            }
+
             double step = GetStepScale(row.Unit, row.FieldName);
             foreach (IntegrationSourceCandidateViewModel src in row.Sources) { src.Tick(step); }
         }
+    }
+
+    // Logic to calculate the magnitude of the selected velocity components
+    private void UpdateCalculatedRow(IntegrationFieldRowViewModel i_TotalRow)
+    {
+        var vnRow = Rows.FirstOrDefault(r => r.FieldName == "Velocity North");
+        var veRow = Rows.FirstOrDefault(r => r.FieldName == "Velocity East");
+        var vdRow = Rows.FirstOrDefault(r => r.FieldName == "Velocity Down");
+
+        if (vnRow == null || veRow == null || vdRow == null) return;
+
+        // Helper to get numeric value from a row's selected source
+        Func<IntegrationFieldRowViewModel, double> getVal = (r) =>
+        {
+            var sel = r.VisibleSources.FirstOrDefault(s => s.IsSelected);
+            if (sel is NumericSourceCandidateViewModel n) return n.Value;
+            if (sel is ManualSourceCandidateViewModel m) return m.Value;
+            return 0;
+        };
+
+        double vn = getVal(vnRow);
+        double ve = getVal(veRow);
+        double vd = getVal(vdRow);
+
+        double total = Math.Sqrt(vn * vn + ve * ve + vd * vd);
+
+        i_TotalRow.UpdateCalculatedValue(total);
     }
 
     // Rebuilds header + per-row sources based on current connected devices
@@ -141,7 +196,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
                 }
 
                 double initial = CreateInitialValue(row.FieldName, row.Unit, device.Type);
-                row.Sources.Add(new NumericSourceCandidateViewModel(device.Type, device.DisplayName, initial, m_Rng));
+                row.Sources.Add(new NumericSourceCandidateViewModel(device.Device, device.DisplayName, initial, m_Rng));
             }
 
             row.RestoreSelection(previousDeviceType);
@@ -205,9 +260,10 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     // Returns appropriate random step size per unit/field
     private double GetStepScale(string i_Unit, string i_FieldName)
     {
-        if (i_Unit == "deg" && (i_FieldName == "Latitude" || i_FieldName == "Longitude")) { return 0.00005; }
-        if (i_Unit == "m") { return 0.20; }
-        if (i_Unit == "m/s") { return 0.15; }
+        if (i_FieldName.Contains("Rate")) return 0.1;
+        if (i_Unit == "deg" && (i_FieldName == "Latitude" || i_FieldName == "Longitude")) return 0.00005;
+        if (i_Unit == "m") return 0.20;
+        if (i_Unit == "m/s") return 0.15;
         return 0.05;
     }
 
@@ -230,6 +286,13 @@ public sealed partial class IntegrationViewModel : ViewModelBase
 
         double deviceOffset = i_DeviceType == DeviceType.VN310 ? 0.0 : 5.0;
         return baseValue + deviceOffset;
+    }
+
+    // Stops the dummy telemetry timer safely
+    public void Deinitialize()
+    {
+        m_Timer?.Stop();
+        m_Timer = null;
     }
     #endregion
 }

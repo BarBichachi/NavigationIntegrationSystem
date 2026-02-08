@@ -21,6 +21,8 @@ public sealed partial class IntegrationPage : Page
         InitializeComponent();
         ViewModel = ((App)Application.Current).Services.GetRequiredService<IntegrationViewModel>();
         ViewModel.Initialize(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+
+        this.Unloaded += (s, e) => ViewModel.Deinitialize();
     }
     #endregion
 

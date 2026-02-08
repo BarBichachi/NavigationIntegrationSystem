@@ -10,6 +10,7 @@ public sealed partial class ManualSourceCandidateViewModel : IntegrationSourceCa
     #region Private Fields
     private string m_Text = string.Empty;
     private bool m_IsValid;
+    private double m_Value;
     #endregion
 
     #region Properties
@@ -26,6 +27,8 @@ public sealed partial class ManualSourceCandidateViewModel : IntegrationSourceCa
 
     public bool IsValid { get => m_IsValid; private set => SetProperty(ref m_IsValid, value); }
 
+    public double Value => m_Value;
+
     public override string DisplayText
     {
         get
@@ -38,15 +41,26 @@ public sealed partial class ManualSourceCandidateViewModel : IntegrationSourceCa
     #endregion
 
     #region Ctors
-    public ManualSourceCandidateViewModel(string i_DisplayName) : base(DeviceType.Manual, i_DisplayName) { Validate(); }
+    public ManualSourceCandidateViewModel(string i_DisplayName) : base(DeviceType.Manual, i_DisplayName)
+    {
+        SourceDevice = null;
+        Validate();
+    }
     #endregion
 
     #region Functions
-    // Validates Text as an invariant-culture double (allows empty)
+    // Validates Text and forces DisplayText update
     private void Validate()
     {
-        if (string.IsNullOrWhiteSpace(Text)) { IsValid = true; return; }
-        IsValid = double.TryParse(Text, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        if (string.IsNullOrWhiteSpace(Text))
+        {
+            m_Value = 0;
+            IsValid = true;
+            return;
+        }
+
+        IsValid = double.TryParse(Text, NumberStyles.Any, CultureInfo.InvariantCulture, out m_Value);
+        OnPropertyChanged(nameof(DisplayText));
     }
     #endregion
 }

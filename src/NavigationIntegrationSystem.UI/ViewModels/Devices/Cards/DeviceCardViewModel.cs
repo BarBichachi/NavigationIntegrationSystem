@@ -23,6 +23,7 @@ public sealed partial class DeviceCardViewModel : ObservableObject
 
     #region Properties
     public string DisplayName => m_Device.Definition.DisplayName;
+    public IInsDevice Device => m_Device;
     public DeviceType Type => m_Device.Definition.Type;
     public DeviceConnectionSettings Connection => Config.Connection;
     public DeviceConfig Config { get; }

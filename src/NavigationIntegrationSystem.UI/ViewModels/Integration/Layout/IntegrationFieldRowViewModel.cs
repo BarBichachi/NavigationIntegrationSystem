@@ -13,6 +13,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 {
     #region Private Fields
     private IntegrationSourceCandidateViewModel? m_SelectedSource;
+    private double m_CalculatedValue;
     #endregion
 
     #region Properties
@@ -25,13 +26,14 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     public DeviceType? SelectedDeviceType => m_SelectedSource?.DeviceType;
 
     public bool IsOutputEmpty => m_SelectedSource == null || !VisibleSources.Contains(m_SelectedSource);
+    public bool IsCalculated { get => FieldName.Contains("Velocity Total"); }
 
     public string SelectedValueText
     {
         get
         {
-            if (m_SelectedSource == null) { return "—"; }
-            if (!VisibleSources.Contains(m_SelectedSource)) { return "—"; }
+            if (IsCalculated) return $"{m_CalculatedValue:0.00000}";
+            if (m_SelectedSource == null || !VisibleSources.Contains(m_SelectedSource)) return "—";
             return m_SelectedSource.DisplayText;
         }
     }
@@ -50,6 +52,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     public void RefreshVisibleSources(Func<IntegrationSourceCandidateViewModel, bool> i_IsVisible)
     {
         VisibleSources.Clear();
+        if (IsCalculated) return;
 
         foreach (IntegrationSourceCandidateViewModel src in Sources)
         {
@@ -59,8 +62,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 
         EnforceValidSelection();
         SyncSelectionFlags();
-
-        RefreshIntegratedOutput();
+        OnPropertyChanged(nameof(SelectedValueText));
         OnPropertyChanged(nameof(IsOutputEmpty));
     }
 
@@ -73,7 +75,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
         SetSelectedSource(i_Source);
 
         SyncSelectionFlags();
-        RefreshIntegratedOutput();
+        OnPropertyChanged(nameof(SelectedValueText));
         OnPropertyChanged(nameof(IsOutputEmpty));
     }
 
@@ -127,8 +129,12 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
         }
     }
 
-    // Forces UI update
-    private void RefreshIntegratedOutput() { OnPropertyChanged(nameof(SelectedValueText)); }
+    // Updates the calculated value for calculated fields and refreshes the display
+    public void UpdateCalculatedValue(double i_Value)
+    {
+        m_CalculatedValue = i_Value;
+        OnPropertyChanged(nameof(SelectedValueText));
+    }
     #endregion
 
     #region Event Handlers
@@ -137,7 +143,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     {
         if (e.PropertyName == nameof(IntegrationSourceCandidateViewModel.DisplayText))
         {
-            RefreshIntegratedOutput();
+            OnPropertyChanged(nameof(SelectedValueText));
         }
     }
     #endregion
