@@ -12,6 +12,7 @@ public sealed class DeviceConnectionSettings
     public UdpConnectionSettings Udp { get; set; } = new UdpConnectionSettings();
     public TcpConnectionSettings Tcp { get; set; } = new TcpConnectionSettings();
     public SerialConnectionSettings Serial { get; set; } = new SerialConnectionSettings();
+    public PlaybackConnectionSettings Playback { get; set; } = new PlaybackConnectionSettings();
     #endregion
 
     #region Functions
@@ -25,10 +26,12 @@ public sealed class DeviceConnectionSettings
         if (Udp == null) { Udp = new UdpConnectionSettings(); }
         if (Tcp == null) { Tcp = new TcpConnectionSettings(); }
         if (Serial == null) { Serial = new SerialConnectionSettings(); }
+        if (Playback == null) { Playback = new PlaybackConnectionSettings(); }
 
         Udp.CopyFrom(i_Source.Udp);
         Tcp.CopyFrom(i_Source.Tcp);
         Serial.CopyFrom(i_Source.Serial);
+        Playback.CopyFrom(i_Source.Playback);
     }
 
     // Creates a deep clone of this instance

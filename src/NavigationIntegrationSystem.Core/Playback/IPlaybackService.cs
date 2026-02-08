@@ -36,5 +36,8 @@ public interface IPlaybackService : IDisposable
 
     // Seeks to a specific line index
     void Seek(int i_LineIndex);
+
+    // Generates a valid CSV template file at the specified path
+    Task CreateTemplateAsync(string i_FilePath);
     #endregion
 }

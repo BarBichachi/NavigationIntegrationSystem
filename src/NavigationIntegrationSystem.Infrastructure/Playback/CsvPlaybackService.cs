@@ -1,14 +1,15 @@
-﻿using System;
+﻿using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Core.Playback;
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
-using NavigationIntegrationSystem.Core.Logging;
-using NavigationIntegrationSystem.Core.Playback;
 
 namespace NavigationIntegrationSystem.Infrastructure.Playback;
 
@@ -25,6 +26,28 @@ public sealed class CsvPlaybackService : IPlaybackService
     private int m_CurrentLineIndex;
     private bool m_IsPlaying;
     private string? m_LoadedFilePath;
+
+    // The Schema Definition (Encapsulated in the Infrastructure layer)
+    private static readonly string[] c_CsvSchema =
+    {
+        "RcvTime[hms]", "RcvTime[sec]",
+        "OutputTimeDeviceCode", "OutputTimeDeviceId", "OutputTime[hms]", "OutputTime[sec]",
+        "PositionLatDeviceCode", "PositionLatDeviceId", "PositionLatValue",
+        "PositionLonDeviceCode", "PositionLonDeviceId", "PositionLonValue",
+        "PositionAltDeviceCode", "PositionAltDeviceId", "PositionAltValue",
+        "EulerRollDeviceCode", "EulerRollDeviceId", "EulerRollValue",
+        "EulerPitchDeviceCode", "EulerPitchDeviceId", "EulerPitchValue",
+        "EulerAzimuthDeviceCode", "EulerAzimuthDeviceId", "EulerAzimuthValue",
+        "EulerRollRateDeviceCode", "EulerRollRateDeviceId", "EulerRollRateValue",
+        "EulerPitchRateDeviceCode", "EulerPitchRateDeviceId", "EulerPitchRateValue",
+        "EulerAzimuthRateDeviceCode", "EulerAzimuthRateDeviceId", "EulerAzimuthRateValue",
+        "VelocityTotalDeviceCode", "VelocityTotalDeviceId", "VelocityTotalValue",
+        "VelocityNorthDeviceCode", "VelocityNorthDeviceId", "VelocityNorthValue",
+        "VelocityEastDeviceCode", "VelocityEastDeviceId", "VelocityEastValue",
+        "VelocityDownDeviceCode", "VelocityDownDeviceId", "VelocityDownValue",
+        "StatusDeviceCode", "StatusDeviceId", "StatusValue",
+        "CourseDeviceCode", "CourseDeviceId", "CourseValue"
+    };
     #endregion
 
     #region Properties
@@ -285,6 +308,16 @@ public sealed class CsvPlaybackService : IPlaybackService
     {
         if (string.IsNullOrEmpty(i_Line)) return Array.Empty<string>();
         return i_Line.Split(',').Select(s => s.Trim()).ToArray();
+    }
+
+    // Creating the template
+    public async Task CreateTemplateAsync(string i_FilePath)
+    {
+        if (string.IsNullOrWhiteSpace(i_FilePath)) { throw new ArgumentNullException(nameof(i_FilePath)); }
+
+        string header = string.Join(",", c_CsvSchema);
+
+        await File.WriteAllTextAsync(i_FilePath, header, Encoding.UTF8).ConfigureAwait(false);
     }
 
     // Clean up resources when the service is disposed.

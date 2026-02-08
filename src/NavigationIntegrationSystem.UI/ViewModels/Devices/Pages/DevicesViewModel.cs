@@ -1,11 +1,14 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Models.Devices;
+using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Catalog;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Runtime;
@@ -13,8 +16,10 @@ using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
 using NavigationIntegrationSystem.UI.Enums;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
+using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
+
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -28,6 +33,8 @@ public sealed partial class DevicesViewModel : ObservableObject
     private readonly DevicesConfigService m_ConfigService;
     private readonly DevicesConfigFile m_ConfigFile;
     private readonly ILogService m_LogService;
+    private readonly IFilePickerService m_FilePickerService;
+    private readonly IPlaybackService m_PlaybackService;
     private DeviceCardViewModel? m_SelectedDevice;
     private bool m_IsPaneOpen;
     private DevicesPaneMode m_PaneMode;
@@ -65,12 +72,15 @@ public sealed partial class DevicesViewModel : ObservableObject
     #endregion
 
     #region Ctors
-    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, ILogService i_LogService, IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry)
+    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, ILogService i_LogService, 
+        IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry, IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService)
     {
         m_ConfigService = i_ConfigService;
         m_LogService = i_LogService;
         m_DialogService = i_DialogService;
         m_ConfigFile = m_ConfigService.Load();
+        m_FilePickerService = i_FilePickerService;
+        m_PlaybackService = i_PlaybackService;
 
         m_IsPaneOpen = false;
         m_PaneMode = DevicesPaneMode.None;
@@ -116,7 +126,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         if (i_Device == null) { return; }
 
         SelectedDevice = i_Device;
-        CurrentSettingsPane = new DeviceSettingsPaneViewModel(this, i_Device);
+        CurrentSettingsPane = new DeviceSettingsPaneViewModel(this, i_Device, m_FilePickerService, m_PlaybackService);
         PaneMode = DevicesPaneMode.Settings;
         IsPaneOpen = true;
     }

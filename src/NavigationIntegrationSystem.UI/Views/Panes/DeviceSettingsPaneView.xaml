@@ -114,6 +114,43 @@
                 </StackPanel>
             </Border>
 
+            <!--  Playback  -->
+            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Playback}">
+                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
+                    <TextBlock FontSize="16" Opacity="0.8" Text="Playback" />
+
+                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Source File" />
+                        <Grid Grid.Row="0" Grid.Column="1" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" IsReadOnly="False" PlaceholderText="C:\Data\recording.csv" Text="{Binding Draft.PlaybackFilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Grid.Column="1" Command="{Binding BrowseFileCommand}">
+                                <SymbolIcon Symbol="BrowsePhotos" />
+                            </Button>
+                        </Grid>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Loop Playback" />
+                        <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding Draft.PlaybackLoop, Mode=TwoWay}" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Tools" />
+                        <Button Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Command="{Binding ExportTemplateCommand}" Content="Export CSV Template" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

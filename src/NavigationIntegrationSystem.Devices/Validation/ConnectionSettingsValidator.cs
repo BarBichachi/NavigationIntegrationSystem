@@ -2,6 +2,7 @@
 using NavigationIntegrationSystem.Devices.Models;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 
 namespace NavigationIntegrationSystem.Devices.Validation;
 
@@ -28,6 +29,10 @@ public static class ConnectionSettingsValidator
 
             case DeviceConnectionKind.Serial:
                 ValidateSerial(i_Settings, errors);
+                break;
+
+            case DeviceConnectionKind.Playback:
+                ValidatePlayback(i_Settings, errors);
                 break;
 
             default:
@@ -69,6 +74,21 @@ public static class ConnectionSettingsValidator
 
         if (string.IsNullOrWhiteSpace(i_Settings.Serial.ComPort)) { io_Errors.Add($"Serial COM port is required: '{i_Settings.Serial.ComPort}'"); }
         if (i_Settings.Serial.BaudRate <= 0) { io_Errors.Add($"Serial baud rate must be greater than 0: {i_Settings.Serial.BaudRate}"); }
+    }
+
+    // Validates Playback settings
+    private static void ValidatePlayback(DeviceConnectionSettings i_Settings, List<string> io_Errors)
+    {
+        if (i_Settings.Playback == null) { io_Errors.Add("Playback settings are missing"); return; }
+
+        if (string.IsNullOrWhiteSpace(i_Settings.Playback.FilePath))
+        {
+            io_Errors.Add("Playback file path is required");
+        }
+        else if (!File.Exists(i_Settings.Playback.FilePath))
+        {
+            io_Errors.Add($"File not found: '{i_Settings.Playback.FilePath}'");
+        }
     }
 
     // Checks whether an integer is a valid TCP/UDP port number

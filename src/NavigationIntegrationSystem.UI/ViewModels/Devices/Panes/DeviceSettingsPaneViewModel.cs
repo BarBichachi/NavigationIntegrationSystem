@@ -1,15 +1,22 @@
 ﻿using CommunityToolkit.Mvvm.Input;
+
 using Microsoft.UI.Xaml;
+
+using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Enums;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Validation;
+using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
+
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
@@ -19,6 +26,8 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     #region Private Fields
     private readonly DevicesViewModel m_Parent;
     private readonly DeviceCardViewModel m_Device;
+    private readonly IFilePickerService m_FilePickerService;
+    private readonly IPlaybackService m_PlaybackService;
     private DeviceConfig m_OriginalSnapshot;
     private bool m_HasUnsavedChanges;
     private bool m_IsLoadingDraft;
@@ -37,18 +46,25 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     #region Commands
     public IRelayCommand ApplyCommand { get; }
     public IRelayCommand DiscardCommand { get; }
+    public IAsyncRelayCommand BrowseFileCommand { get; }
+    public IAsyncRelayCommand ExportTemplateCommand { get; }
     #endregion
 
     #region Ctors
-    public DeviceSettingsPaneViewModel(DevicesViewModel i_Parent, DeviceCardViewModel i_Device)
+    public DeviceSettingsPaneViewModel(DevicesViewModel i_Parent, DeviceCardViewModel i_Device, 
+        IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService)
     {
         m_Parent = i_Parent;
         m_Device = i_Device;
+        m_FilePickerService = i_FilePickerService;
+        m_PlaybackService = i_PlaybackService;
 
         Draft = new DeviceSettingsDraftViewModel();
 
         ApplyCommand = new RelayCommand(() => _ = TryApply());
         DiscardCommand = new RelayCommand(OnDiscard);
+        BrowseFileCommand = new AsyncRelayCommand(OnBrowseFileAsync);
+        ExportTemplateCommand = new AsyncRelayCommand(OnExportTemplateAsync);
 
         m_OriginalSnapshot = m_Device.Config.DeepClone();
 
@@ -231,6 +247,42 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     public void OnPaneClosing()
     {
         UnsubscribeDraft();
+    }
+    #endregion
+
+    #region Command Handlers
+    // Opens a file picker for .csv files
+    private async Task OnBrowseFileAsync()
+    {
+        string? path = await m_FilePickerService.PickSingleFileAsync(new[] { ".csv" });
+        if (!string.IsNullOrEmpty(path))
+        {
+            Draft.PlaybackFilePath = path;
+        }
+    }
+
+    // Exports a CSV template using the Playback Service
+    private async Task OnExportTemplateAsync()
+    {
+        string defaultName = "Playback_Template.csv";
+        var choices = new Dictionary<string, IList<string>> { { "CSV File", new List<string> { ".csv" } } };
+
+        // 1. Ask User for Path (UI Service)
+        string? path = await m_FilePickerService.PickSaveFileAsync(defaultName, choices);
+
+        if (string.IsNullOrEmpty(path)) { return; }
+
+        try
+        {
+            // 2. Ask Domain to Generate File (Infrastructure Service)
+            await m_PlaybackService.CreateTemplateAsync(path);
+
+            m_Device.LogService.Info(nameof(DeviceSettingsPaneViewModel), $"Exported template to {path}");
+        }
+        catch (Exception ex)
+        {
+            m_Device.LogService.Error(nameof(DeviceSettingsPaneViewModel), "Failed to export template", ex);
+        }
     }
 
     // Discard command handler

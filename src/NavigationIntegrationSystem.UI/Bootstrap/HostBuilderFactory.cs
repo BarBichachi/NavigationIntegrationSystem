@@ -19,6 +19,7 @@ using NavigationIntegrationSystem.Infrastructure.Recording;
 using NavigationIntegrationSystem.UI.Services.Logging;
 using NavigationIntegrationSystem.UI.Services.Recording;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
+using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
@@ -72,9 +73,10 @@ public static class HostBuilderFactory
                 services.AddSingleton<IntegrationSnapshotService>();
                 services.AddSingleton<CsvTestingService>();
 
-                // 7. UI Navigation & Support
+                // 7. UI Services
                 services.AddSingleton<IDialogService, DialogService>();
                 services.AddSingleton<NavigationService>();
+                services.AddSingleton<IFilePickerService>(sp => new FilePickerService(sp.GetRequiredService<MainWindow>()));
 
                 // 8. ViewModels (All Singletons to maintain state across pages)
                 services.AddSingleton<MainViewModel>();
