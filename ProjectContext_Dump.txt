@@ -1,5 +1,5 @@
 ﻿// ---------------------------------------------------------
-// GENERATED: 2026-02-08 14:14:13
+// GENERATED: 2026-02-09 14:59:46
 // PROJECT: NavigationIntegrationSystem (WinUI 3 / C#)
 // ---------------------------------------------------------
 
@@ -529,7 +529,34 @@ These files currently live in Infrastructure/UI but are destined for the main so
 
 ## 1. Feature Implementation
 
-* Playback Mode (File as Source): Implement "Recorded file" as a virtual INS source with play/pause/seek controls.
+### 1.1 Core Infrastructure (Playback Service)
+- [ ] **CSV Data Engine:** Implement line-by-line `StreamReader` to handle large files without memory spikes.
+- [ ] **Timing Engine:** Logic to calculate deltas between CSV timestamps to maintain authentic 1x playback speed.
+- [ ] **State Machine:** Track Play/Pause/Stop/Seek states and the current line index/total lines.
+- [ ] **Data Dispatcher:** Broadcast the current CSV row as a telemetry object to the Playback Device.
+
+### 1.2 Device Domain (Playback Device)
+- [ ] **Type Registration:** Add `DeviceType.Playback` to Core Enums.
+- [ ] **Device Implementation:** Create `PlaybackInsDevice` (inherits `InsDeviceBase`).
+- [ ] **Lifecycle Management:** - Disconnected: No file selected.
+    - Ready: File validated (header check).
+    - Connected: Playback column active in Integration Grid.
+- [ ] **Telemetry Mapping:** Map CSV columns to `InspectFields` for live viewing in the Inspect pane.
+
+### 1.3 UI & UX (Settings & Controls)
+- [ ] **Playback Settings Pane:** - Implement File Picker for `.csv` selection.
+    - Implement **"Export Playback Template"** button (generates CSV with required headers).
+    - Add "Loop" toggle.
+- [ ] **Global Playback Tray:**
+    - Create a persistent bottom bar in `MainWindow`.
+    - Controls: Play/Pause, Stop (Reset), and a Seeker Slider (Line 0 to Line Count).
+    - Visibility: Only visible when the Playback Device is "Connected".
+
+### 1.4 Integration Logic
+- [ ] **Column Injection:** Ensure `IntegrationViewModel` detects the Playback device and adds the column automatically.
+- [ ] **Source Selection:** Allow users to select "Playback" as the source for any specific field (Lat, Lon, Roll, etc.).
+
+
 * Real Device Telemetry: Replace Tick() dummy random deltas with actual data parsing from connected devices.
 
 ## 2. Final Verification
@@ -597,7 +624,7 @@ These files currently live in Infrastructure/UI but are destined for the main so
 - If a file is missing from context, ask for it or propose its creation if it's a new requirement.
 
 // ---------------------------------------------------------
-// FILE: .\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\appsettings.json
+// FILE: .\src\NavigationIntegrationSystem.UI\appsettings.json
 // ---------------------------------------------------------
 
 {
@@ -609,733 +636,6 @@ These files currently live in Infrastructure/UI but are destined for the main so
   }
 }
 
-
-// ---------------------------------------------------------
-// FILE: .\IntegratedInsOutputItem.cs
-// ---------------------------------------------------------
-
-using Infrastructure.FileManagement.DataRecording;
-using Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput;
-using System;
-using System.Collections.Generic;
-
-namespace RecordDecoderPro.ItemTemplates
-{
-    internal sealed class IntegratedInsOutputItem : RecordTypeItem
-    {
-        #region Properties
-
-        public IntegratedInsOutputDictionary OutputDict { get; private set; }
-
-        #endregion
-
-        #region Columns
-
-        public static readonly string[] IntegratedInsOutputColumns =
-        {
-            "RcvTime[hms]", "RcvTime[sec]",
-
-            "OutputTimeDeviceCode", "OutputTimeDeviceId", "OutputTime[hms]", "OutputTime[sec]",
-
-            "PositionLatDeviceCode", "PositionLatDeviceId", "PositionLatValue",
-            "PositionLonDeviceCode", "PositionLonDeviceId", "PositionLonValue",
-            "PositionAltDeviceCode", "PositionAltDeviceId", "PositionAltValue",
-
-            "EulerRollDeviceCode", "EulerRollDeviceId", "EulerRollValue",
-            "EulerPitchDeviceCode", "EulerPitchDeviceId", "EulerPitchValue",
-            "EulerAzimuthDeviceCode", "EulerAzimuthDeviceId", "EulerAzimuthValue",
-
-            "EulerRollRateDeviceCode", "EulerRollRateDeviceId", "EulerRollRateValue",
-            "EulerPitchRateDeviceCode", "EulerPitchRateDeviceId", "EulerPitchRateValue",
-            "EulerAzimuthRateDeviceCode", "EulerAzimuthRateDeviceId", "EulerAzimuthRateValue",
-
-            "VelocityTotalDeviceCode", "VelocityTotalDeviceId", "VelocityTotalValue",
-            "VelocityNorthDeviceCode", "VelocityNorthDeviceId", "VelocityNorthValue",
-            "VelocityEastDeviceCode", "VelocityEastDeviceId", "VelocityEastValue",
-            "VelocityDownDeviceCode", "VelocityDownDeviceId", "VelocityDownValue",
-
-            "StatusDeviceCode", "StatusDeviceId", "StatusValue",
-            "CourseDeviceCode", "CourseDeviceId", "CourseValue",
-        };
-
-        #endregion
-
-        #region Triplet Helpers
-
-        public IntegratedValueTriplet PositionLat => new(LatitudeDeviceCode, LatitudeDeviceId, Position.Lat);
-        public IntegratedValueTriplet PositionLon => new(LongitudeDeviceCode, LongitudeDeviceId, Position.Lon);
-        public IntegratedValueTriplet PositionAlt => new(AltitudeDeviceCode, AltitudeDeviceId, Position.Alt);
-
-        public IntegratedValueTriplet EulerRoll => new(RollDeviceCode, RollDeviceId, EulerData.Angles.Roll);
-        public IntegratedValueTriplet EulerPitch => new(PitchDeviceCode, PitchDeviceId, EulerData.Angles.Pitch);
-        public IntegratedValueTriplet EulerAzimuth => new(AzimuthDeviceCode, AzimuthDeviceId, EulerData.Angles.Yaw);
-
-        public IntegratedValueTriplet EulerRollRate => new(RollRateDeviceCode, RollRateDeviceId, EulerData.Rates.Roll);
-        public IntegratedValueTriplet EulerPitchRate => new(PitchRateDeviceCode, PitchRateDeviceId, EulerData.Rates.Pitch);
-        public IntegratedValueTriplet EulerAzimuthRate => new(AzimuthRateDeviceCode, AzimuthRateDeviceId, EulerData.Rates.Yaw);
-
-        public IntegratedValueTriplet VelocityTotal => new(VelocityTotalDeviceCode, VelocityTotalDeviceId, VelocityTotal);
-        public IntegratedValueTriplet VelocityNorth => new(VelocityNorthDeviceCode, VelocityNorthDeviceId, VelocityVector.North);
-        public IntegratedValueTriplet VelocityEast => new(VelocityEastDeviceCode, VelocityEastDeviceId, VelocityVector.East);
-        public IntegratedValueTriplet VelocityDown => new(VelocityDownDeviceCode, VelocityDownDeviceId, VelocityVector.Down);
-
-        public IntegratedValueTriplet Status => new(StatusDeviceCode, StatusDeviceId, StatusValue);
-        public IntegratedValueTriplet Course => new(CourseDeviceCode, CourseDeviceId, Course);
-
-        #endregion
-
-        #region Constructors
-
-        public IntegratedInsOutputItem() : base()
-        {
-            ColumnsNames = IntegratedInsOutputColumns;
-        }
-
-        #endregion
-
-        #region Functions
-
-        // Initializes item dictionary from raw binary payload
-        public void InitializeDict(DataRecordHeader i_Header, byte[] i_RawData)
-        {
-            OutputDict = new IntegratedInsOutputDictionary(i_Header, i_RawData);
-            dict = OutputDict.Dictionary;
-        }
-
-        #endregion
-
-        #region Nested Types
-
-        internal sealed class IntegratedInsOutputDictionary
-        {
-            #region Properties
-
-            public Dictionary<string, string> Dictionary { get; }
-
-            #endregion
-
-            #region Constructors
-
-            public IntegratedInsOutputDictionary(DataRecordHeader i_Header, byte[] i_RawData)
-            {
-                Dictionary = new Dictionary<string, string>();
-                Process(i_Header, i_RawData);
-            }
-
-            #endregion
-
-            #region Private Functions
-
-            // Decodes integrated output using a CommFrame and formats values into CSV-ready columns
-            private void Process(DataRecordHeader i_Header, byte[] i_RawData)
-            {
-                int i = 0;
-
-                IntegratedInsOutputCommFrame frame = new IntegratedInsOutputCommFrame();
-                frame.DecodeBinaryData(i_RawData, i_Header.DataLength);
-
-                DateTime rcvTime = DateTime.FromBinary(i_Header.Time);
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{rcvTime:HH:mm:ss.fff},");
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{rcvTime.TimeOfDay.TotalSeconds:F4},");
-
-                DateTime outputTime = frame.Data.OutputTimeUtc;
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{frame.Data.OutputTimeDeviceCode},");
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{frame.Data.OutputTimeDeviceId},");
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{outputTime:HH:mm:ss.fff},");
-                Dictionary.Add(IntegratedInsOutputColumns[i++], $"{outputTime.TimeOfDay.TotalSeconds:F4},");
-
-                AddTriplet(ref i, frame.Data.PositionLat);
-                AddTriplet(ref i, frame.Data.PositionLon);
-                AddTriplet(ref i, frame.Data.PositionAlt);
-
-                AddTriplet(ref i, frame.Data.EulerRoll);
-                AddTriplet(ref i, frame.Data.EulerPitch);
-                AddTriplet(ref i, frame.Data.EulerAzimuth);
-
-                AddTriplet(ref i, frame.Data.EulerRollRate);
-                AddTriplet(ref i, frame.Data.EulerPitchRate);
-                AddTriplet(ref i, frame.Data.EulerAzimuthRate);
-
-                AddTriplet(ref i, frame.Data.VelocityTotal);
-                AddTriplet(ref i, frame.Data.VelocityNorth);
-                AddTriplet(ref i, frame.Data.VelocityEast);
-                AddTriplet(ref i, frame.Data.VelocityDown);
-
-                AddTriplet(ref i, frame.Data.Status);
-                AddTriplet(ref i, frame.Data.Course);
-            }
-
-            // Adds DeviceCode + DeviceId + Value using the current column index
-            private void AddTriplet(ref int io_Index, IntegratedValueTriplet i_Triplet)
-            {
-                Dictionary.Add(IntegratedInsOutputColumns[io_Index++], $"{i_Triplet.DeviceCode},");
-                Dictionary.Add(IntegratedInsOutputColumns[io_Index++], $"{i_Triplet.DeviceId},");
-                Dictionary.Add(IntegratedInsOutputColumns[io_Index++], $"{i_Triplet.Value:F8},");
-            }
-
-            #endregion
-        }
-
-        #endregion
-    }
-}
-
-
-// ---------------------------------------------------------
-// FILE: .\IntegratedInsOutputStatusFlags.cs
-// ---------------------------------------------------------
-
-using System;
-using System.IO;
-
-namespace Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput;
-
-// Unified status flags for IntegratedInsOutput_Data StatusValue (bitmask)
-[Flags]
-public enum IntegratedInsOutputStatusFlags : uint
-{
-    None = 0,
-
-    // Time
-    OutputTimeValid = 1u << 0,
-
-    // Position
-    PositionLatValid = 1u << 1,
-    PositionLonValid = 1u << 2,
-    PositionAltValid = 1u << 3,
-
-    // Euler Angles
-    RollValid = 1u << 4,
-    PitchValid = 1u << 5,
-    AzimuthValid = 1u << 6,
-
-    // Euler Rates
-    RollRateValid = 1u << 7,
-    PitchRateValid = 1u << 8,
-    AzimuthRateValid = 1u << 9,
-
-    // Velocity
-    VelocityTotalValid = 1u << 10,
-    VelocityNorthValid = 1u << 11,
-    VelocityEastValid = 1u << 12,
-    VelocityDownValid = 1u << 13,
-
-    // Course
-    CourseValid = 1u << 14,
-
-    // Generic / future
-    Reserved15 = 1u << 15
-}
-
-// ---------------------------------------------------------
-// FILE: .\IntegratedInsOutput_CommFrame.cs
-// ---------------------------------------------------------
-
-using Infrastructure.Enums;
-using System.IO;
-
-namespace Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput;
-
-// Builds/decodes the integrated INS output binary frame (sync + payload + checksum)
-public sealed class IntegratedInsOutput_CommFrame
-{
-    #region Constants
-
-    // Frame sync byte (define a real constant and keep it stable once chosen)
-    private const byte m_Sync = 0x50;
-
-    #endregion
-
-    #region Private Fields
-
-    private readonly object m_LockObject;
-    private IntegratedInsOutputData m_Data;
-    private byte m_Checksum;
-
-    #endregion
-
-    #region Properties
-
-    public static int BinLength { get; } = IntegratedInsOutputData.BinLength + 2 * sizeof(byte);
-
-    public IntegratedInsOutputData Data
-    {
-        get { lock (m_LockObject) { return m_Data.Clone(); } }
-    }
-
-    #endregion
-
-    #region Constructors
-
-    // Creates a new integrated output comm frame
-    public IntegratedInsOutput_CommFrame()
-    {
-        m_LockObject = new object();
-        m_Data = new IntegratedInsOutputData();
-        m_Checksum = 0;
-    }
-
-    #endregion
-
-    #region Decode
-
-    // Decodes a full frame from a byte array
-    public BinaryDataDecodingStatus DecodeBinaryData(byte[] i_BinaryData, int i_DataSize)
-    {
-        if (i_BinaryData == null || i_DataSize <= 0) { return BinaryDataDecodingStatus.LengthError; }
-        if (i_DataSize < BinLength) { return BinaryDataDecodingStatus.LengthError; }
-
-        using (MemoryStream m = new MemoryStream(i_BinaryData))
-        using (BinaryReader reader = new BinaryReader(m))
-        {
-            return DecodeBinaryData(reader, i_BinaryData, i_DataSize);
-        }
-    }
-
-    // Decodes a full frame from a reader (and optionally validates checksum using the source buffer)
-    public BinaryDataDecodingStatus DecodeBinaryData(BinaryReader i_Reader, byte[] i_SourceBuffer, int i_DataSize)
-    {
-        if (i_Reader == null) { return BinaryDataDecodingStatus.LengthError; }
-        if (i_DataSize < BinLength) { return BinaryDataDecodingStatus.LengthError; }
-
-        byte sync = i_Reader.ReadByte();
-
-        IntegratedInsOutputData tmpData = new IntegratedInsOutputData();
-        tmpData.ReadBinary(i_Reader);
-
-        byte checksum = i_Reader.ReadByte();
-
-        if (sync != m_Sync) { return BinaryDataDecodingStatus.SyncError; }
-
-        // Validates checksum (keep enabled/disabled consistently across the whole recording ecosystem)
-        if (i_SourceBuffer != null)
-        {
-            byte expected = CalculateChecksum(i_SourceBuffer, BinLength);
-            // If you want strict validation, uncomment this check (and match it in the encoder)
-            // if (checksum != expected) { return BinaryDataDecodingStatus.ChecksumError; }
-        }
-
-        lock (m_LockObject)
-        {
-            m_Data = tmpData;
-            m_Checksum = checksum;
-        }
-
-        return BinaryDataDecodingStatus.Success;
-    }
-
-    #endregion
-
-    #region Encode
-
-    // Encodes a full frame into a provided output array
-    public void EncodeBinaryData(ref byte[] io_OutArray, ref int io_Size)
-    {
-        if (io_OutArray == null || io_OutArray.Length < BinLength) { io_Size = 0; return; }
-
-        using (MemoryStream m = new MemoryStream(io_OutArray))
-        using (BinaryWriter writer = new BinaryWriter(m))
-        {
-            writer.Write(m_Sync);
-
-            IntegratedInsOutputData snapshot = Data;
-            snapshot.Encode(writer);
-
-            writer.Write((byte)0); // placeholder checksum, overwritten below
-        }
-
-        byte checksum = CalculateChecksum(io_OutArray, BinLength);
-        io_OutArray[BinLength - 1] = checksum;
-        io_Size = BinLength;
-
-        lock (m_LockObject)
-        {
-            m_Checksum = checksum;
-        }
-    }
-
-    #endregion
-
-    #region Private Helpers
-
-    // Calculates a simple additive checksum over the frame, excluding the checksum byte itself
-    private static byte CalculateChecksum(byte[] i_Buffer, int i_FrameLength)
-    {
-        byte checksum = 0;
-
-        // Sum bytes [1..FrameLength-2] like StdInsCommFrame (exclude sync at 0 and checksum at last)
-        for (int i = 1; i < i_FrameLength - 1; i++)
-        {
-            checksum += i_Buffer[i];
-        }
-
-        return checksum;
-    }
-
-    #endregion
-}
-
-
-// ---------------------------------------------------------
-// FILE: .\IntegratedInsOutput_Data.cs
-// ---------------------------------------------------------
-
-using System;
-using System.IO;
-
-using Infrastructure.DataStructures;
-using Infrastructure.Navigation.EulerCalculations;
-
-namespace Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput;
-
-public sealed class IntegratedInsOutput_Data
-{
-    #region Private Fields
-    private DateTime m_OutputTime;
-    private WGS84Data m_Position;
-    private EulerData m_EulerData;
-    private NEDData m_NedVelocity;
-    private double m_Course;
-    private uint m_StatusValue;
-    private readonly object m_LockObject;
-    #endregion
-
-    #region Properties
-
-    // Output time (selected source)
-    public ushort OutputTimeDeviceCode { get; set; }
-    public ushort OutputTimeDeviceId { get; set; }
-    public DateTime OutputTime { get { lock (m_LockObject) { return m_OutputTime; } } set { lock (m_LockObject) { m_OutputTime = value; } } }
-
-    // Position sources (per field)
-    public ushort LatitudeDeviceCode { get; set; }
-    public ushort LatitudeDeviceId { get; set; }
-    public ushort LongitudeDeviceCode { get; set; }
-    public ushort LongitudeDeviceId { get; set; }
-    public ushort AltitudeDeviceCode { get; set; }
-    public ushort AltitudeDeviceId { get; set; }
-
-    // Euler angles sources (per field)
-    public ushort RollDeviceCode { get; set; }
-    public ushort RollDeviceId { get; set; }
-    public ushort PitchDeviceCode { get; set; }
-    public ushort PitchDeviceId { get; set; }
-    public ushort AzimuthDeviceCode { get; set; }
-    public ushort AzimuthDeviceId { get; set; }
-
-    // Euler rates sources (per field)
-    public ushort RollRateDeviceCode { get; set; }
-    public ushort RollRateDeviceId { get; set; }
-    public ushort PitchRateDeviceCode { get; set; }
-    public ushort PitchRateDeviceId { get; set; }
-    public ushort AzimuthRateDeviceCode { get; set; }
-    public ushort AzimuthRateDeviceId { get; set; }
-
-    // Velocity sources (per field)
-    public ushort VelocityTotalDeviceCode { get; set; }
-    public ushort VelocityTotalDeviceId { get; set; }
-    public ushort VelocityNorthDeviceCode { get; set; }
-    public ushort VelocityNorthDeviceId { get; set; }
-    public ushort VelocityEastDeviceCode { get; set; }
-    public ushort VelocityEastDeviceId { get; set; }
-    public ushort VelocityDownDeviceCode { get; set; }
-    public ushort VelocityDownDeviceId { get; set; }
-
-    // Status sources (single value)
-    public ushort StatusDeviceCode { get; set; }
-    public ushort StatusDeviceId { get; set; }
-    public uint StatusValue { get { lock (m_LockObject) { return m_StatusValue; } } set { lock (m_LockObject) { m_StatusValue = value; } } }
-
-    // Course sources (single value)
-    public ushort CourseDeviceCode { get; set; }
-    public ushort CourseDeviceId { get; set; }
-
-    // Position (values)
-    public WGS84Data Position { get { lock (m_LockObject) { return m_Position.Clone(); } } set { lock (m_LockObject) { m_Position = value.Clone(); } } }
-    public WGS84Data Position_Deg { get { lock (m_LockObject) { var p = m_Position.Clone(); p.ConvertToDegrees(); return p; } } }
-
-    // Euler (values)
-    public EulerData EulerData { get { lock (m_LockObject) { return m_EulerData.Clone(); } } set { lock (m_LockObject) { m_EulerData = value.Clone(); } } }
-    public EulerData EulerData_Deg { get { lock (m_LockObject) { var e = m_EulerData.Clone(); e.ConvertToDegrees(); return e; } } }
-
-    // Velocity (values)
-    public NEDData VelocityVector { get { lock (m_LockObject) { return m_NedVelocity.Clone(); } } set { lock (m_LockObject) { m_NedVelocity = value.Clone(); } } }
-    public double VelocityTotal { get { lock (m_LockObject) { return Math.Sqrt(m_NedVelocity.Down * m_NedVelocity.Down + m_NedVelocity.East * m_NedVelocity.East + m_NedVelocity.North * m_NedVelocity.North); } } }
-
-    // Course (value)
-    public double Course { get { lock (m_LockObject) { return m_Course; } } set { lock (m_LockObject) { m_Course = value; } } }
-
-    // Binary payload length for CommFrame Encode/Decode
-    public static int BinLength
-    {
-        get
-        {
-            // OutputTime: DeviceCode(ushort) + DeviceId(ushort) + DateTimeBinary(long)
-            // 14 numeric fields: each DeviceCode(ushort) + DeviceId(ushort) + Value(double)
-            // Status: DeviceCode(ushort) + DeviceId(ushort) + Value(uint)
-            return (2 * sizeof(ushort) + sizeof(long)) + (14 * (2 * sizeof(ushort) + sizeof(double))) + (2 * sizeof(ushort) + sizeof(uint));
-        }
-    }
-
-    #endregion
-
-    #region Constructors
-
-    // Creates a new integrated output data instance
-    public IntegratedInsOutput_Data()
-    {
-        m_LockObject = new object();
-        m_Position = new WGS84Data();
-        m_EulerData = new EulerData();
-        m_NedVelocity = new NEDData();
-        Clear();
-    }
-
-    #endregion
-
-    #region Functions
-
-    // Resets values and sources to defaults
-    public void Clear()
-    {
-        lock (m_LockObject)
-        {
-            OutputTimeDeviceCode = 0; OutputTimeDeviceId = 0; m_OutputTime = DateTime.UtcNow;
-
-            LatitudeDeviceCode = 0; LatitudeDeviceId = 0;
-            LongitudeDeviceCode = 0; LongitudeDeviceId = 0;
-            AltitudeDeviceCode = 0; AltitudeDeviceId = 0;
-
-            RollDeviceCode = 0; RollDeviceId = 0;
-            PitchDeviceCode = 0; PitchDeviceId = 0;
-            AzimuthDeviceCode = 0; AzimuthDeviceId = 0;
-
-            RollRateDeviceCode = 0; RollRateDeviceId = 0;
-            PitchRateDeviceCode = 0; PitchRateDeviceId = 0;
-            AzimuthRateDeviceCode = 0; AzimuthRateDeviceId = 0;
-
-            VelocityTotalDeviceCode = 0; VelocityTotalDeviceId = 0;
-            VelocityNorthDeviceCode = 0; VelocityNorthDeviceId = 0;
-            VelocityEastDeviceCode = 0; VelocityEastDeviceId = 0;
-            VelocityDownDeviceCode = 0; VelocityDownDeviceId = 0;
-
-            StatusDeviceCode = 0; StatusDeviceId = 0; m_StatusValue = 0;
-
-            CourseDeviceCode = 0; CourseDeviceId = 0; m_Course = 0;
-
-            m_Position.Clear();
-            m_EulerData.Clear();
-            m_NedVelocity.Clear();
-        }
-    }
-
-    // Creates a deep copy of the instance
-    public IntegratedInsOutput_Data Clone()
-    {
-        var outValue = new IntegratedInsOutput_Data();
-        lock (m_LockObject)
-        {
-            outValue.OutputTimeDeviceCode = OutputTimeDeviceCode;
-            outValue.OutputTimeDeviceId = OutputTimeDeviceId;
-            outValue.m_OutputTime = m_OutputTime;
-
-            outValue.LatitudeDeviceCode = LatitudeDeviceCode; outValue.LatitudeDeviceId = LatitudeDeviceId;
-            outValue.LongitudeDeviceCode = LongitudeDeviceCode; outValue.LongitudeDeviceId = LongitudeDeviceId;
-            outValue.AltitudeDeviceCode = AltitudeDeviceCode; outValue.AltitudeDeviceId = AltitudeDeviceId;
-
-            outValue.RollDeviceCode = RollDeviceCode; outValue.RollDeviceId = RollDeviceId;
-            outValue.PitchDeviceCode = PitchDeviceCode; outValue.PitchDeviceId = PitchDeviceId;
-            outValue.AzimuthDeviceCode = AzimuthDeviceCode; outValue.AzimuthDeviceId = AzimuthDeviceId;
-
-            outValue.RollRateDeviceCode = RollRateDeviceCode; outValue.RollRateDeviceId = RollRateDeviceId;
-            outValue.PitchRateDeviceCode = PitchRateDeviceCode; outValue.PitchRateDeviceId = PitchRateDeviceId;
-            outValue.AzimuthRateDeviceCode = AzimuthRateDeviceCode; outValue.AzimuthRateDeviceId = AzimuthRateDeviceId;
-
-            outValue.VelocityTotalDeviceCode = VelocityTotalDeviceCode; outValue.VelocityTotalDeviceId = VelocityTotalDeviceId;
-            outValue.VelocityNorthDeviceCode = VelocityNorthDeviceCode; outValue.VelocityNorthDeviceId = VelocityNorthDeviceId;
-            outValue.VelocityEastDeviceCode = VelocityEastDeviceCode; outValue.VelocityEastDeviceId = VelocityEastDeviceId;
-            outValue.VelocityDownDeviceCode = VelocityDownDeviceCode; outValue.VelocityDownDeviceId = VelocityDownDeviceId;
-
-            outValue.StatusDeviceCode = StatusDeviceCode; outValue.StatusDeviceId = StatusDeviceId; outValue.m_StatusValue = m_StatusValue;
-
-            outValue.CourseDeviceCode = CourseDeviceCode; outValue.CourseDeviceId = CourseDeviceId; outValue.m_Course = m_Course;
-
-            outValue.m_Position = m_Position.Clone();
-            outValue.m_EulerData = m_EulerData.Clone();
-            outValue.m_NedVelocity = m_NedVelocity.Clone();
-        }
-        return outValue;
-    }
-
-    // Reads the binary payload in the locked field order
-    public void ReadBinary(BinaryReader i_Reader)
-    {
-        lock (m_LockObject)
-        {
-            OutputTimeDeviceCode = i_Reader.ReadUInt16();
-            OutputTimeDeviceId = i_Reader.ReadUInt16();
-            m_OutputTime = DateTime.FromBinary(i_Reader.ReadInt64());
-
-            LatitudeDeviceCode = i_Reader.ReadUInt16();
-            LatitudeDeviceId = i_Reader.ReadUInt16();
-            m_Position.Lat = i_Reader.ReadDouble();
-
-            LongitudeDeviceCode = i_Reader.ReadUInt16();
-            LongitudeDeviceId = i_Reader.ReadUInt16();
-            m_Position.Lon = i_Reader.ReadDouble();
-
-            AltitudeDeviceCode = i_Reader.ReadUInt16();
-            AltitudeDeviceId = i_Reader.ReadUInt16();
-            m_Position.Alt = i_Reader.ReadDouble();
-
-            RollDeviceCode = i_Reader.ReadUInt16();
-            RollDeviceId = i_Reader.ReadUInt16();
-            m_EulerData.Angles.Roll = i_Reader.ReadDouble();
-
-            PitchDeviceCode = i_Reader.ReadUInt16();
-            PitchDeviceId = i_Reader.ReadUInt16();
-            m_EulerData.Angles.Pitch = i_Reader.ReadDouble();
-
-            AzimuthDeviceCode = i_Reader.ReadUInt16();
-            AzimuthDeviceId = i_Reader.ReadUInt16();
-            m_EulerData.Angles.Yaw = i_Reader.ReadDouble();
-
-            RollRateDeviceCode = i_Reader.ReadUInt16();
-            RollRateDeviceId = i_Reader.ReadUInt16();
-            m_EulerData.Rates.Roll = i_Reader.ReadDouble();
-
-            PitchRateDeviceCode = i_Reader.ReadUInt16();
-            PitchRateDeviceId = i_Reader.ReadUInt16();
-            m_EulerData.Rates.Pitch = i_Reader.ReadDouble();
-
-            AzimuthRateDeviceCode = i_Reader.ReadUInt16();
-            AzimuthRateDeviceId = i_Reader.ReadUInt16();
-            m_EulerData.Rates.Yaw = i_Reader.ReadDouble();
-
-            VelocityTotalDeviceCode = i_Reader.ReadUInt16();
-            VelocityTotalDeviceId = i_Reader.ReadUInt16();
-            var velocityTotal = i_Reader.ReadDouble(); // Stored as a field even if derivable
-
-            VelocityNorthDeviceCode = i_Reader.ReadUInt16();
-            VelocityNorthDeviceId = i_Reader.ReadUInt16();
-            m_NedVelocity.North = i_Reader.ReadDouble();
-
-            VelocityEastDeviceCode = i_Reader.ReadUInt16();
-            VelocityEastDeviceId = i_Reader.ReadUInt16();
-            m_NedVelocity.East = i_Reader.ReadDouble();
-
-            VelocityDownDeviceCode = i_Reader.ReadUInt16();
-            VelocityDownDeviceId = i_Reader.ReadUInt16();
-            m_NedVelocity.Down = i_Reader.ReadDouble();
-
-            StatusDeviceCode = i_Reader.ReadUInt16();
-            StatusDeviceId = i_Reader.ReadUInt16();
-            m_StatusValue = i_Reader.ReadUInt32();
-
-            CourseDeviceCode = i_Reader.ReadUInt16();
-            CourseDeviceId = i_Reader.ReadUInt16();
-            m_Course = i_Reader.ReadDouble();
-
-            // Keep the stored total as-is if you later want to expose it directly
-            _ = velocityTotal;
-        }
-    }
-
-    // Encodes the binary payload in the locked field order
-    public void Encode(BinaryWriter i_Writer)
-    {
-        lock (m_LockObject)
-        {
-            i_Writer.Write(OutputTimeDeviceCode);
-            i_Writer.Write(OutputTimeDeviceId);
-            i_Writer.Write(m_OutputTime.ToBinary());
-
-            i_Writer.Write(LatitudeDeviceCode);
-            i_Writer.Write(LatitudeDeviceId);
-            i_Writer.Write(m_Position.Lat);
-
-            i_Writer.Write(LongitudeDeviceCode);
-            i_Writer.Write(LongitudeDeviceId);
-            i_Writer.Write(m_Position.Lon);
-
-            i_Writer.Write(AltitudeDeviceCode);
-            i_Writer.Write(AltitudeDeviceId);
-            i_Writer.Write(m_Position.Alt);
-
-            i_Writer.Write(RollDeviceCode);
-            i_Writer.Write(RollDeviceId);
-            i_Writer.Write(m_EulerData.Angles.Roll);
-
-            i_Writer.Write(PitchDeviceCode);
-            i_Writer.Write(PitchDeviceId);
-            i_Writer.Write(m_EulerData.Angles.Pitch);
-
-            i_Writer.Write(AzimuthDeviceCode);
-            i_Writer.Write(AzimuthDeviceId);
-            i_Writer.Write(m_EulerData.Angles.Yaw);
-
-            i_Writer.Write(RollRateDeviceCode);
-            i_Writer.Write(RollRateDeviceId);
-            i_Writer.Write(m_EulerData.Rates.Roll);
-
-            i_Writer.Write(PitchRateDeviceCode);
-            i_Writer.Write(PitchRateDeviceId);
-            i_Writer.Write(m_EulerData.Rates.Pitch);
-
-            i_Writer.Write(AzimuthRateDeviceCode);
-            i_Writer.Write(AzimuthRateDeviceId);
-            i_Writer.Write(m_EulerData.Rates.Yaw);
-
-            i_Writer.Write(VelocityTotalDeviceCode);
-            i_Writer.Write(VelocityTotalDeviceId);
-            i_Writer.Write(VelocityTotal); // Stored total
-
-            i_Writer.Write(VelocityNorthDeviceCode);
-            i_Writer.Write(VelocityNorthDeviceId);
-            i_Writer.Write(m_NedVelocity.North);
-
-            i_Writer.Write(VelocityEastDeviceCode);
-            i_Writer.Write(VelocityEastDeviceId);
-            i_Writer.Write(m_NedVelocity.East);
-
-            i_Writer.Write(VelocityDownDeviceCode);
-            i_Writer.Write(VelocityDownDeviceId);
-            i_Writer.Write(m_NedVelocity.Down);
-
-            i_Writer.Write(StatusDeviceCode);
-            i_Writer.Write(StatusDeviceId);
-            i_Writer.Write(m_StatusValue);
-
-            i_Writer.Write(CourseDeviceCode);
-            i_Writer.Write(CourseDeviceId);
-            i_Writer.Write(m_Course);
-        }
-    }
-
-    #endregion
-}
-
-
-// ---------------------------------------------------------
-// FILE: .\IntegratedValueTriplet.cs
-// ---------------------------------------------------------
-
-namespace Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput
-{
-    public struct IntegratedValueTriplet
-    {
-        public ushort DeviceCode { get; }
-        public ushort DeviceId { get; }
-        public double Value { get; }
-
-        public IntegratedValueTriplet(ushort i_DeviceCode, ushort i_DeviceId, double i_Value)
-        {
-            DeviceCode = i_DeviceCode;
-            DeviceId = i_DeviceId;
-            Value = i_Value;
-        }
-    }
-}
 
 // ---------------------------------------------------------
 // FILE: .\src\NavigationIntegrationSystem.Core\NavigationIntegrationSystem.Core.csproj
@@ -1426,6 +726,7 @@ namespace NavigationIntegrationSystem.Core.Enums;
 public enum DeviceType
 {
     Manual,
+    Playback,
     VN310,
     Tmaps100X
 }
@@ -1563,6 +864,78 @@ public sealed class DeviceFieldDefinition
 }
 
 // ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.Core\Playback\IPlaybackService.cs
+// ---------------------------------------------------------
+
+using System;
+using System.Threading.Tasks;
+
+namespace NavigationIntegrationSystem.Core.Playback;
+
+// Contract for the simulation engine responsible for streaming file data
+public interface IPlaybackService : IDisposable
+{
+    #region Properties
+    bool IsPlaying { get; }
+    string? LoadedFilePath { get; }
+    int CurrentLineIndex { get; }
+    int TotalLineCount { get; }
+    int Frequency { get; set; }
+    #endregion
+
+    #region Events
+    // Fired when a new data row is processed (on a background thread)
+    event EventHandler<PlaybackPacket>? PacketDispatched;
+
+    // Fired when play/pause state or file load status changes
+    event EventHandler? StateChanged;
+    #endregion
+
+    #region Functions
+    // Loads and validates a CSV file
+    Task LoadFileAsync(string i_FilePath);
+
+    // Starts or resumes playback
+    void Play();
+
+    // Pauses playback at the current index
+    void Pause();
+
+    // Stops playback and resets index to 0
+    void Stop();
+
+    // Seeks to a specific line index
+    void Seek(int i_LineIndex);
+
+    // Generates a valid CSV template file at the specified path
+    Task CreateTemplateAsync(string i_FilePath);
+    #endregion
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.Core\Playback\PlaybackPacket.cs
+// ---------------------------------------------------------
+
+using System.Collections.Generic;
+
+namespace NavigationIntegrationSystem.Core.Playback;
+
+// A decoupled data packet representing one row of simulation data
+public sealed class PlaybackPacket
+{
+    #region Properties
+    public IReadOnlyDictionary<string, double> Values { get; }
+    #endregion
+
+    #region Constructors
+    public PlaybackPacket(IReadOnlyDictionary<string, double> i_Values)
+    {
+        Values = i_Values;
+    }
+    #endregion
+}
+
+// ---------------------------------------------------------
 // FILE: .\src\NavigationIntegrationSystem.Core\Recording\IRecordingService.cs
 // ---------------------------------------------------------
 
@@ -1638,6 +1011,33 @@ public sealed class DeviceCatalogService
     public IReadOnlyList<DeviceDefinition> GetDevices()
     {
         return m_Modules.OrderBy(m => m.Type).Select(m => m.BuildDefinition()).ToList();
+    }
+    #endregion
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.Devices\Connections\PlaybackConnectionSettings.cs
+// ---------------------------------------------------------
+
+namespace NavigationIntegrationSystem.Devices.Connections;
+
+// Playback (File) connection parameters
+public sealed class PlaybackConnectionSettings
+{
+    #region Properties
+    public string FilePath { get; set; } = string.Empty;
+    public bool Loop { get; set; } = false;
+    public int Frequency { get; set; } = 10; // Default 10Hz
+    #endregion
+
+    #region Functions
+    // Copy values from another instance
+    public void CopyFrom(PlaybackConnectionSettings i_Source)
+    {
+        if (i_Source == null) { return; }
+        FilePath = i_Source.FilePath;
+        Loop = i_Source.Loop;
+        Frequency = i_Source.Frequency;
     }
     #endregion
 }
@@ -1784,6 +1184,114 @@ public sealed class ManualInsDevice : InsDeviceBase
 
 
 // ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.Devices\Implementations\PlaybackInsDevice.cs
+// ---------------------------------------------------------
+
+using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Core.Models.Devices;
+using NavigationIntegrationSystem.Core.Playback;
+using NavigationIntegrationSystem.Devices.Models;
+using NavigationIntegrationSystem.Devices.Runtime;
+
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace NavigationIntegrationSystem.Devices.Implementations;
+
+public sealed class PlaybackInsDevice : InsDeviceBase
+{
+    #region Private Fields
+    private readonly IPlaybackService m_PlaybackService;
+    private readonly ConcurrentDictionary<string, double> m_LatestTelemetry = new();
+    #endregion
+
+    #region Properties
+    // Exposes the live data for the Integration Service
+    public IReadOnlyDictionary<string, double> Telemetry => m_LatestTelemetry;
+    #endregion
+
+    #region Constructors
+    public PlaybackInsDevice(DeviceDefinition i_Definition, DeviceConfig i_Config, ILogService i_LogService, IPlaybackService i_PlaybackService)
+        : base(i_Definition, i_Config, i_LogService)
+    {
+        m_PlaybackService = i_PlaybackService;
+    }
+    #endregion
+
+    #region Functions
+    // On connect, validate and load the playback file, set frequency, and subscribe to events
+    protected override Task OnConnectAsync()
+    {
+        // 1. Validate File
+        if (string.IsNullOrEmpty(Config.Connection.Playback.FilePath))
+        {
+            throw new InvalidOperationException("No playback file path configured.");
+        }
+
+        // 2. Load File (if changed or not loaded)
+        if (m_PlaybackService.LoadedFilePath != Config.Connection.Playback.FilePath)
+        {
+            m_PlaybackService.LoadFileAsync(Config.Connection.Playback.FilePath).Wait();
+        }
+
+        // 3. Set Frequency
+        m_PlaybackService.Frequency = Config.Connection.Playback.Frequency;
+
+        // 4. Subscribe
+        m_PlaybackService.PacketDispatched += OnPacketDispatched;
+        m_PlaybackService.StateChanged += OnPlaybackStateChanged;
+
+        return Task.CompletedTask;
+    }
+
+    // On disconnect, unsubscribe from events and optionally pause playback
+    protected override Task OnDisconnectAsync()
+    {
+        m_PlaybackService.PacketDispatched -= OnPacketDispatched;
+        m_PlaybackService.StateChanged -= OnPlaybackStateChanged;
+
+        // Optionally pause playback when the device "disconnects"
+        if (m_PlaybackService.IsPlaying)
+        {
+            m_PlaybackService.Pause();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // Retrieve a value by key (used by Integration Service)
+    public double GetValue(string i_Key)
+    {
+        return m_LatestTelemetry.TryGetValue(i_Key, out double val) ? val : 0.0;
+    }
+    #endregion
+
+    #region Event Handlers
+    // When a new packet is dispatched, update the local telemetry cache
+    private void OnPacketDispatched(object? sender, PlaybackPacket e)
+    {
+        // Update local cache
+        foreach (var kvp in e.Values)
+        {
+            m_LatestTelemetry[kvp.Key] = kvp.Value;
+        }
+    }
+
+    // If the playback state changes and the file is unloaded, force disconnect to prevent stale data
+    private void OnPlaybackStateChanged(object? sender, EventArgs e)
+    {
+        // If the file was unloaded externally, force disconnect
+        if (Status == Core.Enums.DeviceStatus.Connected && string.IsNullOrEmpty(m_PlaybackService.LoadedFilePath))
+        {
+            _ = DisconnectAsync();
+        }
+    }
+    #endregion
+}
+
+// ---------------------------------------------------------
 // FILE: .\src\NavigationIntegrationSystem.Devices\Implementations\Tmaps100XInsDevice.cs
 // ---------------------------------------------------------
 
@@ -1911,6 +1419,7 @@ public sealed class DeviceConnectionSettings
     public UdpConnectionSettings Udp { get; set; } = new UdpConnectionSettings();
     public TcpConnectionSettings Tcp { get; set; } = new TcpConnectionSettings();
     public SerialConnectionSettings Serial { get; set; } = new SerialConnectionSettings();
+    public PlaybackConnectionSettings Playback { get; set; } = new PlaybackConnectionSettings();
     #endregion
 
     #region Functions
@@ -1924,10 +1433,12 @@ public sealed class DeviceConnectionSettings
         if (Udp == null) { Udp = new UdpConnectionSettings(); }
         if (Tcp == null) { Tcp = new TcpConnectionSettings(); }
         if (Serial == null) { Serial = new SerialConnectionSettings(); }
+        if (Playback == null) { Playback = new PlaybackConnectionSettings(); }
 
         Udp.CopyFrom(i_Source.Udp);
         Tcp.CopyFrom(i_Source.Tcp);
         Serial.CopyFrom(i_Source.Serial);
+        Playback.CopyFrom(i_Source.Playback);
     }
 
     // Creates a deep clone of this instance
@@ -2007,6 +1518,87 @@ public sealed class ManualDeviceModule : IInsDeviceModule
     #endregion
 }
 
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.Devices\Modules\PlaybackDeviceModule.cs
+// ---------------------------------------------------------
+
+using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Core.Models.DeviceCatalog;
+using NavigationIntegrationSystem.Core.Models.Devices;
+using NavigationIntegrationSystem.Core.Playback;
+using NavigationIntegrationSystem.Devices.Implementations;
+using NavigationIntegrationSystem.Devices.Runtime;
+
+using System.Collections.Generic;
+
+namespace NavigationIntegrationSystem.Devices.Modules;
+
+// This module defines the Playback device, which streams data from a CSV file using the IPlaybackService.
+public sealed class PlaybackDeviceModule : IInsDeviceModule
+{
+    #region Private Fields
+    private readonly IPlaybackService m_PlaybackService;
+    #endregion
+
+    #region Properties
+    public DeviceType Type => DeviceType.Playback;
+    #endregion
+
+    #region Constructors
+    public PlaybackDeviceModule(IPlaybackService i_PlaybackService)
+    {
+        m_PlaybackService = i_PlaybackService;
+    }
+    #endregion
+
+    #region Functions
+    public DeviceDefinition BuildDefinition()
+    {
+        // These keys MUST match the CSV headers generated by the Recorder
+        // See: IntegratedInsOutputItem.IntegratedInsOutputColumns
+        return new DeviceDefinition(
+            i_Type: DeviceType.Playback,
+            i_Fields: new List<DeviceFieldDefinition>
+            {
+                // Time
+                new("RcvTime[sec]", "Receive Time", "s"),
+                new("OutputTime[sec]", "Output Time", "s"),
+
+                // Position
+                new("PositionLatValue", "Latitude", "deg"),
+                new("PositionLonValue", "Longitude", "deg"),
+                new("PositionAltValue", "Altitude", "m"),
+
+                // Euler
+                new("EulerRollValue", "Roll", "deg"),
+                new("EulerPitchValue", "Pitch", "deg"),
+                new("EulerAzimuthValue", "Azimuth", "deg"),
+
+                // Rates
+                new("EulerRollRateValue", "Roll Rate", "deg/s"),
+                new("EulerPitchRateValue", "Pitch Rate", "deg/s"),
+                new("EulerAzimuthRateValue", "Azimuth Rate", "deg/s"),
+
+                // Velocity
+                new("VelocityNorthValue", "Vel North", "m/s"),
+                new("VelocityEastValue", "Vel East", "m/s"),
+                new("VelocityDownValue", "Vel Down", "m/s"),
+                new("VelocityTotalValue", "Vel Total", "m/s"),
+
+                // Misc
+                new("CourseValue", "Course", "deg"),
+                new("StatusValue", "Status", "mask")
+            });
+    }
+
+    public void Register(IInsDeviceRegistry i_Registry, ILogService i_LogService)
+    {
+        i_Registry.Register(Type, (def, cfg) => new PlaybackInsDevice(def, cfg, i_LogService, m_PlaybackService));
+    }
+    #endregion
+}
 
 // ---------------------------------------------------------
 // FILE: .\src\NavigationIntegrationSystem.Devices\Modules\Tmaps100XDeviceModule.cs
@@ -2140,6 +1732,10 @@ public sealed class Vn310DeviceModule : IInsDeviceModule
 // FILE: .\src\NavigationIntegrationSystem.Devices\Runtime\DevicesModuleBootstrapper.cs
 // ---------------------------------------------------------
 
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.Devices\Runtime\DevicesModuleBootstrapper.cs
+// ---------------------------------------------------------
+
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Devices.Modules;
@@ -2151,18 +1747,38 @@ namespace NavigationIntegrationSystem.Devices.Runtime;
 // Bootstraps device modules into the device registry
 public sealed class DevicesModuleBootstrapper
 {
+    #region Private Fields
+    private readonly IEnumerable<IInsDeviceModule> m_Modules;
+    private readonly IInsDeviceRegistry m_Registry;
+    private readonly ILogService m_LogService;
+    #endregion
+
     #region Ctors
     public DevicesModuleBootstrapper(IEnumerable<IInsDeviceModule> i_Modules, IInsDeviceRegistry i_Registry, ILogService i_LogService)
     {
+        m_Modules = i_Modules;
+        m_Registry = i_Registry;
+        m_LogService = i_LogService;
+    }
+    #endregion
+
+    #region Functions
+    // Registers all device modules into the registry. Must be called before UI initialization.
+    public void Initialize()
+    {
         var registered = new HashSet<DeviceType>();
 
-        foreach (IInsDeviceModule module in i_Modules)
+        foreach (IInsDeviceModule module in m_Modules)
         {
             if (!registered.Add(module.Type))
-            { throw new InvalidOperationException($"Duplicate device module registration: {module.Type}"); }
+            {
+                throw new InvalidOperationException($"Duplicate device module registration: {module.Type}");
+            }
 
-            module.Register(i_Registry, i_LogService);
+            module.Register(m_Registry, m_LogService);
         }
+
+        m_LogService.Info(nameof(DevicesModuleBootstrapper), "Device modules registered.");
     }
     #endregion
 }
@@ -2403,10 +2019,12 @@ public sealed class InsDeviceRegistry : IInsDeviceRegistry, IInsDeviceInstancePr
 // FILE: .\src\NavigationIntegrationSystem.Devices\Validation\ConnectionSettingsValidator.cs
 // ---------------------------------------------------------
 
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Devices.Enums;
 using NavigationIntegrationSystem.Devices.Models;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 
 namespace NavigationIntegrationSystem.Devices.Validation;
 
@@ -2415,29 +2033,23 @@ public static class ConnectionSettingsValidator
 {
     #region Functions
     // Validates a DeviceConnectionSettings instance and returns a list of validation errors
-    public static IReadOnlyList<string> Validate(DeviceConnectionSettings i_Settings)
+    public static IReadOnlyList<string> Validate(DeviceConnectionSettings i_Settings, DeviceType i_Type)
     {
         var errors = new List<string>();
 
         if (i_Settings == null) { errors.Add("Connection settings are missing"); return errors; }
 
-        switch (i_Settings.Kind)
+        if (i_Type == DeviceType.Playback) { ValidatePlayback(i_Settings, errors); }
+        else if (i_Type != DeviceType.Manual)
         {
-            case DeviceConnectionKind.Udp:
-                ValidateUdp(i_Settings, errors);
-                break;
-
-            case DeviceConnectionKind.Tcp:
-                ValidateTcp(i_Settings, errors);
-                break;
-
-            case DeviceConnectionKind.Serial:
-                ValidateSerial(i_Settings, errors);
-                break;
-
-            default:
-                errors.Add("Unsupported connection kind");
-                break;
+            // Real device validation
+            switch (i_Settings.Kind)
+            {
+                case DeviceConnectionKind.Udp: ValidateUdp(i_Settings, errors); break;
+                case DeviceConnectionKind.Tcp: ValidateTcp(i_Settings, errors); break;
+                case DeviceConnectionKind.Serial: ValidateSerial(i_Settings, errors); break;
+                default: errors.Add("Unsupported connection kind"); break;
+            }
         }
 
         return errors;
@@ -2474,6 +2086,21 @@ public static class ConnectionSettingsValidator
 
         if (string.IsNullOrWhiteSpace(i_Settings.Serial.ComPort)) { io_Errors.Add($"Serial COM port is required: '{i_Settings.Serial.ComPort}'"); }
         if (i_Settings.Serial.BaudRate <= 0) { io_Errors.Add($"Serial baud rate must be greater than 0: {i_Settings.Serial.BaudRate}"); }
+    }
+
+    // Validates Playback settings
+    private static void ValidatePlayback(DeviceConnectionSettings i_Settings, List<string> io_Errors)
+    {
+        if (i_Settings.Playback == null) { io_Errors.Add("Playback settings are missing"); return; }
+
+        if (string.IsNullOrWhiteSpace(i_Settings.Playback.FilePath))
+        {
+            io_Errors.Add("Playback file path is required");
+        }
+        else if (!File.Exists(i_Settings.Playback.FilePath))
+        {
+            io_Errors.Add($"File not found: '{i_Settings.Playback.FilePath}'");
+        }
     }
 
     // Checks whether an integer is a valid TCP/UDP port number
@@ -2763,6 +2390,273 @@ public sealed class DevicesConfigService
     #endregion
 }
 
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.Infrastructure\Playback\CsvPlaybackService.cs
+// ---------------------------------------------------------
+
+using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Core.Playback;
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace NavigationIntegrationSystem.Infrastructure.Playback;
+
+public sealed class CsvPlaybackService : IPlaybackService
+{
+    #region Private Fields
+    private readonly ILogService m_LogService;
+    private readonly List<string> m_FileLines = new();
+    private string[] m_Headers = Array.Empty<string>();
+
+    private CancellationTokenSource? m_PlaybackCts;
+    private readonly object m_Lock = new();
+
+    private int m_CurrentLineIndex;
+    private bool m_IsPlaying;
+    private string? m_LoadedFilePath;
+    private int m_Frequency = 10;
+
+    private static readonly string[] c_CsvSchema =
+    {
+        "PositionLatValue", "PositionLonValue", "PositionAltValue",
+        "EulerRollValue", "EulerPitchValue", "EulerAzimuthValue",
+        "EulerRollRateValue", "EulerPitchRateValue", "EulerAzimuthRateValue",
+        "VelocityNorthValue", "VelocityEastValue", "VelocityDownValue", "VelocityTotalValue",
+        "CourseValue", "StatusValue"
+    };
+    #endregion
+
+    #region Properties
+    public bool IsPlaying { get => m_IsPlaying; private set => m_IsPlaying = value; }
+    public string? LoadedFilePath => m_LoadedFilePath;
+    public int CurrentLineIndex => m_CurrentLineIndex;
+    public int TotalLineCount => m_FileLines.Count;
+    public int Frequency { get => m_Frequency; set { m_Frequency = Math.Clamp(value, 1, 100); } }
+    #endregion
+
+    #region Events
+    public event EventHandler<PlaybackPacket>? PacketDispatched;
+    public event EventHandler? StateChanged;
+    #endregion
+
+    #region Constructors
+    public CsvPlaybackService(ILogService i_LogService)
+    {
+        m_LogService = i_LogService;
+    }
+    #endregion
+
+    #region Functions
+    // Loads the CSV file and prepares for playback.
+    public async Task LoadFileAsync(string i_FilePath)
+    {
+        if (string.IsNullOrWhiteSpace(i_FilePath) || !File.Exists(i_FilePath))
+        {
+            throw new FileNotFoundException("Playback file not found", i_FilePath);
+        }
+
+        Stop();
+
+        lock (m_Lock)
+        {
+            m_FileLines.Clear();
+            m_Headers = Array.Empty<string>();
+        }
+
+        string[] lines = await File.ReadAllLinesAsync(i_FilePath).ConfigureAwait(false);
+
+        if (lines.Length < 2)
+        {
+            throw new InvalidDataException("CSV file must contain a header row and at least one data row.");
+        }
+
+        lock (m_Lock)
+        {
+            m_Headers = ParseCsvLine(lines[0]);
+            m_FileLines.AddRange(lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)));
+            m_LoadedFilePath = i_FilePath;
+            m_CurrentLineIndex = 0;
+        }
+
+        m_LogService.Info(nameof(CsvPlaybackService), $"Loaded playback file: {Path.GetFileName(i_FilePath)} ({TotalLineCount} frames)");
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Starts or resumes playback from the current line index.
+    public void Play()
+    {
+        lock (m_Lock)
+        {
+            if (m_IsPlaying || TotalLineCount == 0) return;
+
+            m_IsPlaying = true;
+            m_PlaybackCts?.Cancel();
+            m_PlaybackCts = new CancellationTokenSource();
+
+            _ = PlaybackLoopAsync(m_PlaybackCts.Token);
+        }
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Pauses playback, allowing it to be resumed later from the same index.
+    public void Pause()
+    {
+        lock (m_Lock)
+        {
+            if (!m_IsPlaying) return;
+            m_IsPlaying = false;
+            m_PlaybackCts?.Cancel();
+        }
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Stops playback and resets the current line index to the beginning of the file.
+    public void Stop()
+    {
+        Pause();
+        lock (m_Lock)
+        {
+            m_CurrentLineIndex = 0;
+        }
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Seeks to a specific line index, clamping to valid range.
+    public void Seek(int i_LineIndex)
+    {
+        lock (m_Lock)
+        {
+            m_CurrentLineIndex = Math.Clamp(i_LineIndex, 0, TotalLineCount - 1);
+        }
+    }
+
+    // Creates a new CSV file with the appropriate header for recording playback data.
+    public async Task CreateTemplateAsync(string i_FilePath)
+    {
+        if (string.IsNullOrWhiteSpace(i_FilePath)) throw new ArgumentNullException(nameof(i_FilePath));
+        string header = string.Join(",", c_CsvSchema);
+        await File.WriteAllTextAsync(i_FilePath, header, Encoding.UTF8).ConfigureAwait(false);
+    }
+
+    // The main orchestrator for the playback thread
+    private async Task PlaybackLoopAsync(CancellationToken i_Token)
+    {
+        try
+        {
+            while (!i_Token.IsCancellationRequested)
+            {
+                // Calculate delay based on frequency (e.g., 10Hz = 100ms)
+                int delayMs = 1000 / Frequency;
+
+                if (!TryGetNextLine(out string line))
+                {
+                    SetPlayingState(false);
+                    break;
+                }
+
+                PlaybackPacket? packet = ParsePacket(line);
+
+                if (packet != null)
+                {
+                    PacketDispatched?.Invoke(this, packet);
+                }
+
+                IncrementIndex();
+
+                await Task.Delay(delayMs, i_Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            m_LogService.Error(nameof(CsvPlaybackService), "Playback loop error", ex);
+            SetPlayingState(false);
+        }
+        finally
+        {
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    // Safely retrieves the next line or indicates EOF
+    private bool TryGetNextLine(out string o_Line)
+    {
+        lock (m_Lock)
+        {
+            if (m_CurrentLineIndex >= TotalLineCount)
+            {
+                o_Line = string.Empty;
+                return false;
+            }
+
+            o_Line = m_FileLines[m_CurrentLineIndex];
+            return true;
+        }
+    }
+
+    // Thread-safe index increment
+    private void IncrementIndex()
+    {
+        lock (m_Lock)
+        {
+            m_CurrentLineIndex++;
+        }
+    }
+
+    // Thread-safe state setter
+    private void SetPlayingState(bool i_IsPlaying)
+    {
+        lock (m_Lock)
+        {
+            m_IsPlaying = i_IsPlaying;
+        }
+    }
+
+    // Parses a CSV line into a PlaybackPacket, matching headers to values
+    private PlaybackPacket? ParsePacket(string i_Line)
+    {
+        string[] cells = ParseCsvLine(i_Line);
+        // We allow partial rows, but matching headers is safer
+        if (cells.Length > m_Headers.Length) return null;
+
+        var values = new Dictionary<string, double>();
+
+        for (int i = 0; i < cells.Length && i < m_Headers.Length; i++)
+        {
+            string header = m_Headers[i];
+            if (double.TryParse(cells[i], NumberStyles.Any, CultureInfo.InvariantCulture, out double val))
+            {
+                values[header] = val;
+            }
+        }
+
+        return new PlaybackPacket(values);
+    }
+
+    // Simple CSV line parser that trims whitespace and handles empty lines
+    private static string[] ParseCsvLine(string i_Line)
+    {
+        if (string.IsNullOrEmpty(i_Line)) return Array.Empty<string>();
+        return i_Line.Split(',').Select(s => s.Trim()).ToArray();
+    }
+
+    // Clean up resources when the service is disposed.
+    public void Dispose()
+    {
+        m_PlaybackCts?.Cancel();
+        m_PlaybackCts?.Dispose();
+    }
+    #endregion
+}
 
 // ---------------------------------------------------------
 // FILE: .\src\NavigationIntegrationSystem.Infrastructure\Recording\DataRecordHeader.cs
@@ -5110,10 +5004,9 @@ using Microsoft.UI.Xaml;
 
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Devices.Runtime;
-using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.UI.Bootstrap;
 using NavigationIntegrationSystem.UI.Services.Logging;
-using NavigationIntegrationSystem.UI.Services.Recording;
+using NavigationIntegrationSystem.UI.Services.UI.Windowing;
 
 using System;
 
@@ -5140,24 +5033,35 @@ public partial class App : Application
     #endregion
 
     #region Overrides
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // 1. Warm up the UI Log Buffer
+        // 1. Initialize Modules (Bootstrapper Pattern)
+        var bootstrapper = Services.GetRequiredService<DevicesModuleBootstrapper>();
+        bootstrapper.Initialize();
+
+        // 2. Create and Register MainWindow (Provider Pattern)
+        m_MainWindow = Services.GetRequiredService<MainWindow>();
+        var windowProvider = Services.GetRequiredService<WindowProvider>();
+        windowProvider.MainWindow = m_MainWindow;
+
+        // 3. UI-Specific Setup
         var uiLogBuffer = Services.GetRequiredService<UiLogBuffer>();
         uiLogBuffer.AttachUiDispatcher(DispatcherQueue.GetForCurrentThread());
 
+        // 4. Start the Host (which starts all hosted services)
+        await m_Host.StartAsync();
+
         var log = Services.GetRequiredService<ILogService>();
-        log.Info(nameof(App), "NIS starting");
+        log.Info(nameof(App), "NIS Host Started");
 
-        // 2. Initialize device modules
-        _ = Services.GetRequiredService<DevicesModuleBootstrapper>();
-        
-        // 3. Warm up the Recording Snapshot Service
-        _ = Services.GetRequiredService<IntegrationSnapshotService>();
-
-        // 4. Show MainWindow
-        m_MainWindow = Services.GetRequiredService<MainWindow>();
+        // 5. Show MainWindow
         m_MainWindow.Activate();
+
+        m_MainWindow.Closed += async (s, e) =>
+        {
+            await m_Host.StopAsync();
+            m_Host.Dispose();
+        };
     }
     #endregion
 }
@@ -5178,6 +5082,7 @@ public partial class App : Application
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!--  Custom Title Bar  -->
@@ -5231,6 +5136,9 @@ public partial class App : Application
 
             <Frame x:Name="ContentFrame" />
         </NavigationView>
+
+        <!--  Playback Tray  -->
+        <controls:PlaybackTrayView Grid.Row="2" />
     </Grid>
 </Window>
 
@@ -5400,12 +5308,15 @@ public sealed partial class MainWindow : Window
     <None Remove="Assets\Icons\Home.svg" />
     <None Remove="Assets\Icons\Logs.svg" />
     <None Remove="Assets\Icons\Settings.svg" />
+    <None Remove="Views\Controls\PlaybackTrayView.xaml" />
     <None Remove="Views\Controls\ShellHeaderControl.xaml" />
     <None Remove="Views\Pages\DevicesPage.xaml" />
     <None Remove="Views\Pages\LogsPage.xaml" />
     <None Remove="Views\Pages\SettingsPage.xaml" />
     <None Remove="Views\Panes\DeviceInspectPaneView.xaml" />
     <None Remove="Views\Panes\DeviceSettingsPaneView.xaml" />
+    <None Remove="Views\Panes\SubViews\PlaybackSettingsView.xaml" />
+    <None Remove="Views\Panes\SubViews\RealDeviceSettingsView.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -5448,12 +5359,27 @@ public sealed partial class MainWindow : Window
     <ProjectReference Include="..\NavigationIntegrationSystem.Infrastructure\NavigationIntegrationSystem.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Page Update="Views\Panes\SubViews\PlaybackSettingsView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Controls\PlaybackTrayView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
     <Page Update="Views\Pages\SettingsPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
   <ItemGroup>
     <Page Update="Views\Controls\ShellHeaderControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Panes\SubViews\RealDeviceSettingsView.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
@@ -5529,13 +5455,13 @@ public sealed partial class MainWindow : Window
 // FILE: .\src\NavigationIntegrationSystem.UI\Bootstrap\HostBuilderFactory.cs
 // ---------------------------------------------------------
 
-// FILE: src\NavigationIntegrationSystem.UI\Bootstrap\HostBuilderFactory.cs
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Core.Recording;
 using NavigationIntegrationSystem.Devices.Catalog;
 using NavigationIntegrationSystem.Devices.Modules;
@@ -5544,14 +5470,18 @@ using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Settings;
 using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
+using NavigationIntegrationSystem.Infrastructure.Playback;
 using NavigationIntegrationSystem.Infrastructure.Recording;
 using NavigationIntegrationSystem.UI.Services.Logging;
 using NavigationIntegrationSystem.UI.Services.Recording;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
+using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.Services.UI.Navigation;
+using NavigationIntegrationSystem.UI.Services.UI.Windowing;
 using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
+using NavigationIntegrationSystem.UI.ViewModels.Playback;
 using NavigationIntegrationSystem.UI.ViewModels.Settings;
 
 namespace NavigationIntegrationSystem.UI.Bootstrap;
@@ -5580,35 +5510,45 @@ public static class HostBuilderFactory
                 services.AddSingleton<ILogPaths>(sp => (ILogPaths)sp.GetRequiredService<ILogService>());
                 services.AddSingleton(sp => new UiLogBuffer(sp.GetRequiredService<ILogService>(), settings.Nis.Log.MaxUiEntries));
 
-                // 3. Device Domain & Management
+                // 3. Playback Services
+                services.AddSingleton<IPlaybackService, CsvPlaybackService>();
+
+                // 4. Device Domain & Management
                 services.AddSingleton<InsDeviceRegistry>();
                 services.AddSingleton<IInsDeviceRegistry>(sp => sp.GetRequiredService<InsDeviceRegistry>());
                 services.AddSingleton<IInsDeviceInstanceProvider>(sp => sp.GetRequiredService<InsDeviceRegistry>());
                 services.AddSingleton<DeviceCatalogService>();
 
-                // 4. Device Modules (Factories)
+                // 5. Device Modules
                 services.AddSingleton<IInsDeviceModule, Vn310DeviceModule>();
                 services.AddSingleton<IInsDeviceModule, Tmaps100XDeviceModule>();
                 services.AddSingleton<IInsDeviceModule, ManualDeviceModule>();
+                services.AddSingleton<IInsDeviceModule, PlaybackDeviceModule>();
                 services.AddSingleton<DevicesModuleBootstrapper>();
 
-                // 5. Recording & Snapshot Services
+                // 6. Recording & Snapshot Services
                 services.AddSingleton<IRecordingService, NisRecordingService>();
-                services.AddSingleton<IntegrationSnapshotService>();
                 services.AddSingleton<CsvTestingService>();
 
-                // 6. UI Navigation & Support
+                // HOSTED SERVICE: Starts background recording logic
+                services.AddHostedService<IntegrationSnapshotService>();
+
+                // 7. UI Services
+                services.AddSingleton<WindowProvider>();
+                services.AddSingleton<IWindowProvider>(sp => sp.GetRequiredService<WindowProvider>());
                 services.AddSingleton<IDialogService, DialogService>();
                 services.AddSingleton<NavigationService>();
+                services.AddSingleton<IFilePickerService, FilePickerService>();
 
-                // 7. ViewModels (All Singletons to maintain state across pages)
+                // 8. ViewModels
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<DevicesViewModel>();
                 services.AddSingleton<IntegrationViewModel>();
                 services.AddSingleton<LogsViewModel>();
                 services.AddSingleton<SettingsViewModel>();
+                services.AddSingleton<PlaybackControlsViewModel>();
 
-                // 8. Shell
+                // 9. Shell
                 services.AddSingleton<MainWindow>();
             })
             .Build();
@@ -6208,27 +6148,22 @@ public sealed class CsvTestingService : IDisposable
 // FILE: .\src\NavigationIntegrationSystem.UI\Services\Recording\IntegrationSnapshotService.cs
 // ---------------------------------------------------------
 
-// FILE: src\NavigationIntegrationSystem.UI\Services\Recording\IntegrationSnapshotService.cs
-
-using Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput;
-
+using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Dispatching;
-
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Recording;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Layout;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
-
+using Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput;
 using System;
 using System.Linq;
-using System.Runtime.InteropServices;
-
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.Services.Recording;
 
-public sealed class IntegrationSnapshotService : IDisposable
+public sealed class IntegrationSnapshotService : IHostedService, IDisposable
 {
     #region Private Fields
     private readonly IRecordingService m_RecordingService;
@@ -6239,22 +6174,34 @@ public sealed class IntegrationSnapshotService : IDisposable
     #endregion
 
     #region Constructors
-    public IntegrationSnapshotService(
-        IRecordingService i_RecordingService,
-        IInsDeviceInstanceProvider i_IdProvider,
-        IntegrationViewModel i_IntegrationVm,
-        CsvTestingService i_CsvTester)
+    public IntegrationSnapshotService(IRecordingService i_RecordingService, IInsDeviceInstanceProvider i_IdProvider,
+        IntegrationViewModel i_IntegrationVm, CsvTestingService i_CsvTester)
     {
         m_RecordingService = i_RecordingService;
         m_IdProvider = i_IdProvider;
         m_IntegrationVm = i_IntegrationVm;
         m_CsvTester = i_CsvTester;
-
-        m_RecordingService.RecordingStateChanged += OnRecordingStateChanged;
     }
     #endregion
 
     #region Functions
+    // On Start, subscribes to recording state changes to manage snapshot timer and recording flow
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        m_RecordingService.RecordingStateChanged += OnRecordingStateChanged;
+        return Task.CompletedTask;
+    }
+
+    // On Stop, unsubscribes from recording state changes and ensures timer is stopped to clean up resources
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        m_RecordingService.RecordingStateChanged -= OnRecordingStateChanged;
+        StopTimer();
+        m_CsvTester.Stop();
+        return Task.CompletedTask;
+    }
+
+    // Central handler for recording state changes; starts/stops snapshot timer and recording flow accordingly
     private void OnRecordingStateChanged(object? sender, bool i_IsRecording)
     {
         if (i_IsRecording)
@@ -6269,6 +6216,7 @@ public sealed class IntegrationSnapshotService : IDisposable
         }
     }
 
+    // Initializes and starts the snapshot timer if not already running; ensures it runs on the UI thread for safe VM access
     private void StartTimer()
     {
         if (m_SnapshotTimer != null) return;
@@ -6280,12 +6228,15 @@ public sealed class IntegrationSnapshotService : IDisposable
         m_SnapshotTimer.Start();
     }
 
+    // Stops the snapshot timer if it is running and cleans up the reference
     private void StopTimer()
     {
         m_SnapshotTimer?.Stop();
         m_SnapshotTimer = null;
     }
 
+    // Concised one liner comment
+    // Core function that takes a snapshot of the current integration state
     private void TakeSnapshot()
     {
         if (!m_RecordingService.IsRecording) return;
@@ -6345,16 +6296,16 @@ public sealed class IntegrationSnapshotService : IDisposable
                 break;
 
             case "Longitude":
-                io_Data.LongitudeDeviceCode = i_Code; 
+                io_Data.LongitudeDeviceCode = i_Code;
                 io_Data.LongitudeDeviceId = i_Id;
-                pos.Lon = i_Val; 
+                pos.Lon = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionLonValid;
                 break;
 
             case "Altitude":
-                io_Data.AltitudeDeviceCode = i_Code; 
+                io_Data.AltitudeDeviceCode = i_Code;
                 io_Data.AltitudeDeviceId = i_Id;
-                pos.Alt = i_Val; 
+                pos.Alt = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionAltValid;
                 break;
         }
@@ -6368,39 +6319,39 @@ public sealed class IntegrationSnapshotService : IDisposable
         switch (i_Name)
         {
             case "Roll":
-                io_Data.RollDeviceCode = i_Code; 
+                io_Data.RollDeviceCode = i_Code;
                 io_Data.RollDeviceId = i_Id;
-                euler.Angles.Roll = i_Val; 
+                euler.Angles.Roll = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollValid;
                 break;
             case "Pitch":
-                io_Data.PitchDeviceCode = i_Code; 
+                io_Data.PitchDeviceCode = i_Code;
                 io_Data.PitchDeviceId = i_Id;
-                euler.Angles.Pitch = i_Val; 
+                euler.Angles.Pitch = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PitchValid;
                 break;
             case "Azimuth":
-                io_Data.AzimuthDeviceCode = i_Code; 
+                io_Data.AzimuthDeviceCode = i_Code;
                 io_Data.AzimuthDeviceId = i_Id;
-                euler.Angles.Yaw = i_Val; 
+                euler.Angles.Yaw = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthValid;
                 break;
             case "Roll Rate":
-                io_Data.RollRateDeviceCode = i_Code; 
+                io_Data.RollRateDeviceCode = i_Code;
                 io_Data.RollRateDeviceId = i_Id;
-                euler.Rates.Roll = i_Val; 
+                euler.Rates.Roll = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollRateValid;
                 break;
             case "Pitch Rate":
-                io_Data.PitchRateDeviceCode = i_Code; 
+                io_Data.PitchRateDeviceCode = i_Code;
                 io_Data.PitchRateDeviceId = i_Id;
-                euler.Rates.Pitch = i_Val; 
+                euler.Rates.Pitch = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PitchRateValid;
                 break;
             case "Azimuth Rate":
-                io_Data.AzimuthRateDeviceCode = i_Code; 
+                io_Data.AzimuthRateDeviceCode = i_Code;
                 io_Data.AzimuthRateDeviceId = i_Id;
-                euler.Rates.Yaw = i_Val; 
+                euler.Rates.Yaw = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthRateValid;
                 break;
         }
@@ -6416,23 +6367,23 @@ public sealed class IntegrationSnapshotService : IDisposable
         switch (i_Name)
         {
             case "Velocity North":
-                io_Data.VelocityNorthDeviceCode = i_Code; 
+                io_Data.VelocityNorthDeviceCode = i_Code;
                 io_Data.VelocityNorthDeviceId = i_Id;
-                vel.North = i_Val; 
+                vel.North = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.VelocityNorthValid;
                 isVelocityComponent = true;
                 break;
             case "Velocity East":
-                io_Data.VelocityEastDeviceCode = i_Code; 
+                io_Data.VelocityEastDeviceCode = i_Code;
                 io_Data.VelocityEastDeviceId = i_Id;
-                vel.East = i_Val; 
+                vel.East = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.VelocityEastValid;
                 isVelocityComponent = true;
                 break;
             case "Velocity Down":
-                io_Data.VelocityDownDeviceCode = i_Code; 
+                io_Data.VelocityDownDeviceCode = i_Code;
                 io_Data.VelocityDownDeviceId = i_Id;
-                vel.Down = i_Val; 
+                vel.Down = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.VelocityDownValid;
                 isVelocityComponent = true;
                 break;
@@ -6452,7 +6403,7 @@ public sealed class IntegrationSnapshotService : IDisposable
         switch (i_Name)
         {
             case "Course":
-                io_Data.CourseDeviceCode = i_Code; 
+                io_Data.CourseDeviceCode = i_Code;
                 io_Data.CourseDeviceId = i_Id;
                 io_Data.Course = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.CourseValid;
@@ -6460,7 +6411,7 @@ public sealed class IntegrationSnapshotService : IDisposable
         }
     }
 
-    // Dispose pattern to clean up event subscription and timer resources
+    // Implements IDisposable to ensure proper cleanup of event subscriptions and timers when the service is disposed
     public void Dispose()
     {
         m_RecordingService.RecordingStateChanged -= OnRecordingStateChanged;
@@ -6546,6 +6497,101 @@ public interface IDialogService
 }
 
 // ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Services\UI\FilePicking\FilePickerService.cs
+// ---------------------------------------------------------
+
+using NavigationIntegrationSystem.UI.Services.UI.Windowing;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
+
+namespace NavigationIntegrationSystem.UI.Services.UI.FilePicking;
+
+// Concrete implementation of IFilePickerService using UWP pickers
+public sealed class FilePickerService : IFilePickerService
+{
+    #region Private Fields
+    private readonly IWindowProvider m_WindowProvider;
+    #endregion
+
+    #region Constructors
+    public FilePickerService(IWindowProvider i_WindowProvider)
+    {
+        m_WindowProvider = i_WindowProvider;
+    }
+    #endregion
+
+    #region Functions
+
+    // Picks a single file with the specified extensions and returns its path (or null if cancelled)
+    public async Task<string?> PickSingleFileAsync(IEnumerable<string> i_Extensions)
+    {
+        var picker = new FileOpenPicker();
+        InitializeWithWindow(picker);
+
+        picker.ViewMode = PickerViewMode.List;
+        picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+
+        foreach (string ext in i_Extensions)
+        {
+            picker.FileTypeFilter.Add(ext);
+        }
+
+        StorageFile file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
+
+    // Picks a save file location with the specified name and type choices, returns the chosen path (or null if cancelled)
+    public async Task<string?> PickSaveFileAsync(string i_FileName, IDictionary<string, IList<string>> i_FileTypeChoices)
+    {
+        var picker = new FileSavePicker();
+        InitializeWithWindow(picker);
+
+        picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+        picker.SuggestedFileName = i_FileName;
+
+        foreach (var choice in i_FileTypeChoices)
+        {
+            picker.FileTypeChoices.Add(choice.Key, choice.Value);
+        }
+
+        StorageFile file = await picker.PickSaveFileAsync();
+        return file?.Path;
+    }
+
+    // Associates the picker with the main window handle using the provider
+    private void InitializeWithWindow(object i_Target)
+    {
+        IntPtr hwnd = WindowNative.GetWindowHandle(m_WindowProvider.MainWindow);
+        WinRT.Interop.InitializeWithWindow.Initialize(i_Target, hwnd);
+    }
+    #endregion
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Services\UI\FilePicking\IFilePickerService.cs
+// ---------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace NavigationIntegrationSystem.UI.Services.UI.FilePicking;
+
+// Abstraction for opening/saving files to keep ViewModels decoupled from UI handles
+public interface IFilePickerService
+{
+    // Opens a file picker for a single file
+    Task<string?> PickSingleFileAsync(IEnumerable<string> i_Extensions);
+
+    // Opens a save file picker
+    Task<string?> PickSaveFileAsync(string i_FileName, IDictionary<string, IList<string>> i_FileTypeChoices);
+}
+
+// ---------------------------------------------------------
 // FILE: .\src\NavigationIntegrationSystem.UI\Services\UI\Navigation\NavigationService.cs
 // ---------------------------------------------------------
 
@@ -6580,6 +6626,40 @@ public sealed class NavigationService
         }
     }
     #endregion
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Services\UI\Windowing\IWindowProvider.cs
+// ---------------------------------------------------------
+
+using Microsoft.UI.Xaml;
+
+namespace NavigationIntegrationSystem.UI.Services.UI.Windowing;
+
+// Contract for accessing the main application window lazily
+public interface IWindowProvider
+{
+    Window MainWindow { get; }
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Services\UI\Windowing\WindowProvider.cs
+// ---------------------------------------------------------
+
+using Microsoft.UI.Xaml;
+
+namespace NavigationIntegrationSystem.UI.Services.UI.Windowing;
+
+// Singleton container for the MainWindow reference
+public sealed class WindowProvider : IWindowProvider
+{
+    private Window? m_MainWindow;
+
+    public Window MainWindow
+    {
+        get => m_MainWindow ?? throw new System.InvalidOperationException("MainWindow has not been initialized yet.");
+        set => m_MainWindow = value;
+    }
 }
 
 // ---------------------------------------------------------
@@ -6733,8 +6813,8 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     }
     public bool HasUnsavedSettings { get => m_HasUnsavedSettings; set => SetProperty(ref m_HasUnsavedSettings, value); }
     public ILogService LogService => m_LogService;
-    public bool IsManual => Type == DeviceType.Manual;
-    public bool ShowSettingsInspect => !IsManual;
+    public bool IsSettingsVisible => Type != DeviceType.Manual;
+    public bool IsInspectVisible => Type != DeviceType.Manual && Type != DeviceType.Playback;
     #endregion
 
     #region Commands
@@ -6834,12 +6914,15 @@ public sealed partial class InspectFieldViewModel : ObservableObject
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Models.Devices;
+using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Catalog;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Runtime;
@@ -6847,8 +6930,10 @@ using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
 using NavigationIntegrationSystem.UI.Enums;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
+using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
+
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6862,6 +6947,8 @@ public sealed partial class DevicesViewModel : ObservableObject
     private readonly DevicesConfigService m_ConfigService;
     private readonly DevicesConfigFile m_ConfigFile;
     private readonly ILogService m_LogService;
+    private readonly IFilePickerService m_FilePickerService;
+    private readonly IPlaybackService m_PlaybackService;
     private DeviceCardViewModel? m_SelectedDevice;
     private bool m_IsPaneOpen;
     private DevicesPaneMode m_PaneMode;
@@ -6899,12 +6986,15 @@ public sealed partial class DevicesViewModel : ObservableObject
     #endregion
 
     #region Ctors
-    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, ILogService i_LogService, IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry)
+    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, ILogService i_LogService, 
+        IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry, IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService)
     {
         m_ConfigService = i_ConfigService;
         m_LogService = i_LogService;
         m_DialogService = i_DialogService;
         m_ConfigFile = m_ConfigService.Load();
+        m_FilePickerService = i_FilePickerService;
+        m_PlaybackService = i_PlaybackService;
 
         m_IsPaneOpen = false;
         m_PaneMode = DevicesPaneMode.None;
@@ -6950,7 +7040,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         if (i_Device == null) { return; }
 
         SelectedDevice = i_Device;
-        CurrentSettingsPane = new DeviceSettingsPaneViewModel(this, i_Device);
+        CurrentSettingsPane = new DeviceSettingsPaneViewModel(this, i_Device, m_FilePickerService, m_PlaybackService);
         PaneMode = DevicesPaneMode.Settings;
         IsPaneOpen = true;
     }
@@ -7112,6 +7202,12 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
     private int m_SerialBaudRate = 115200;
     #endregion
 
+    #region Playback (Private Fields)
+    private string m_PlaybackFilePath = string.Empty;
+    private bool m_PlaybackLoop;
+    private int m_PlaybackFrequency = 10;
+    #endregion
+
     #region Properties
     public bool AutoReconnect { get => m_AutoReconnect; set => SetProperty(ref m_AutoReconnect, value); }
 
@@ -7127,6 +7223,7 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
         }
     }
 
+    // UDP
     public string UdpRemoteIp { get => m_UdpRemoteIp; set => SetProperty(ref m_UdpRemoteIp, value); }
     public int UdpRemotePort { get => m_UdpRemotePort; set => SetProperty(ref m_UdpRemotePort, value); }
     public string UdpRemotePortText { get => m_UdpRemotePortText; set { if (SetProperty(ref m_UdpRemotePortText, value)) { if (int.TryParse(value, out int port)) { UdpRemotePort = port; } } } }
@@ -7134,14 +7231,21 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
     public int UdpLocalPort { get => m_UdpLocalPort; set => SetProperty(ref m_UdpLocalPort, value); }
     public string UdpLocalPortText { get => m_UdpLocalPortText; set { if (SetProperty(ref m_UdpLocalPortText, value)) { if (int.TryParse(value, out int port)) { UdpLocalPort = port; } } } }
 
+    // TCP
     public string TcpHost { get => m_TcpHost; set => SetProperty(ref m_TcpHost, value); }
     public int TcpPort { get => m_TcpPort; set => SetProperty(ref m_TcpPort, value); }
     public string TcpPortText { get => m_TcpPortText; set { if (SetProperty(ref m_TcpPortText, value)) { if (int.TryParse(value, out int port)) { TcpPort = port; } } } }
 
+    // Serial
     public SerialLineKind SerialLineKind { get => m_SerialLineKind; set => SetProperty(ref m_SerialLineKind, value); }
     public string SerialComPort { get => m_SerialComPort; set => SetProperty(ref m_SerialComPort, value); }
     public int SerialBaudRate { get => m_SerialBaudRate; set => SetProperty(ref m_SerialBaudRate, value); }
     public string SerialBaudRateText { get => m_SerialBaudRateText; set { if (SetProperty(ref m_SerialBaudRateText, value)) { if (int.TryParse(value, out int rate)) { SerialBaudRate = rate; } } } }
+
+    // Playback
+    public string PlaybackFilePath { get => m_PlaybackFilePath; set => SetProperty(ref m_PlaybackFilePath, value); }
+    public bool PlaybackLoop { get => m_PlaybackLoop; set => SetProperty(ref m_PlaybackLoop, value); }
+    public int PlaybackFrequency { get => m_PlaybackFrequency; set => SetProperty(ref m_PlaybackFrequency, value); }
     #endregion
 
     #region Derived UI State
@@ -7169,6 +7273,7 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
 
         ConnectionKind = i_Settings.Kind;
 
+        // UDP
         UdpRemoteIp = i_Settings.Udp.RemoteIp;
         UdpRemotePort = i_Settings.Udp.RemotePort;
         UdpRemotePortText = UdpRemotePort.ToString();
@@ -7176,14 +7281,21 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
         UdpLocalPort = i_Settings.Udp.LocalPort;
         UdpLocalPortText = UdpLocalPort.ToString();
 
+        // TCP
         TcpHost = i_Settings.Tcp.Host;
         TcpPort = i_Settings.Tcp.Port;
         TcpPortText = TcpPort.ToString();
 
+        // Serial
         SerialLineKind = i_Settings.Serial.SerialLineKind;
         SerialComPort = i_Settings.Serial.ComPort;
         SerialBaudRate = i_Settings.Serial.BaudRate;
         SerialBaudRateText = SerialBaudRate.ToString();
+
+        // Playback
+        PlaybackFilePath = i_Settings.Playback.FilePath;
+        PlaybackLoop = i_Settings.Playback.Loop;
+        PlaybackFrequency = i_Settings.Playback.Frequency;
     }
 
     // Applies draft values into an existing persisted device config (deep, safe)
@@ -7204,21 +7316,33 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
 
         io_Settings.Kind = ConnectionKind;
 
+        // UDP
         if (io_Settings.Udp == null) { io_Settings.Udp = new(); }
-        if (io_Settings.Tcp == null) { io_Settings.Tcp = new(); }
-        if (io_Settings.Serial == null) { io_Settings.Serial = new(); }
 
         io_Settings.Udp.RemoteIp = UdpRemoteIp;
         io_Settings.Udp.RemotePort = UdpRemotePort;
         io_Settings.Udp.LocalIp = UdpLocalIp;
         io_Settings.Udp.LocalPort = UdpLocalPort;
 
+        // TCP
+        if (io_Settings.Tcp == null) { io_Settings.Tcp = new(); }
+
         io_Settings.Tcp.Host = TcpHost;
         io_Settings.Tcp.Port = TcpPort;
+
+        // Serial
+        if (io_Settings.Serial == null) { io_Settings.Serial = new(); }
 
         io_Settings.Serial.SerialLineKind = SerialLineKind;
         io_Settings.Serial.ComPort = SerialComPort;
         io_Settings.Serial.BaudRate = SerialBaudRate;
+
+        // Playback
+        if (io_Settings.Playback == null) { io_Settings.Playback = new(); }
+
+        io_Settings.Playback.FilePath = PlaybackFilePath;
+        io_Settings.Playback.Loop = PlaybackLoop;
+        io_Settings.Playback.Frequency = PlaybackFrequency;
     }
 
     #endregion
@@ -7229,17 +7353,24 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
 // ---------------------------------------------------------
 
 using CommunityToolkit.Mvvm.Input;
+
 using Microsoft.UI.Xaml;
+using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Enums;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Validation;
+using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
+
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
@@ -7249,6 +7380,8 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     #region Private Fields
     private readonly DevicesViewModel m_Parent;
     private readonly DeviceCardViewModel m_Device;
+    private readonly IFilePickerService m_FilePickerService;
+    private readonly IPlaybackService m_PlaybackService;
     private DeviceConfig m_OriginalSnapshot;
     private bool m_HasUnsavedChanges;
     private bool m_IsLoadingDraft;
@@ -7262,23 +7395,32 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
     public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
     public bool HasUnsavedChanges { get => m_HasUnsavedChanges; private set => SetProperty(ref m_HasUnsavedChanges, value); }
+    public bool IsPlaybackDevice => m_Device.Type == DeviceType.Playback;
+    public ObservableCollection<int> Frequencies { get; } = new ObservableCollection<int> { 10, 25, 50, 100 };
     #endregion
 
     #region Commands
     public IRelayCommand ApplyCommand { get; }
     public IRelayCommand DiscardCommand { get; }
+    public IAsyncRelayCommand BrowseFileCommand { get; }
+    public IAsyncRelayCommand ExportTemplateCommand { get; }
     #endregion
 
     #region Ctors
-    public DeviceSettingsPaneViewModel(DevicesViewModel i_Parent, DeviceCardViewModel i_Device)
+    public DeviceSettingsPaneViewModel(DevicesViewModel i_Parent, DeviceCardViewModel i_Device, 
+        IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService)
     {
         m_Parent = i_Parent;
         m_Device = i_Device;
+        m_FilePickerService = i_FilePickerService;
+        m_PlaybackService = i_PlaybackService;
 
         Draft = new DeviceSettingsDraftViewModel();
 
         ApplyCommand = new RelayCommand(() => _ = TryApply());
         DiscardCommand = new RelayCommand(OnDiscard);
+        BrowseFileCommand = new AsyncRelayCommand(OnBrowseFileAsync);
+        ExportTemplateCommand = new AsyncRelayCommand(OnExportTemplateAsync);
 
         m_OriginalSnapshot = m_Device.Config.DeepClone();
 
@@ -7300,7 +7442,7 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
         var tempConfig = m_OriginalSnapshot.DeepClone();
         Draft.ApplyTo(tempConfig);
 
-        var errors = ConnectionSettingsValidator.Validate(tempConfig.Connection);
+        var errors = ConnectionSettingsValidator.Validate(tempConfig.Connection, m_Device.Type);
 
         if (errors.Count > 0)
         {
@@ -7461,6 +7603,42 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     public void OnPaneClosing()
     {
         UnsubscribeDraft();
+    }
+    #endregion
+
+    #region Command Handlers
+    // Opens a file picker for .csv files
+    private async Task OnBrowseFileAsync()
+    {
+        string? path = await m_FilePickerService.PickSingleFileAsync(new[] { ".csv" });
+        if (!string.IsNullOrEmpty(path))
+        {
+            Draft.PlaybackFilePath = path;
+        }
+    }
+
+    // Exports a CSV template using the Playback Service
+    private async Task OnExportTemplateAsync()
+    {
+        string defaultName = "Playback_Template.csv";
+        var choices = new Dictionary<string, IList<string>> { { "CSV File", new List<string> { ".csv" } } };
+
+        // 1. Ask User for Path (UI Service)
+        string? path = await m_FilePickerService.PickSaveFileAsync(defaultName, choices);
+
+        if (string.IsNullOrEmpty(path)) { return; }
+
+        try
+        {
+            // 2. Ask Domain to Generate File (Infrastructure Service)
+            await m_PlaybackService.CreateTemplateAsync(path);
+
+            m_Device.LogService.Info(nameof(DeviceSettingsPaneViewModel), $"Exported template to {path}");
+        }
+        catch (Exception ex)
+        {
+            m_Device.LogService.Error(nameof(DeviceSettingsPaneViewModel), "Failed to export template", ex);
+        }
     }
 
     // Discard command handler
@@ -7952,7 +8130,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         Rows.Add(new IntegrationFieldRowViewModel("Velocity Down", "m/s"));
 
         // Derived/Calculated Fields
-        Rows.Add(new IntegrationFieldRowViewModel("Velocity Total (calc)", "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel("Velocity Total", "m/s"));
 
         // Miscellaneous
         Rows.Add(new IntegrationFieldRowViewModel("Course", "deg"));
@@ -8457,6 +8635,110 @@ public sealed partial class LogsViewModel : ObservableObject
 
 
 // ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\ViewModels\Playback\PlaybackControlsViewModel.cs
+// ---------------------------------------------------------
+
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Dispatching;
+using NavigationIntegrationSystem.Core.Playback;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
+using System;
+
+namespace NavigationIntegrationSystem.UI.ViewModels.Playback;
+
+// Manages the state of the bottom playback tray
+public sealed partial class PlaybackControlsViewModel : ViewModelBase
+{
+    #region Private Fields
+    private readonly IPlaybackService m_PlaybackService;
+    private readonly DispatcherQueue m_DispatcherQueue;
+    private bool m_IsVisible;
+    #endregion
+
+    #region Properties
+    public bool IsVisible { get => m_IsVisible; private set => SetProperty(ref m_IsVisible, value); }
+    public bool IsPlaying => m_PlaybackService.IsPlaying;
+    public int CurrentLineIndex => m_PlaybackService.CurrentLineIndex;
+    public int TotalLineCount => m_PlaybackService.TotalLineCount;
+    public string PlayPauseIcon => IsPlaying ? "Pause" : "Play";
+    public string PlayPauseTooltip => IsPlaying ? "Pause" : "Play";
+    public string ProgressText => $"{CurrentLineIndex} / {TotalLineCount}";
+
+    // Slider binding (TwoWay)
+    public int SeekValue
+    {
+        get => CurrentLineIndex;
+        set
+        {
+            if (value != CurrentLineIndex)
+            {
+                m_PlaybackService.Seek(value);
+                OnPropertyChanged();
+            }
+        }
+    }
+    #endregion
+
+    #region Commands
+    public IRelayCommand TogglePlayCommand { get; }
+    public IRelayCommand StopCommand { get; }
+    #endregion
+
+    #region Constructors
+    public PlaybackControlsViewModel(IPlaybackService i_PlaybackService)
+    {
+        m_PlaybackService = i_PlaybackService;
+        m_DispatcherQueue = DispatcherQueue.GetForCurrentThread();
+
+        TogglePlayCommand = new RelayCommand(OnTogglePlay);
+        StopCommand = new RelayCommand(OnStop);
+
+        m_PlaybackService.StateChanged += OnPlaybackStateChanged;
+
+        UpdateVisibility();
+    }
+    #endregion
+
+    #region Functions
+    // Toggles playback state
+    private void OnTogglePlay()
+    {
+        if (m_PlaybackService.IsPlaying) m_PlaybackService.Pause();
+        else m_PlaybackService.Play();
+    }
+
+    // Stops playback and resets to the beginning
+    private void OnStop()
+    {
+        m_PlaybackService.Stop();
+    }
+
+    // Updates visibility based on whether a file is loaded
+    private void UpdateVisibility()
+    {
+        IsVisible = !string.IsNullOrEmpty(m_PlaybackService.LoadedFilePath);
+    }
+
+    // When playback state changes, update all relevant properties and visibility
+    private void OnPlaybackStateChanged(object? sender, EventArgs e)
+    {
+        // Marshal to UI thread because this event comes from the playback loop
+        m_DispatcherQueue.TryEnqueue(() =>
+        {
+            UpdateVisibility();
+            OnPropertyChanged(nameof(IsPlaying));
+            OnPropertyChanged(nameof(CurrentLineIndex));
+            OnPropertyChanged(nameof(SeekValue));
+            OnPropertyChanged(nameof(TotalLineCount));
+            OnPropertyChanged(nameof(PlayPauseIcon));
+            OnPropertyChanged(nameof(PlayPauseTooltip));
+            OnPropertyChanged(nameof(ProgressText));
+        });
+    }
+    #endregion
+}
+
+// ---------------------------------------------------------
 // FILE: .\src\NavigationIntegrationSystem.UI\ViewModels\Settings\SettingsViewModel.cs
 // ---------------------------------------------------------
 
@@ -8510,6 +8792,69 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
     #endregion
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Views\Controls\PlaybackTrayView.xaml
+// ---------------------------------------------------------
+
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Controls.PlaybackTrayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels.Playback"
+             mc:Ignorable="d">
+
+    <Grid Visibility="{x:Bind ViewModel.IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+          Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="16,8">
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+            <Button Command="{x:Bind ViewModel.TogglePlayCommand}" ToolTipService.ToolTip="{x:Bind ViewModel.PlayPauseTooltip, Mode=OneWay}">
+                <SymbolIcon Symbol="{x:Bind ViewModel.PlayPauseIcon, Mode=OneWay}" />
+            </Button>
+            <Button Command="{x:Bind ViewModel.StopCommand}" ToolTipService.ToolTip="Stop">
+                <SymbolIcon Symbol="Stop" />
+            </Button>
+        </StackPanel>
+
+        <Slider Grid.Column="1" Margin="16,0" VerticalAlignment="Center" 
+                Minimum="0" Maximum="{x:Bind ViewModel.TotalLineCount, Mode=OneWay}" 
+                Value="{x:Bind ViewModel.SeekValue, Mode=TwoWay}" />
+
+        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontFamily="Consolas" Opacity="0.8" 
+                   Text="{x:Bind ViewModel.ProgressText, Mode=OneWay}" />
+    </Grid>
+</UserControl>
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Views\Controls\PlaybackTrayView.xaml.cs
+// ---------------------------------------------------------
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using NavigationIntegrationSystem.UI.ViewModels.Playback;
+
+namespace NavigationIntegrationSystem.UI.Views.Controls;
+
+public sealed partial class PlaybackTrayView : UserControl
+{
+    public PlaybackControlsViewModel ViewModel { get; }
+
+    public PlaybackTrayView()
+    {
+        InitializeComponent();
+        // Resolve VM directly (or inherit from parent if structured that way, but direct is safer for Global Tray)
+        ViewModel = ((App)Application.Current).Services.GetRequiredService<PlaybackControlsViewModel>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -8651,7 +8996,7 @@ public sealed partial class ShellHeaderControl : UserControl
                                         </Button>
 
                                         <!--  Open Settings pane  -->
-                                        <Button Command="{x:Bind OpenSettingsCommand}" Visibility="{x:Bind ShowSettingsInspect, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Button Command="{x:Bind OpenSettingsCommand}" Visibility="{x:Bind IsSettingsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <SymbolIcon Symbol="Setting" />
                                                 <TextBlock Text="Settings" />
@@ -8659,7 +9004,7 @@ public sealed partial class ShellHeaderControl : UserControl
                                         </Button>
 
                                         <!--  Open Inspect pane  -->
-                                        <Button Command="{x:Bind OpenInspectCommand}" Visibility="{x:Bind ShowSettingsInspect, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Button Command="{x:Bind OpenInspectCommand}" Visibility="{x:Bind IsInspectVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <SymbolIcon Symbol="Preview" />
                                                 <TextBlock Text="Inspect" />
@@ -9355,7 +9700,12 @@ namespace NavigationIntegrationSystem.UI.Views.Panes
 // ---------------------------------------------------------
 
 <?xml version="1.0" encoding="utf-8" ?>
-<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.DeviceSettingsPaneView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.DeviceSettingsPaneView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:sub="using:NavigationIntegrationSystem.UI.Views.Panes.SubViews"
              mc:Ignorable="d">
 
     <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
@@ -9363,112 +9713,11 @@ namespace NavigationIntegrationSystem.UI.Views.Panes
 
             <TextBlock FontSize="18" Text="Device Settings" />
 
-            <!--  General  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <Button x:Name="CommitFocusSink" Width="0" Height="0" IsTabStop="False" Opacity="0" />
+            <!-- Real Device Settings -->
+            <sub:RealDeviceSettingsView Visibility="{x:Bind ViewModel.IsPlaybackDevice, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
 
-                    <TextBlock FontSize="16" Opacity="0.8" Text="General" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Connection kind" />
-                        <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding ConnectionKinds}" SelectedItem="{Binding Draft.ConnectionKind, Mode=TwoWay}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Auto reconnect" />
-                        <CheckBox Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding Draft.AutoReconnect, Mode=TwoWay}" />
-                    </Grid>
-
-                </StackPanel>
-            </Border>
-
-            <!--  UDP  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Udp}">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <TextBlock FontSize="16" Opacity="0.8" Text="UDP" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Remote IP" />
-                        <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpRemoteIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Remote port" />
-                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpRemotePortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Local IP" />
-                        <TextBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpLocalIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Local port" />
-                        <TextBox Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpLocalPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!--  TCP  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Tcp}">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <TextBlock FontSize="16" Opacity="0.8" Text="TCP" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Host" />
-                        <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.TcpHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Port" />
-                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.TcpPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!--  Serial  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Serial}">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <TextBlock FontSize="16" Opacity="0.8" Text="Serial" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Line kind" />
-                        <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding SerialLineKinds}" SelectedItem="{Binding Draft.SerialLineKind, Mode=TwoWay}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="COM port" />
-                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.SerialComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Baud rate" />
-                        <TextBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
+            <!-- Playback Settings -->
+            <sub:PlaybackSettingsView Visibility="{x:Bind ViewModel.IsPlaybackDevice, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
         </StackPanel>
     </ScrollViewer>
@@ -9487,6 +9736,10 @@ namespace NavigationIntegrationSystem.UI.Views.Panes;
 // Settings pane view for a selected device
 public sealed partial class DeviceSettingsPaneView : UserControl
 {
+    #region Properties
+    public DeviceSettingsPaneViewModel ViewModel => (DeviceSettingsPaneViewModel)DataContext;
+    #endregion
+
     #region Constructors
     public DeviceSettingsPaneView()
     {
@@ -9502,5 +9755,231 @@ public sealed partial class DeviceSettingsPaneView : UserControl
         if (args.NewValue is DeviceSettingsPaneViewModel vm) { vm.SetXamlRoot(XamlRoot); }
     }
     #endregion
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Views\Panes\SubViews\PlaybackSettingsView.xaml
+// ---------------------------------------------------------
+
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.SubViews.PlaybackSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels.Devices.Panes"
+             mc:Ignorable="d">
+
+    <StackPanel Spacing="14">
+        <!-- Playback Settings -->
+        <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="Playback Source" />
+
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="File Path" VerticalAlignment="Center" Opacity="0.7"/>
+                    <Grid Grid.Row="0" Grid.Column="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" IsReadOnly="False" PlaceholderText="C:\Data\recording.csv" 
+                                 Text="{x:Bind ViewModel.Draft.PlaybackFilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Grid.Column="1" Command="{x:Bind ViewModel.BrowseFileCommand}">
+                            <SymbolIcon Symbol="BrowsePhotos" />
+                        </Button>
+                    </Grid>
+
+                    <TextBlock Grid.Row="1" Text="Frequency (Hz)" VerticalAlignment="Center" Opacity="0.7"/>
+                    <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" 
+                              ItemsSource="{x:Bind ViewModel.Frequencies, Mode=OneWay}" 
+                              SelectedItem="{x:Bind ViewModel.Draft.PlaybackFrequency, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="2" Text="Loop" VerticalAlignment="Center" Opacity="0.7"/>
+                    <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{x:Bind ViewModel.Draft.PlaybackLoop, Mode=TwoWay}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Tools -->
+        <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="Tools" />
+                <Button HorizontalAlignment="Left" Command="{x:Bind ViewModel.ExportTemplateCommand}" Content="Export CSV Template" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Views\Panes\SubViews\PlaybackSettingsView.xaml.cs
+// ---------------------------------------------------------
+
+using Microsoft.UI.Xaml.Controls;
+using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
+
+namespace NavigationIntegrationSystem.UI.Views.Panes.SubViews;
+
+public sealed partial class PlaybackSettingsView : UserControl
+{
+    public DeviceSettingsPaneViewModel ViewModel => (DeviceSettingsPaneViewModel)DataContext;
+
+    public PlaybackSettingsView()
+    {
+        InitializeComponent();
+    }
+}
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Views\Panes\SubViews\RealDeviceSettingsView.xaml
+// ---------------------------------------------------------
+
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.SubViews.RealDeviceSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels.Devices.Panes"
+             mc:Ignorable="d">
+
+    <StackPanel Spacing="14">
+        <!-- General Settings -->
+        <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="General" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Connection kind" VerticalAlignment="Center" Opacity="0.7"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" 
+                              ItemsSource="{x:Bind ViewModel.ConnectionKinds, Mode=OneWay}" 
+                              SelectedItem="{x:Bind ViewModel.Draft.ConnectionKind, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="1" Text="Auto reconnect" VerticalAlignment="Center" Opacity="0.7"/>
+                    <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{x:Bind ViewModel.Draft.AutoReconnect, Mode=TwoWay}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- UDP Settings -->
+        <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{x:Bind ViewModel.Draft.IsUdpSelected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="UDP" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Remote IP" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpRemoteIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="1" Text="Remote Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpRemotePortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="2" Text="Local IP" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpLocalIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="3" Text="Local Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpLocalPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- TCP Settings -->
+        <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{x:Bind ViewModel.Draft.IsTcpSelected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="TCP" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Host" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.Draft.TcpHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="1" Text="Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Draft.TcpPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Serial Settings -->
+        <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{x:Bind ViewModel.Draft.IsSerialSelected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="Serial" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Line Kind" VerticalAlignment="Center" Opacity="0.7"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" 
+                              ItemsSource="{x:Bind ViewModel.SerialLineKinds, Mode=OneWay}" 
+                              SelectedItem="{x:Bind ViewModel.Draft.SerialLineKind, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="1" Text="COM Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Draft.SerialComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="2" Text="Baud Rate" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
+
+// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\Views\Panes\SubViews\RealDeviceSettingsView.xaml.cs
+// ---------------------------------------------------------
+
+using Microsoft.UI.Xaml.Controls;
+using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
+
+namespace NavigationIntegrationSystem.UI.Views.Panes.SubViews;
+
+public sealed partial class RealDeviceSettingsView : UserControl
+{
+    public DeviceSettingsPaneViewModel ViewModel => (DeviceSettingsPaneViewModel)DataContext;
+
+    public RealDeviceSettingsView()
+    {
+        InitializeComponent();
+    }
 }
 

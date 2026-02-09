@@ -11,6 +11,7 @@ public interface IPlaybackService : IDisposable
     string? LoadedFilePath { get; }
     int CurrentLineIndex { get; }
     int TotalLineCount { get; }
+    int Frequency { get; set; }
     #endregion
 
     #region Events

@@ -51,17 +51,7 @@ public sealed partial class DevicesViewModel : ObservableObject
     public DeviceSettingsPaneViewModel? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
     public string SaveButtonText { get => m_SaveButtonText; private set => SetProperty(ref m_SaveButtonText, value); }
     public Symbol SaveButtonIcon { get => m_SaveButtonIcon; private set => SetProperty(ref m_SaveButtonIcon, value); }
-    public bool CanSaveDevicesConfig { get => !IsPaneOpen; }
-
-    public bool IsPaneOpen
-    {
-        get => m_IsPaneOpen;
-        set
-        {
-            if (!SetProperty(ref m_IsPaneOpen, value)) { return; }
-            OnPropertyChanged(nameof(CanSaveDevicesConfig));
-        }
-    }
+    public bool IsPaneOpen { get => m_IsPaneOpen; set => SetProperty(ref m_IsPaneOpen, value); }
     #endregion
 
     #region Commands
@@ -112,7 +102,7 @@ public sealed partial class DevicesViewModel : ObservableObject
 
             // Create runtime device instance
             IInsDevice runtimeDevice = i_DeviceRegistry.Create(def, cfg);
-            var vm = new DeviceCardViewModel(cfg, m_LogService, fields, OnOpenSettingsFromCard, OnOpenInspectFromCard, runtimeDevice);
+            var vm = new DeviceCardViewModel(cfg, m_LogService, m_DialogService, fields, OnOpenSettingsFromCard, OnOpenInspectFromCard, runtimeDevice);
 
             Devices.Add(vm);
         }
@@ -126,7 +116,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         if (i_Device == null) { return; }
 
         SelectedDevice = i_Device;
-        CurrentSettingsPane = new DeviceSettingsPaneViewModel(this, i_Device, m_FilePickerService, m_PlaybackService);
+        CurrentSettingsPane = new DeviceSettingsPaneViewModel(this, i_Device, m_FilePickerService, m_PlaybackService, m_DialogService);
         PaneMode = DevicesPaneMode.Settings;
         IsPaneOpen = true;
     }

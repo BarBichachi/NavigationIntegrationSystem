@@ -1,6 +1,7 @@
 ﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NavigationIntegrationSystem.UI.Enums;
+using NavigationIntegrationSystem.UI.Services.UI.Windowing;
 using System;
 using System.Threading.Tasks;
 
@@ -9,6 +10,18 @@ namespace NavigationIntegrationSystem.UI.Services.UI.Dialog;
 // Handles user-facing dialogs
 public sealed class DialogService : IDialogService
 {
+    #region Private Fields
+    private readonly IWindowProvider m_WindowProvider;
+    #endregion
+
+    #region Constructors
+    // We inject WindowProvider to resolve XamlRoot for ViewModels that don't have it
+    public DialogService(IWindowProvider i_WindowProvider)
+    {
+        m_WindowProvider = i_WindowProvider;
+    }
+    #endregion
+
     #region Functions
     // Shows a confirmation dialog for unsaved changes
     public async Task<DialogCloseDecision> ShowUnsavedChangesDialogAsync(XamlRoot i_XamlRoot)
@@ -49,5 +62,21 @@ public sealed class DialogService : IDialogService
         await dialog.ShowAsync().AsTask();
     }
 
+    // Shows a generic error dialog using the main window's XamlRoot
+    public async Task ShowErrorAsync(string i_Title, string i_Message)
+    {
+        if (m_WindowProvider.MainWindow?.Content == null) return;
+
+        ContentDialog dialog = new ContentDialog
+        {
+            Title = i_Title,
+            Content = i_Message,
+            CloseButtonText = "Close",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = m_WindowProvider.MainWindow.Content.XamlRoot
+        };
+
+        await dialog.ShowAsync().AsTask();
+    }
     #endregion
 }

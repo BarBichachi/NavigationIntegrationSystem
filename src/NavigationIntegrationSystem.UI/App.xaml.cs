@@ -5,10 +5,9 @@ using Microsoft.UI.Xaml;
 
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Devices.Runtime;
-using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.UI.Bootstrap;
 using NavigationIntegrationSystem.UI.Services.Logging;
-using NavigationIntegrationSystem.UI.Services.Recording;
+using NavigationIntegrationSystem.UI.Services.UI.Windowing;
 
 using System;
 
@@ -35,24 +34,35 @@ public partial class App : Application
     #endregion
 
     #region Overrides
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // 1. Warm up the UI Log Buffer
+        // 1. Initialize Modules (Bootstrapper Pattern)
+        var bootstrapper = Services.GetRequiredService<DevicesModuleBootstrapper>();
+        bootstrapper.Initialize();
+
+        // 2. Create and Register MainWindow (Provider Pattern)
+        m_MainWindow = Services.GetRequiredService<MainWindow>();
+        var windowProvider = Services.GetRequiredService<WindowProvider>();
+        windowProvider.MainWindow = m_MainWindow;
+
+        // 3. UI-Specific Setup
         var uiLogBuffer = Services.GetRequiredService<UiLogBuffer>();
         uiLogBuffer.AttachUiDispatcher(DispatcherQueue.GetForCurrentThread());
 
+        // 4. Start the Host (which starts all hosted services)
+        await m_Host.StartAsync();
+
         var log = Services.GetRequiredService<ILogService>();
-        log.Info(nameof(App), "NIS starting");
+        log.Info(nameof(App), "NIS Host Started");
 
-        // 2. Initialize device modules
-        _ = Services.GetRequiredService<DevicesModuleBootstrapper>();
-        
-        // 3. Warm up the Recording Snapshot Service
-        _ = Services.GetRequiredService<IntegrationSnapshotService>();
-
-        // 4. Show MainWindow
-        m_MainWindow = Services.GetRequiredService<MainWindow>();
+        // 5. Show MainWindow
         m_MainWindow.Activate();
+
+        m_MainWindow.Closed += async (s, e) =>
+        {
+            await m_Host.StopAsync();
+            m_Host.Dispose();
+        };
     }
     #endregion
 }

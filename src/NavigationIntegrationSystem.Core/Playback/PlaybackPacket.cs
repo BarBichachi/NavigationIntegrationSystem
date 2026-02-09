@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace NavigationIntegrationSystem.Core.Playback;
 
@@ -7,14 +6,12 @@ namespace NavigationIntegrationSystem.Core.Playback;
 public sealed class PlaybackPacket
 {
     #region Properties
-    public DateTime Timestamp { get; }
     public IReadOnlyDictionary<string, double> Values { get; }
     #endregion
 
     #region Constructors
-    public PlaybackPacket(DateTime i_Timestamp, IReadOnlyDictionary<string, double> i_Values)
+    public PlaybackPacket(IReadOnlyDictionary<string, double> i_Values)
     {
-        Timestamp = i_Timestamp;
         Values = i_Values;
     }
     #endregion

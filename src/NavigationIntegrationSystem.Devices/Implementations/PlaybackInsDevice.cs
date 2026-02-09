@@ -32,15 +32,25 @@ public sealed class PlaybackInsDevice : InsDeviceBase
     #endregion
 
     #region Functions
-    // On connect, subscribe to playback events and validate that a file is loaded
+    // On connect, validate and load the playback file, set frequency, and subscribe to events
     protected override Task OnConnectAsync()
     {
-        // We only "Connect" if a file is loaded
-        if (string.IsNullOrEmpty(m_PlaybackService.LoadedFilePath))
+        // 1. Validate File
+        if (string.IsNullOrEmpty(Config.Connection.Playback.FilePath))
         {
-            throw new InvalidOperationException("No playback file loaded.");
+            throw new InvalidOperationException("No playback file path configured.");
         }
 
+        // 2. Load File (if changed or not loaded)
+        if (m_PlaybackService.LoadedFilePath != Config.Connection.Playback.FilePath)
+        {
+            m_PlaybackService.LoadFileAsync(Config.Connection.Playback.FilePath).Wait();
+        }
+
+        // 3. Set Frequency
+        m_PlaybackService.Frequency = Config.Connection.Playback.Frequency;
+
+        // 4. Subscribe
         m_PlaybackService.PacketDispatched += OnPacketDispatched;
         m_PlaybackService.StateChanged += OnPlaybackStateChanged;
 

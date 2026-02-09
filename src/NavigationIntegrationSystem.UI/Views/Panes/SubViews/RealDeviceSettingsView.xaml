@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.SubViews.RealDeviceSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels.Devices.Panes"
+             mc:Ignorable="d">
+
+    <StackPanel Spacing="14">
+        <!-- General Settings -->
+        <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="General" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Connection kind" VerticalAlignment="Center" Opacity="0.7"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" 
+                              ItemsSource="{x:Bind ViewModel.ConnectionKinds, Mode=OneWay}" 
+                              SelectedItem="{x:Bind ViewModel.Draft.ConnectionKind, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="1" Text="Auto reconnect" VerticalAlignment="Center" Opacity="0.7"/>
+                    <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{x:Bind ViewModel.Draft.AutoReconnect, Mode=TwoWay}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- UDP Settings -->
+        <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{x:Bind ViewModel.Draft.IsUdpSelected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="UDP" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Remote IP" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpRemoteIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="1" Text="Remote Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpRemotePortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="2" Text="Local IP" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpLocalIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="3" Text="Local Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.Draft.UdpLocalPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- TCP Settings -->
+        <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{x:Bind ViewModel.Draft.IsTcpSelected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="TCP" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Host" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{x:Bind ViewModel.Draft.TcpHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="1" Text="Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Draft.TcpPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Serial Settings -->
+        <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{x:Bind ViewModel.Draft.IsSerialSelected, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="Serial" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Line Kind" VerticalAlignment="Center" Opacity="0.7"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" 
+                              ItemsSource="{x:Bind ViewModel.SerialLineKinds, Mode=OneWay}" 
+                              SelectedItem="{x:Bind ViewModel.Draft.SerialLineKind, Mode=TwoWay}" />
+
+                    <TextBlock Grid.Row="1" Text="COM Port" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Draft.SerialComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Grid.Row="2" Text="Baud Rate" VerticalAlignment="Center" Opacity="0.7"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

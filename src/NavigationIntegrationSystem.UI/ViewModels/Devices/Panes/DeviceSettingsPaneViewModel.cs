@@ -1,11 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.Input;
 
 using Microsoft.UI.Xaml;
-
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Enums;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Validation;
+using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
@@ -15,8 +16,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Text;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
@@ -28,6 +31,7 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     private readonly DeviceCardViewModel m_Device;
     private readonly IFilePickerService m_FilePickerService;
     private readonly IPlaybackService m_PlaybackService;
+    private readonly IDialogService m_DialogService;
     private DeviceConfig m_OriginalSnapshot;
     private bool m_HasUnsavedChanges;
     private bool m_IsLoadingDraft;
@@ -41,6 +45,19 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
     public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
     public bool HasUnsavedChanges { get => m_HasUnsavedChanges; private set => SetProperty(ref m_HasUnsavedChanges, value); }
+    public bool IsPlaybackDevice => m_Device.Type == DeviceType.Playback;
+    public ObservableCollection<int> Frequencies { get; } = new ObservableCollection<int> { 10, 25, 50, 100 };
+    #endregion
+
+    #region Constants
+    private static readonly string[] c_RequiredColumns =
+    {
+        "PositionLatValue", "PositionLonValue", "PositionAltValue",
+        "EulerRollValue", "EulerPitchValue", "EulerAzimuthValue",
+        "EulerRollRateValue", "EulerPitchRateValue", "EulerAzimuthRateValue",
+        "VelocityNorthValue", "VelocityEastValue", "VelocityDownValue", "VelocityTotalValue",
+        "CourseValue", "StatusValue"
+    };
     #endregion
 
     #region Commands
@@ -52,12 +69,13 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
 
     #region Ctors
     public DeviceSettingsPaneViewModel(DevicesViewModel i_Parent, DeviceCardViewModel i_Device, 
-        IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService)
+        IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService, IDialogService i_DialogService)
     {
         m_Parent = i_Parent;
         m_Device = i_Device;
         m_FilePickerService = i_FilePickerService;
         m_PlaybackService = i_PlaybackService;
+        m_DialogService = i_DialogService;
 
         Draft = new DeviceSettingsDraftViewModel();
 
@@ -80,14 +98,14 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     // Receives XamlRoot from the view (for dialogs)
     public void SetXamlRoot(XamlRoot i_XamlRoot) { m_XamlRoot = i_XamlRoot; }
 
-    // Applies draft into real config only if valid, returns success
-    public bool TryApply()
+    // Tries to apply the draft changes to the original config with validation, returns true if successful
+    public async Task<bool> TryApply()
     {
         var tempConfig = m_OriginalSnapshot.DeepClone();
         Draft.ApplyTo(tempConfig);
 
-        var errors = ConnectionSettingsValidator.Validate(tempConfig.Connection);
-
+        // 1. General Connection Validation
+        var errors = ConnectionSettingsValidator.Validate(tempConfig.Connection, m_Device.Type);
         if (errors.Count > 0)
         {
             LogValidationFailure(errors);
@@ -95,14 +113,27 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
             return false;
         }
 
-        Draft.ApplyTo(m_Device.Config);
+        // 2. Playback File Validation (Existence & Content)
+        if (IsPlaybackDevice)
+        {
+            string fileError = CheckFileValidity(Draft.PlaybackFilePath);
+            if (!string.IsNullOrEmpty(fileError))
+            {
+                await m_DialogService.ShowErrorAsync("Invalid Playback File", fileError);
 
+                // Requirement: Clean the path if incorrect so it cannot be saved
+                Draft.PlaybackFilePath = string.Empty;
+                return false;
+            }
+        }
+
+        // 3. Save
+        Draft.ApplyTo(m_Device.Config);
         m_Parent.SaveDevicesConfigCommand.Execute(null);
 
         m_OriginalSnapshot = m_Device.Config.DeepClone();
 
         UnsubscribeDraft();
-
         HasUnsavedChanges = false;
         m_Device.HasUnsavedSettings = false;
 
@@ -162,7 +193,6 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     private static bool AreEquivalent(DeviceConfig i_A, DeviceConfig i_B)
     {
         if (i_A.AutoReconnect != i_B.AutoReconnect) { return false; }
-
         if (i_A.Connection.Kind != i_B.Connection.Kind) { return false; }
 
         // TCP
@@ -179,6 +209,11 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
         if (i_A.Connection.Serial.SerialLineKind != i_B.Connection.Serial.SerialLineKind) { return false; }
         if (i_A.Connection.Serial.ComPort != i_B.Connection.Serial.ComPort) { return false; }
         if (i_A.Connection.Serial.BaudRate != i_B.Connection.Serial.BaudRate) { return false; }
+
+        // Playback
+        if (i_A.Connection.Playback.FilePath != i_B.Connection.Playback.FilePath) { return false; }
+        if (i_A.Connection.Playback.Loop != i_B.Connection.Playback.Loop) { return false; }
+        if (i_A.Connection.Playback.Frequency != i_B.Connection.Playback.Frequency) { return false; }
 
         return true;
     }
@@ -255,10 +290,69 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     private async Task OnBrowseFileAsync()
     {
         string? path = await m_FilePickerService.PickSingleFileAsync(new[] { ".csv" });
-        if (!string.IsNullOrEmpty(path))
+        if (string.IsNullOrEmpty(path)) { return; }
+
+        // Validates the file with the Playback Service before applying to draft
+        string validationError = CheckFileValidity(path);
+        if (!string.IsNullOrEmpty(validationError))
         {
-            Draft.PlaybackFilePath = path;
+            await m_DialogService.ShowErrorAsync("Invalid File", validationError);
+            return;
         }
+
+        Draft.PlaybackFilePath = path;
+    }
+
+    // Validates the selected file for playback devices, checking existence and required columns
+    private string CheckFileValidity(string i_Path)
+    {
+        if (string.IsNullOrWhiteSpace(i_Path)) return "File path is empty.";
+        if (!File.Exists(i_Path)) return "File does not exist.";
+
+        try
+        {
+            using var reader = new StreamReader(i_Path);
+            string? headerLine = reader.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(headerLine)) return "File is empty.";
+
+            return CheckMissingColumns(headerLine);
+        }
+        catch (Exception ex)
+        {
+            return $"Error reading file: {ex.Message}";
+        }
+    }
+
+    // Checks for missing required columns in the CSV header, ignoring case and whitespace
+    private string CheckMissingColumns(string i_HeaderLine)
+    {
+        // Split and trim headers for accurate comparison
+        var fileHeaders = i_HeaderLine.Split(',')
+                                      .Select(h => h.Trim())
+                                      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var missing = new List<string>();
+
+        foreach (string required in c_RequiredColumns)
+        {
+            if (!fileHeaders.Contains(required))
+            {
+                missing.Add(required);
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            // Limit error message length if many are missing
+            string missingList = missing.Count > 3
+                ? $"{string.Join(", ", missing.Take(3))} and {missing.Count - 3} more"
+                : string.Join(", ", missing);
+
+            return $"Missing required columns: {missingList}";
+        }
+
+        return string.Empty;
     }
 
     // Exports a CSV template using the Playback Service

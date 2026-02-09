@@ -5,6 +5,5 @@ public enum DeviceConnectionKind
 {
     Udp,
     Tcp,
-    Serial,
-    Playback
+    Serial
 }

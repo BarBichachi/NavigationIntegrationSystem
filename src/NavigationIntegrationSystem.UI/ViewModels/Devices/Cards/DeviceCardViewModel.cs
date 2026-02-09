@@ -4,6 +4,7 @@ using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Devices.Models;
+using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -15,6 +16,7 @@ public sealed partial class DeviceCardViewModel : ObservableObject
 {
     #region Private Fields
     private readonly ILogService m_LogService;
+    private readonly IDialogService m_DialogService;
     private readonly IInsDevice m_Device;
     private readonly Action<DeviceCardViewModel> m_OpenSettings;
     private readonly Action<DeviceCardViewModel> m_OpenInspect;
@@ -44,8 +46,8 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     }
     public bool HasUnsavedSettings { get => m_HasUnsavedSettings; set => SetProperty(ref m_HasUnsavedSettings, value); }
     public ILogService LogService => m_LogService;
-    public bool IsManual => Type == DeviceType.Manual;
-    public bool ShowSettingsInspect => !IsManual;
+    public bool IsSettingsVisible => Type != DeviceType.Manual;
+    public bool IsInspectVisible => Type != DeviceType.Manual && Type != DeviceType.Playback;
     #endregion
 
     #region Commands
@@ -55,11 +57,12 @@ public sealed partial class DeviceCardViewModel : ObservableObject
     #endregion
 
     #region Constructors
-    public DeviceCardViewModel(DeviceConfig i_Config, ILogService i_LogService, ObservableCollection<InspectFieldViewModel> i_InspectFields, Action<DeviceCardViewModel> i_OpenSettings, Action<DeviceCardViewModel> i_OpenInspect, IInsDevice i_Device)
+    public DeviceCardViewModel(DeviceConfig i_Config, ILogService i_LogService, IDialogService i_DialogService, ObservableCollection<InspectFieldViewModel> i_InspectFields, Action<DeviceCardViewModel> i_OpenSettings, Action<DeviceCardViewModel> i_OpenInspect, IInsDevice i_Device)
     {
         Config = i_Config;
         InspectFields = i_InspectFields;
         m_LogService = i_LogService;
+        m_DialogService = i_DialogService;
         m_OpenSettings = i_OpenSettings;
         m_OpenInspect = i_OpenInspect;
         m_Device = i_Device;
@@ -97,6 +100,13 @@ public sealed partial class DeviceCardViewModel : ObservableObject
 
         m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} connect requested by user");
         await m_Device.ConnectAsync();
+
+        // Check if connection failed and show dialog if so
+        if (Status == DeviceStatus.Error)
+        {
+            string msg = !string.IsNullOrWhiteSpace(LastError) ? LastError : "Unknown error occurred during connection.";
+            await m_DialogService.ShowErrorAsync($"Connection Failed ({DisplayName})", msg);
+        }
     }
     #endregion
 }

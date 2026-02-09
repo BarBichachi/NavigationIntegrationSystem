@@ -24,12 +24,15 @@
     <None Remove="Assets\Icons\Home.svg" />
     <None Remove="Assets\Icons\Logs.svg" />
     <None Remove="Assets\Icons\Settings.svg" />
+    <None Remove="Views\Controls\PlaybackTrayView.xaml" />
     <None Remove="Views\Controls\ShellHeaderControl.xaml" />
     <None Remove="Views\Pages\DevicesPage.xaml" />
     <None Remove="Views\Pages\LogsPage.xaml" />
     <None Remove="Views\Pages\SettingsPage.xaml" />
     <None Remove="Views\Panes\DeviceInspectPaneView.xaml" />
     <None Remove="Views\Panes\DeviceSettingsPaneView.xaml" />
+    <None Remove="Views\Panes\SubViews\PlaybackSettingsView.xaml" />
+    <None Remove="Views\Panes\SubViews\RealDeviceSettingsView.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -72,6 +75,16 @@
     <ProjectReference Include="..\NavigationIntegrationSystem.Infrastructure\NavigationIntegrationSystem.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Page Update="Views\Panes\SubViews\PlaybackSettingsView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Controls\PlaybackTrayView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
     <Page Update="Views\Pages\SettingsPage.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -82,7 +95,9 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="ViewModels\NewFolder\" />
+    <Page Update="Views\Panes\SubViews\RealDeviceSettingsView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <!--

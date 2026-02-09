@@ -37,6 +37,7 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
     #region Playback (Private Fields)
     private string m_PlaybackFilePath = string.Empty;
     private bool m_PlaybackLoop;
+    private int m_PlaybackFrequency = 10;
     #endregion
 
     #region Properties
@@ -51,7 +52,6 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsUdpSelected));
             OnPropertyChanged(nameof(IsTcpSelected));
             OnPropertyChanged(nameof(IsSerialSelected));
-            OnPropertyChanged(nameof(IsPlaybackSelected));
         }
     }
 
@@ -77,13 +77,13 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
     // Playback
     public string PlaybackFilePath { get => m_PlaybackFilePath; set => SetProperty(ref m_PlaybackFilePath, value); }
     public bool PlaybackLoop { get => m_PlaybackLoop; set => SetProperty(ref m_PlaybackLoop, value); }
+    public int PlaybackFrequency { get => m_PlaybackFrequency; set => SetProperty(ref m_PlaybackFrequency, value); }
     #endregion
 
     #region Derived UI State
     public bool IsUdpSelected { get => ConnectionKind == DeviceConnectionKind.Udp; }
     public bool IsTcpSelected { get => ConnectionKind == DeviceConnectionKind.Tcp; }
     public bool IsSerialSelected { get => ConnectionKind == DeviceConnectionKind.Serial; }
-    public bool IsPlaybackSelected { get => ConnectionKind == DeviceConnectionKind.Playback; }
     #endregion
 
     #region Functions
@@ -127,6 +127,7 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
         // Playback
         PlaybackFilePath = i_Settings.Playback.FilePath;
         PlaybackLoop = i_Settings.Playback.Loop;
+        PlaybackFrequency = i_Settings.Playback.Frequency;
     }
 
     // Applies draft values into an existing persisted device config (deep, safe)
@@ -173,6 +174,7 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
 
         io_Settings.Playback.FilePath = PlaybackFilePath;
         io_Settings.Playback.Loop = PlaybackLoop;
+        io_Settings.Playback.Frequency = PlaybackFrequency;
     }
 
     #endregion

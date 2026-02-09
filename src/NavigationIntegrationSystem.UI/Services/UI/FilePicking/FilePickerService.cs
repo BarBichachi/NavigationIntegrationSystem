@@ -1,31 +1,29 @@
-﻿using Microsoft.UI.Xaml;
-
+﻿using NavigationIntegrationSystem.UI.Services.UI.Windowing;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
 using Windows.Storage;
 using Windows.Storage.Pickers;
-
 using WinRT.Interop;
 
 namespace NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 
-// Concrete implementation of IFilePickerService using UWP pickers (compatible with WinUI 3 desktop apps)
+// Concrete implementation of IFilePickerService using UWP pickers
 public sealed class FilePickerService : IFilePickerService
 {
     #region Private Fields
-    private readonly Window m_MainWindow;
+    private readonly IWindowProvider m_WindowProvider;
     #endregion
 
     #region Constructors
-    public FilePickerService(Window i_MainWindow)
+    public FilePickerService(IWindowProvider i_WindowProvider)
     {
-        m_MainWindow = i_MainWindow;
+        m_WindowProvider = i_WindowProvider;
     }
     #endregion
 
     #region Functions
+
     // Picks a single file with the specified extensions and returns its path (or null if cancelled)
     public async Task<string?> PickSingleFileAsync(IEnumerable<string> i_Extensions)
     {
@@ -62,10 +60,10 @@ public sealed class FilePickerService : IFilePickerService
         return file?.Path;
     }
 
-    // Associates the picker with the main window handle (Required for WinUI 3)
+    // Associates the picker with the main window handle using the provider
     private void InitializeWithWindow(object i_Target)
     {
-        IntPtr hwnd = WindowNative.GetWindowHandle(m_MainWindow);
+        IntPtr hwnd = WindowNative.GetWindowHandle(m_WindowProvider.MainWindow);
         WinRT.Interop.InitializeWithWindow.Initialize(i_Target, hwnd);
     }
     #endregion

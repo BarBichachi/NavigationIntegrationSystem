@@ -1,4 +1,5 @@
-﻿using NavigationIntegrationSystem.Devices.Enums;
+﻿using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.Devices.Enums;
 using NavigationIntegrationSystem.Devices.Models;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,33 +12,23 @@ public static class ConnectionSettingsValidator
 {
     #region Functions
     // Validates a DeviceConnectionSettings instance and returns a list of validation errors
-    public static IReadOnlyList<string> Validate(DeviceConnectionSettings i_Settings)
+    public static IReadOnlyList<string> Validate(DeviceConnectionSettings i_Settings, DeviceType i_Type)
     {
         var errors = new List<string>();
 
         if (i_Settings == null) { errors.Add("Connection settings are missing"); return errors; }
 
-        switch (i_Settings.Kind)
+        if (i_Type == DeviceType.Playback) { ValidatePlayback(i_Settings, errors); }
+        else if (i_Type != DeviceType.Manual)
         {
-            case DeviceConnectionKind.Udp:
-                ValidateUdp(i_Settings, errors);
-                break;
-
-            case DeviceConnectionKind.Tcp:
-                ValidateTcp(i_Settings, errors);
-                break;
-
-            case DeviceConnectionKind.Serial:
-                ValidateSerial(i_Settings, errors);
-                break;
-
-            case DeviceConnectionKind.Playback:
-                ValidatePlayback(i_Settings, errors);
-                break;
-
-            default:
-                errors.Add("Unsupported connection kind");
-                break;
+            // Real device validation
+            switch (i_Settings.Kind)
+            {
+                case DeviceConnectionKind.Udp: ValidateUdp(i_Settings, errors); break;
+                case DeviceConnectionKind.Tcp: ValidateTcp(i_Settings, errors); break;
+                case DeviceConnectionKind.Serial: ValidateSerial(i_Settings, errors); break;
+                default: errors.Add("Unsupported connection kind"); break;
+            }
         }
 
         return errors;

@@ -7,6 +7,10 @@ namespace NavigationIntegrationSystem.UI.Views.Panes;
 // Settings pane view for a selected device
 public sealed partial class DeviceSettingsPaneView : UserControl
 {
+    #region Properties
+    public DeviceSettingsPaneViewModel ViewModel => (DeviceSettingsPaneViewModel)DataContext;
+    #endregion
+
     #region Constructors
     public DeviceSettingsPaneView()
     {
@@ -19,7 +23,11 @@ public sealed partial class DeviceSettingsPaneView : UserControl
     // Updates ViewModel with current XamlRoot when DataContext changes
     private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
-        if (args.NewValue is DeviceSettingsPaneViewModel vm) { vm.SetXamlRoot(XamlRoot); }
+        if (args.NewValue is DeviceSettingsPaneViewModel vm) 
+        {
+            vm.SetXamlRoot(XamlRoot);
+            Bindings.Update();
+        }
     }
     #endregion
 }

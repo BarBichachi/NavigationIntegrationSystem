@@ -26,27 +26,15 @@ public sealed class CsvPlaybackService : IPlaybackService
     private int m_CurrentLineIndex;
     private bool m_IsPlaying;
     private string? m_LoadedFilePath;
+    private int m_Frequency = 10;
 
-    // The Schema Definition (Encapsulated in the Infrastructure layer)
     private static readonly string[] c_CsvSchema =
     {
-        "RcvTime[hms]", "RcvTime[sec]",
-        "OutputTimeDeviceCode", "OutputTimeDeviceId", "OutputTime[hms]", "OutputTime[sec]",
-        "PositionLatDeviceCode", "PositionLatDeviceId", "PositionLatValue",
-        "PositionLonDeviceCode", "PositionLonDeviceId", "PositionLonValue",
-        "PositionAltDeviceCode", "PositionAltDeviceId", "PositionAltValue",
-        "EulerRollDeviceCode", "EulerRollDeviceId", "EulerRollValue",
-        "EulerPitchDeviceCode", "EulerPitchDeviceId", "EulerPitchValue",
-        "EulerAzimuthDeviceCode", "EulerAzimuthDeviceId", "EulerAzimuthValue",
-        "EulerRollRateDeviceCode", "EulerRollRateDeviceId", "EulerRollRateValue",
-        "EulerPitchRateDeviceCode", "EulerPitchRateDeviceId", "EulerPitchRateValue",
-        "EulerAzimuthRateDeviceCode", "EulerAzimuthRateDeviceId", "EulerAzimuthRateValue",
-        "VelocityTotalDeviceCode", "VelocityTotalDeviceId", "VelocityTotalValue",
-        "VelocityNorthDeviceCode", "VelocityNorthDeviceId", "VelocityNorthValue",
-        "VelocityEastDeviceCode", "VelocityEastDeviceId", "VelocityEastValue",
-        "VelocityDownDeviceCode", "VelocityDownDeviceId", "VelocityDownValue",
-        "StatusDeviceCode", "StatusDeviceId", "StatusValue",
-        "CourseDeviceCode", "CourseDeviceId", "CourseValue"
+        "PositionLatValue", "PositionLonValue", "PositionAltValue",
+        "EulerRollValue", "EulerPitchValue", "EulerAzimuthValue",
+        "EulerRollRateValue", "EulerPitchRateValue", "EulerAzimuthRateValue",
+        "VelocityNorthValue", "VelocityEastValue", "VelocityDownValue", "VelocityTotalValue",
+        "CourseValue", "StatusValue"
     };
     #endregion
 
@@ -55,6 +43,7 @@ public sealed class CsvPlaybackService : IPlaybackService
     public string? LoadedFilePath => m_LoadedFilePath;
     public int CurrentLineIndex => m_CurrentLineIndex;
     public int TotalLineCount => m_FileLines.Count;
+    public int Frequency { get => m_Frequency; set { m_Frequency = Math.Clamp(value, 1, 100); } }
     #endregion
 
     #region Events
@@ -116,10 +105,8 @@ public sealed class CsvPlaybackService : IPlaybackService
             m_PlaybackCts?.Cancel();
             m_PlaybackCts = new CancellationTokenSource();
 
-            // Fire and forget the playback loop
             _ = PlaybackLoopAsync(m_PlaybackCts.Token);
         }
-
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -129,11 +116,9 @@ public sealed class CsvPlaybackService : IPlaybackService
         lock (m_Lock)
         {
             if (!m_IsPlaying) return;
-
             m_IsPlaying = false;
             m_PlaybackCts?.Cancel();
         }
-
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -155,7 +140,14 @@ public sealed class CsvPlaybackService : IPlaybackService
         {
             m_CurrentLineIndex = Math.Clamp(i_LineIndex, 0, TotalLineCount - 1);
         }
-        // If paused, we might want to dispatch the single frame at the new index immediately
+    }
+
+    // Creates a new CSV file with the appropriate header for recording playback data.
+    public async Task CreateTemplateAsync(string i_FilePath)
+    {
+        if (string.IsNullOrWhiteSpace(i_FilePath)) throw new ArgumentNullException(nameof(i_FilePath));
+        string header = string.Join(",", c_CsvSchema);
+        await File.WriteAllTextAsync(i_FilePath, header, Encoding.UTF8).ConfigureAwait(false);
     }
 
     // The main orchestrator for the playback thread
@@ -163,47 +155,30 @@ public sealed class CsvPlaybackService : IPlaybackService
     {
         try
         {
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            DateTime? firstFrameTime = null;
-
             while (!i_Token.IsCancellationRequested)
             {
-                // 1. Thread-safe read
+                // Calculate delay based on frequency (e.g., 10Hz = 100ms)
+                int delayMs = 1000 / Frequency;
+
                 if (!TryGetNextLine(out string line))
                 {
                     SetPlayingState(false);
-                    break; // End of file
+                    break;
                 }
 
-                // 2. Parse payload
                 PlaybackPacket? packet = ParsePacket(line);
 
                 if (packet != null)
                 {
-                    // 3. Time synchronization (Drift correction)
-                    if (firstFrameTime == null)
-                    {
-                        // Initialize baseline on first valid packet
-                        firstFrameTime = packet.Timestamp;
-                    }
-                    else
-                    {
-                        // Apply delay based on the baseline
-                        await ApplyRealtimeDelayAsync(packet.Timestamp, firstFrameTime.Value, stopwatch, i_Token).ConfigureAwait(false);
-                    }
-
-                    // 4. Dispatch data
                     PacketDispatched?.Invoke(this, packet);
                 }
 
-                // 5. Advance cursor
                 IncrementIndex();
+
+                await Task.Delay(delayMs, i_Token).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
-        {
-            // Normal stop/pause behavior
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             m_LogService.Error(nameof(CsvPlaybackService), "Playback loop error", ex);
@@ -231,27 +206,6 @@ public sealed class CsvPlaybackService : IPlaybackService
         }
     }
 
-    // Calculates and applies the precise delay needed to match the original recording speed
-    private async Task ApplyRealtimeDelayAsync(DateTime i_CurrentPacketTime, DateTime i_FirstFrameTime, Stopwatch i_Stopwatch, CancellationToken i_Token)
-    {
-        // Target: How much time passed in the file since the start
-        TimeSpan fileDelta = i_CurrentPacketTime - i_FirstFrameTime;
-
-        // Handle negative jumps (bad data) by treating them as immediate
-        if (fileDelta.TotalMilliseconds < 0) { fileDelta = TimeSpan.Zero; }
-
-        // Actual: How much time passed in our simulation loop
-        TimeSpan realDelta = i_Stopwatch.Elapsed;
-
-        // Wait the difference to synchronize
-        TimeSpan wait = fileDelta - realDelta;
-
-        if (wait.TotalMilliseconds > 5) // Ignore micro-waits (<5ms) to prevent scheduler thrashing
-        {
-            await Task.Delay(wait, i_Token).ConfigureAwait(false);
-        }
-    }
-
     // Thread-safe index increment
     private void IncrementIndex()
     {
@@ -270,54 +224,32 @@ public sealed class CsvPlaybackService : IPlaybackService
         }
     }
 
-    // Parses a CSV line into a PlaybackPacket, using the headers to map values.
+    // Parses a CSV line into a PlaybackPacket, matching headers to values
     private PlaybackPacket? ParsePacket(string i_Line)
     {
         string[] cells = ParseCsvLine(i_Line);
-        if (cells.Length != m_Headers.Length) return null;
+        // We allow partial rows, but matching headers is safer
+        if (cells.Length > m_Headers.Length) return null;
 
-        var values = new Dictionary<string, double>(m_Headers.Length);
-        DateTime timestamp = DateTime.UtcNow;
+        var values = new Dictionary<string, double>();
 
-        for (int i = 0; i < m_Headers.Length; i++)
+        for (int i = 0; i < cells.Length && i < m_Headers.Length; i++)
         {
             string header = m_Headers[i];
-            string valueStr = cells[i];
-
-            // First column is time
-            if (i == 0)
-            {
-                if (DateTime.TryParse(valueStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime ts))
-                {
-                    timestamp = ts;
-                    continue; // Don't add time as a double value
-                }
-            }
-
-            if (double.TryParse(valueStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double val))
+            if (double.TryParse(cells[i], NumberStyles.Any, CultureInfo.InvariantCulture, out double val))
             {
                 values[header] = val;
             }
         }
 
-        return new PlaybackPacket(timestamp, values);
+        return new PlaybackPacket(values);
     }
 
-    // Handles simple CSV splitting
+    // Simple CSV line parser that trims whitespace and handles empty lines
     private static string[] ParseCsvLine(string i_Line)
     {
         if (string.IsNullOrEmpty(i_Line)) return Array.Empty<string>();
         return i_Line.Split(',').Select(s => s.Trim()).ToArray();
-    }
-
-    // Creating the template
-    public async Task CreateTemplateAsync(string i_FilePath)
-    {
-        if (string.IsNullOrWhiteSpace(i_FilePath)) { throw new ArgumentNullException(nameof(i_FilePath)); }
-
-        string header = string.Join(",", c_CsvSchema);
-
-        await File.WriteAllTextAsync(i_FilePath, header, Encoding.UTF8).ConfigureAwait(false);
     }
 
     // Clean up resources when the service is disposed.

@@ -10,6 +10,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!--  Custom Title Bar  -->
@@ -63,5 +64,8 @@
 
             <Frame x:Name="ContentFrame" />
         </NavigationView>
+
+        <!--  Playback Tray  -->
+        <controls:PlaybackTrayView Grid.Row="2" />
     </Grid>
 </Window>

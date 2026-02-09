@@ -1,5 +1,4 @@
-﻿// FILE: src\NavigationIntegrationSystem.UI\Bootstrap\HostBuilderFactory.cs
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -21,9 +20,11 @@ using NavigationIntegrationSystem.UI.Services.Recording;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.Services.UI.Navigation;
+using NavigationIntegrationSystem.UI.Services.UI.Windowing;
 using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
+using NavigationIntegrationSystem.UI.ViewModels.Playback;
 using NavigationIntegrationSystem.UI.ViewModels.Settings;
 
 namespace NavigationIntegrationSystem.UI.Bootstrap;
@@ -70,20 +71,25 @@ public static class HostBuilderFactory
 
                 // 6. Recording & Snapshot Services
                 services.AddSingleton<IRecordingService, NisRecordingService>();
-                services.AddSingleton<IntegrationSnapshotService>();
                 services.AddSingleton<CsvTestingService>();
 
+                // HOSTED SERVICE: Starts background recording logic
+                services.AddHostedService<IntegrationSnapshotService>();
+
                 // 7. UI Services
+                services.AddSingleton<WindowProvider>();
+                services.AddSingleton<IWindowProvider>(sp => sp.GetRequiredService<WindowProvider>());
                 services.AddSingleton<IDialogService, DialogService>();
                 services.AddSingleton<NavigationService>();
-                services.AddSingleton<IFilePickerService>(sp => new FilePickerService(sp.GetRequiredService<MainWindow>()));
+                services.AddSingleton<IFilePickerService, FilePickerService>();
 
-                // 8. ViewModels (All Singletons to maintain state across pages)
+                // 8. ViewModels
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<DevicesViewModel>();
                 services.AddSingleton<IntegrationViewModel>();
                 services.AddSingleton<LogsViewModel>();
                 services.AddSingleton<SettingsViewModel>();
+                services.AddSingleton<PlaybackControlsViewModel>();
 
                 // 9. Shell
                 services.AddSingleton<MainWindow>();

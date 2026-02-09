@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.DeviceSettingsPaneView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.DeviceSettingsPaneView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:sub="using:NavigationIntegrationSystem.UI.Views.Panes.SubViews"
              mc:Ignorable="d">
 
     <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
@@ -7,149 +12,11 @@
 
             <TextBlock FontSize="18" Text="Device Settings" />
 
-            <!--  General  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <Button x:Name="CommitFocusSink" Width="0" Height="0" IsTabStop="False" Opacity="0" />
+            <!-- Real Device Settings -->
+            <sub:RealDeviceSettingsView Visibility="{x:Bind ViewModel.IsPlaybackDevice, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
 
-                    <TextBlock FontSize="16" Opacity="0.8" Text="General" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Connection kind" />
-                        <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding ConnectionKinds}" SelectedItem="{Binding Draft.ConnectionKind, Mode=TwoWay}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Auto reconnect" />
-                        <CheckBox Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding Draft.AutoReconnect, Mode=TwoWay}" />
-                    </Grid>
-
-                </StackPanel>
-            </Border>
-
-            <!--  UDP  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Udp}">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <TextBlock FontSize="16" Opacity="0.8" Text="UDP" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Remote IP" />
-                        <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpRemoteIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Remote port" />
-                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpRemotePortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Local IP" />
-                        <TextBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpLocalIp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Local port" />
-                        <TextBox Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.UdpLocalPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!--  TCP  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Tcp}">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <TextBlock FontSize="16" Opacity="0.8" Text="TCP" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Host" />
-                        <TextBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.TcpHost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Port" />
-                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.TcpPortText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!--  Serial  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Serial}">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <TextBlock FontSize="16" Opacity="0.8" Text="Serial" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Line kind" />
-                        <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding SerialLineKinds}" SelectedItem="{Binding Draft.SerialLineKind, Mode=TwoWay}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="COM port" />
-                        <TextBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.SerialComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Baud rate" />
-                        <TextBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Text="{Binding Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!--  Playback  -->
-            <Border Padding="12" BorderThickness="1" CornerRadius="10" Visibility="{Binding Draft.ConnectionKind, Converter={StaticResource ConnectionKindToVisibilityConverter}, ConverterParameter=Playback}">
-                <StackPanel HorizontalAlignment="Stretch" Spacing="10">
-                    <TextBlock FontSize="16" Opacity="0.8" Text="Playback" />
-
-                    <Grid HorizontalAlignment="Stretch" ColumnSpacing="12" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Source File" />
-                        <Grid Grid.Row="0" Grid.Column="1" ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" IsReadOnly="False" PlaceholderText="C:\Data\recording.csv" Text="{Binding Draft.PlaybackFilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            <Button Grid.Column="1" Command="{Binding BrowseFileCommand}">
-                                <SymbolIcon Symbol="BrowsePhotos" />
-                            </Button>
-                        </Grid>
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Loop Playback" />
-                        <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding Draft.PlaybackLoop, Mode=TwoWay}" />
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Opacity="0.7" Text="Tools" />
-                        <Button Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Command="{Binding ExportTemplateCommand}" Content="Export CSV Template" />
-                    </Grid>
-                </StackPanel>
-            </Border>
+            <!-- Playback Settings -->
+            <sub:PlaybackSettingsView Visibility="{x:Bind ViewModel.IsPlaybackDevice, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
         </StackPanel>
     </ScrollViewer>
