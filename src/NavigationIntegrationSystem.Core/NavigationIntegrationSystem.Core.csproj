@@ -6,6 +6,8 @@
 	<Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="Models\Recording\" />
+    <Compile Remove="Models\Recording\**" />
+    <EmbeddedResource Remove="Models\Recording\**" />
+    <None Remove="Models\Recording\**" />
   </ItemGroup>
 </Project>

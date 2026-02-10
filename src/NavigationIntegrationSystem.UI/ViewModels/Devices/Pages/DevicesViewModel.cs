@@ -132,17 +132,6 @@ public sealed partial class DevicesViewModel : ObservableObject
         IsPaneOpen = true;
     }
 
-    // Closes the right pane
-    public void ClosePane()
-    {
-        CurrentSettingsPane?.OnPaneClosing();
-
-        IsPaneOpen = false;
-        PaneMode = DevicesPaneMode.None;
-        SelectedDevice = null;
-        CurrentSettingsPane = null;
-    }
-
     // Saves all device configuration changes to devices.json
     private async Task OnSaveConfigAsync()
     {
@@ -160,43 +149,6 @@ public sealed partial class DevicesViewModel : ObservableObject
         CurrentSettingsPane.ApplyCommand.Execute(null);
     }
 
-    // Returns true only when the open pane is Settings and there are unsaved changes
-    public bool ShouldConfirmPaneClose()
-    {
-        if (!IsPaneOpen) { return false; }
-        if (PaneMode != DevicesPaneMode.Settings) { return false; }
-        if (CurrentSettingsPane == null) { return false; }
-
-        return CurrentSettingsPane.HasUnsavedChanges;
-    }
-
-    // Forces close after dialog decision
-    public void ForceClosePaneAfterDecision(DialogCloseDecision i_Decision)
-    {
-        if (PaneMode != DevicesPaneMode.Settings || CurrentSettingsPane == null) { ClosePane(); return; }
-
-        switch (i_Decision)
-        {
-            case DialogCloseDecision.Apply:
-                CurrentSettingsPane.TryApply();
-                return;
-
-            case DialogCloseDecision.Discard:
-                CurrentSettingsPane.Discard();
-                ClosePane();
-                return;
-
-            case DialogCloseDecision.Cancel:
-                return;
-        }
-    }
-
-    // Shows unsaved-changes dialog and returns user decision
-    public async Task<DialogCloseDecision> ConfirmCloseSettingsAsync(XamlRoot i_XamlRoot)
-    {
-        return await m_DialogService.ShowUnsavedChangesDialogAsync(i_XamlRoot);
-    }
-
     // Shows validation-failed dialog with summary
     public Task ShowValidationFailedAsync(XamlRoot i_XamlRoot, string i_Summary)
     {
@@ -211,11 +163,35 @@ public sealed partial class DevicesViewModel : ObservableObject
         CurrentSettingsPane = null;
     }
 
-    // Closes the settings pane after a successful Apply without triggering the unsaved-changes dialog
+    // Requests pane close with confirmation if there are unsaved changes. Returns true if the pane can be closed.
+    public async Task<bool> RequestPaneCloseAsync()
+    {
+        if (!IsPaneOpen) return true;
+
+        if (CurrentSettingsPane != null)
+        {
+            // The Pane owns the logic. We just await the result.
+            bool allowed = await CurrentSettingsPane.CanCloseAsync();
+            if (!allowed) return false;
+        }
+
+        ClosePane();
+        return true;
+    }
+
+    // Closes the pane without confirmation (used when the pane itself requests close, so we skip the dialog)
+    public void ClosePane()
+    {
+        CurrentSettingsPane = null;
+        IsPaneOpen = false;
+        PaneMode = DevicesPaneMode.None;
+        SelectedDevice = null;
+    }
+
+    // Forces pane close after user makes a decision in the unsaved-changes dialog
     public void ForceClosePaneAfterApply()
     {
-        IsPaneOpen = false;
-        CleanupPaneState();
+        ClosePane();
     }
 
     // Shows a short "Saved" feedback on the Save button

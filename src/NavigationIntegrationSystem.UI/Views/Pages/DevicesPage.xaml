@@ -93,7 +93,6 @@
                                     </StackPanel>
 
                                     <!--  Show last error (only when not null/empty)  -->
-                                    <!--  If you already have a StringNullOrEmptyToVisibilityConverter in App.xaml, keep it; otherwise remove this block  -->
                                     <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Opacity="0.85"
                                                Text="{x:Bind LastError, Mode=OneWay}"
                                                Visibility="{x:Bind LastError, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />

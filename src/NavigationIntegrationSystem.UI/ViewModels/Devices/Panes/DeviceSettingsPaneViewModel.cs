@@ -1,17 +1,19 @@
-﻿using CommunityToolkit.Mvvm.Input;
+﻿// ---------------------------------------------------------
+// FILE: .\src\NavigationIntegrationSystem.UI\ViewModels\Devices\Panes\DeviceSettingsPaneViewModel.cs
+// ---------------------------------------------------------
 
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
-using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Enums;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Validation;
+using NavigationIntegrationSystem.UI.Enums;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
-
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -19,11 +21,9 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
-// ViewModel for the settings pane of a selected device (draft-based)
 public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
 {
     #region Private Fields
@@ -35,29 +35,28 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     private DeviceConfig m_OriginalSnapshot;
     private bool m_HasUnsavedChanges;
     private bool m_IsLoadingDraft;
-    private bool m_IsSubscribed;
     private XamlRoot? m_XamlRoot;
     #endregion
 
     #region Properties
-    public DeviceCardViewModel Device { get => m_Device; }
+    public DeviceCardViewModel Device => m_Device;
     public DeviceSettingsDraftViewModel Draft { get; }
     public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
     public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
-    public bool HasUnsavedChanges { get => m_HasUnsavedChanges; private set => SetProperty(ref m_HasUnsavedChanges, value); }
-    public bool IsPlaybackDevice => m_Device.Type == DeviceType.Playback;
     public ObservableCollection<int> Frequencies { get; } = new ObservableCollection<int> { 10, 25, 50, 100 };
-    #endregion
 
-    #region Constants
-    private static readonly string[] c_RequiredColumns =
+    public bool HasUnsavedChanges
     {
-        "PositionLatValue", "PositionLonValue", "PositionAltValue",
-        "EulerRollValue", "EulerPitchValue", "EulerAzimuthValue",
-        "EulerRollRateValue", "EulerPitchRateValue", "EulerAzimuthRateValue",
-        "VelocityNorthValue", "VelocityEastValue", "VelocityDownValue", "VelocityTotalValue",
-        "CourseValue", "StatusValue"
-    };
+        get => m_HasUnsavedChanges;
+        private set
+        {
+            if (SetProperty(ref m_HasUnsavedChanges, value))
+            {
+                m_Device.HasUnsavedSettings = value;
+            }
+        }
+    }
+    public bool IsPlaybackDevice => m_Device.Type == Core.Enums.DeviceType.Playback;
     #endregion
 
     #region Commands
@@ -68,7 +67,7 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     #endregion
 
     #region Ctors
-    public DeviceSettingsPaneViewModel(DevicesViewModel i_Parent, DeviceCardViewModel i_Device, 
+    public DeviceSettingsPaneViewModel(DevicesViewModel i_Parent, DeviceCardViewModel i_Device,
         IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService, IDialogService i_DialogService)
     {
         m_Parent = i_Parent;
@@ -79,307 +78,167 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
 
         Draft = new DeviceSettingsDraftViewModel();
 
-        ApplyCommand = new RelayCommand(() => _ = TryApply());
-        DiscardCommand = new RelayCommand(OnDiscard);
+        ApplyCommand = new RelayCommand(() => _ = TryApplyAsync());
+        DiscardCommand = new RelayCommand(Discard);
         BrowseFileCommand = new AsyncRelayCommand(OnBrowseFileAsync);
         ExportTemplateCommand = new AsyncRelayCommand(OnExportTemplateAsync);
 
+        // 1. Take initial snapshot
         m_OriginalSnapshot = m_Device.Config.DeepClone();
 
+        // 2. Load it into Draft
         LoadDraftFromSnapshot();
-        SubscribeDraft();
 
-        HasUnsavedChanges = false;
-        m_Device.HasUnsavedSettings = false;
+        // 3. Listen for changes
+        Draft.PropertyChanged += OnDraftPropertyChanged;
     }
     #endregion
 
     #region Functions
-    // Receives XamlRoot from the view (for dialogs)
+    // Checks for unsaved changes and prompts the user accordingly
+    public async Task<bool> CanCloseAsync()
+    {
+        if (!HasUnsavedChanges) return true;
+        if (m_XamlRoot == null) return true;
+
+        // Show Dialog
+        DialogCloseDecision decision = await m_DialogService.ShowUnsavedChangesDialogAsync(m_XamlRoot);
+
+        switch (decision)
+        {
+            case DialogCloseDecision.Apply:
+                return await TryApplyAsync();
+
+            case DialogCloseDecision.Discard:
+                Discard();
+                return true;
+
+            case DialogCloseDecision.Cancel:
+            default:
+                return false;
+        }
+    }
+
     public void SetXamlRoot(XamlRoot i_XamlRoot) { m_XamlRoot = i_XamlRoot; }
 
-    // Tries to apply the draft changes to the original config with validation, returns true if successful
-    public async Task<bool> TryApply()
+    public async Task<bool> TryApplyAsync()
     {
+        // 1. Create a temp config to validate against
         var tempConfig = m_OriginalSnapshot.DeepClone();
         Draft.ApplyTo(tempConfig);
 
-        // 1. General Connection Validation
+        // 2. Validate
         var errors = ConnectionSettingsValidator.Validate(tempConfig.Connection, m_Device.Type);
         if (errors.Count > 0)
         {
-            LogValidationFailure(errors);
-            ShowValidationSummary(errors);
+            await m_DialogService.ShowValidationFailedDialogAsync(m_XamlRoot!, string.Join("\n", errors));
             return false;
         }
 
-        // 2. Playback File Validation (Existence & Content)
-        if (IsPlaybackDevice)
-        {
-            string fileError = CheckFileValidity(Draft.PlaybackFilePath);
-            if (!string.IsNullOrEmpty(fileError))
-            {
-                await m_DialogService.ShowErrorAsync("Invalid Playback File", fileError);
-
-                // Requirement: Clean the path if incorrect so it cannot be saved
-                Draft.PlaybackFilePath = string.Empty;
-                return false;
-            }
-        }
-
-        // 3. Save
+        // 3. Save to Real Device Config
         Draft.ApplyTo(m_Device.Config);
-        m_Parent.SaveDevicesConfigCommand.Execute(null);
+        await m_Parent.SaveDevicesConfigCommand.ExecuteAsync(null);
 
+        // 4. Update Snapshot (Make this the new "Clean" state)
         m_OriginalSnapshot = m_Device.Config.DeepClone();
-
-        UnsubscribeDraft();
-        HasUnsavedChanges = false;
-        m_Device.HasUnsavedSettings = false;
+        UpdateDirtyState();
 
         m_Parent.ForceClosePaneAfterApply();
         return true;
     }
 
-    // Discards draft changes and restores from original snapshot
+    // Reverts Draft to match the last saved snapshot, then updates dirty state
     public void Discard()
     {
         LoadDraftFromSnapshot();
-
-        HasUnsavedChanges = false;
-        m_Device.HasUnsavedSettings = false;
+        UpdateDirtyState();
     }
 
-    // Loads the draft from the original snapshot without triggering dirty
+    // Loads the Draft from the snapshot without triggering dirty state updates
     private void LoadDraftFromSnapshot()
     {
-        UnsubscribeDraft();
-
         m_IsLoadingDraft = true;
         Draft.LoadFrom(m_OriginalSnapshot);
         m_IsLoadingDraft = false;
-
-        SubscribeDraft();
-        UpdateDirtyState();
     }
 
-    // Handles draft changes and updates dirty state based on snapshot-diff
+    // Whenever any Draft property changes, check if we are now dirty compared to the snapshot.
     private void OnDraftPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (m_IsLoadingDraft) { return; }
+        if (m_IsLoadingDraft) return;
         UpdateDirtyState();
     }
 
-    // Updates HasUnsavedChanges based on snapshot diff + numeric editor state (empty/invalid text)
+    // Updates the dirty state based on the current Draft and the original snapshot.
     private void UpdateDirtyState()
     {
-        bool isDirty = IsDraftDirtyAgainstSnapshot();
-        SetDirtyState(isDirty);
+        HasUnsavedChanges = !IsDraftEqualToSnapshot(Draft, m_OriginalSnapshot) || HasInvalidNumericText();
     }
 
-    // Returns true when draft differs from original snapshot, including empty/invalid numeric text edits
-    private bool IsDraftDirtyAgainstSnapshot()
+    // Compares the Draft with the snapshot to determine if there are unsaved changes (ignoring invalid text states)
+    private static bool IsDraftEqualToSnapshot(DeviceSettingsDraftViewModel draft, DeviceConfig snapshot)
     {
-        DeviceConfig tempConfig = m_OriginalSnapshot.DeepClone();
-        Draft.ApplyTo(tempConfig);
+        if (draft.AutoReconnect != snapshot.AutoReconnect) return false;
+        if (draft.ConnectionKind != snapshot.Connection.Kind) return false;
 
-        if (!AreEquivalent(tempConfig, m_OriginalSnapshot)) { return true; }
-        if (HasNumericTextEditsComparedToSnapshot()) { return true; }
-
-        return false;
-    }
-
-    // Compares only what we persist for this device
-    private static bool AreEquivalent(DeviceConfig i_A, DeviceConfig i_B)
-    {
-        if (i_A.AutoReconnect != i_B.AutoReconnect) { return false; }
-        if (i_A.Connection.Kind != i_B.Connection.Kind) { return false; }
-
-        // TCP
-        if (i_A.Connection.Tcp.Host != i_B.Connection.Tcp.Host) { return false; }
-        if (i_A.Connection.Tcp.Port != i_B.Connection.Tcp.Port) { return false; }
+        var c = snapshot.Connection;
 
         // UDP
-        if (i_A.Connection.Udp.RemoteIp != i_B.Connection.Udp.RemoteIp) { return false; }
-        if (i_A.Connection.Udp.RemotePort != i_B.Connection.Udp.RemotePort) { return false; }
-        if (i_A.Connection.Udp.LocalIp != i_B.Connection.Udp.LocalIp) { return false; }
-        if (i_A.Connection.Udp.LocalPort != i_B.Connection.Udp.LocalPort) { return false; }
+        if (draft.UdpRemoteIp != c.Udp.RemoteIp) return false;
+        if (draft.UdpRemotePort != c.Udp.RemotePort) return false;
+        if (draft.UdpLocalIp != c.Udp.LocalIp) return false;
+        if (draft.UdpLocalPort != c.Udp.LocalPort) return false;
+
+        // TCP
+        if (draft.TcpHost != c.Tcp.Host) return false;
+        if (draft.TcpPort != c.Tcp.Port) return false;
 
         // Serial
-        if (i_A.Connection.Serial.SerialLineKind != i_B.Connection.Serial.SerialLineKind) { return false; }
-        if (i_A.Connection.Serial.ComPort != i_B.Connection.Serial.ComPort) { return false; }
-        if (i_A.Connection.Serial.BaudRate != i_B.Connection.Serial.BaudRate) { return false; }
+        if (draft.SerialLineKind != c.Serial.SerialLineKind) return false;
+        if (draft.SerialComPort != c.Serial.ComPort) return false;
+        if (draft.SerialBaudRate != c.Serial.BaudRate) return false;
 
         // Playback
-        if (i_A.Connection.Playback.FilePath != i_B.Connection.Playback.FilePath) { return false; }
-        if (i_A.Connection.Playback.Loop != i_B.Connection.Playback.Loop) { return false; }
-        if (i_A.Connection.Playback.Frequency != i_B.Connection.Playback.Frequency) { return false; }
+        if (draft.PlaybackFilePath != c.Playback.FilePath) return false;
+        if (draft.PlaybackLoop != c.Playback.Loop) return false;
+        if (draft.PlaybackFrequency != c.Playback.Frequency) return false;
 
         return true;
     }
 
-    // Returns true if any numeric textbox is empty/invalid or doesn't match the snapshot value
-    private bool HasNumericTextEditsComparedToSnapshot()
+    // Checks if the text boxes contain invalid or different values than the int backing fields
+    private bool HasInvalidNumericText()
     {
-        return !IsNumericTextEquivalent(Draft.TcpPortText, m_OriginalSnapshot.Connection.Tcp.Port)
-            || !IsNumericTextEquivalent(Draft.UdpRemotePortText, m_OriginalSnapshot.Connection.Udp.RemotePort)
-            || !IsNumericTextEquivalent(Draft.UdpLocalPortText, m_OriginalSnapshot.Connection.Udp.LocalPort)
-            || !IsNumericTextEquivalent(Draft.SerialBaudRateText, m_OriginalSnapshot.Connection.Serial.BaudRate);
+        if (!IsTextIntMatch(Draft.UdpRemotePortText, m_OriginalSnapshot.Connection.Udp.RemotePort)) return true;
+        if (!IsTextIntMatch(Draft.UdpLocalPortText, m_OriginalSnapshot.Connection.Udp.LocalPort)) return true;
+        if (!IsTextIntMatch(Draft.TcpPortText, m_OriginalSnapshot.Connection.Tcp.Port)) return true;
+        if (!IsTextIntMatch(Draft.SerialBaudRateText, m_OriginalSnapshot.Connection.Serial.BaudRate)) return true;
+        return false;
     }
 
-    // Checks if numeric editor text represents the same value as the persisted snapshot
-    private static bool IsNumericTextEquivalent(string i_Text, int i_Value)
+    // Helper to check if a text input matches the int value (valid and equal)
+    private static bool IsTextIntMatch(string text, int value)
     {
-        if (string.IsNullOrWhiteSpace(i_Text)) { return false; }
-        if (!int.TryParse(i_Text, out int parsed)) { return false; }
-        return parsed == i_Value;
-    }
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        if (!int.TryParse(text, out int parsed)) return false;
 
-    // Applies dirty state to both the pane and the card (single source of truth)
-    private void SetDirtyState(bool i_IsDirty)
-    {
-        HasUnsavedChanges = i_IsDirty;
-        m_Device.HasUnsavedSettings = i_IsDirty;
-    }
-
-    // Logs validation errors once per apply attempt
-    private void LogValidationFailure(IReadOnlyList<string> i_Errors)
-    {
-        string summary = string.Join("; ", i_Errors);
-        m_Device.LogService.Warn(nameof(DeviceSettingsPaneViewModel), $"Validation failed for {m_Device.DisplayName}: {summary}");
-    }
-
-    // Shows a short dialog summary (first error + count)
-    private async void ShowValidationSummary(IReadOnlyList<string> i_Errors)
-    {
-        if (m_XamlRoot == null) { return; }
-
-        string first = i_Errors.Count > 0 ? i_Errors[0] : "Invalid settings";
-        string summary = i_Errors.Count == 1 ? first : $"{first}\n(+{i_Errors.Count - 1} more)";
-
-        try { await m_Parent.ShowValidationFailedAsync(m_XamlRoot, summary); }
-        catch (Exception ex) { m_Device.LogService.Error(nameof(DeviceSettingsPaneViewModel), "Failed showing validation dialog", ex); }
-
-    }
-
-    // Attaches Draft.PropertyChanged once
-    private void SubscribeDraft()
-    {
-        if (m_IsSubscribed) { return; }
-        Draft.PropertyChanged += OnDraftPropertyChanged;
-        m_IsSubscribed = true;
-    }
-
-    // Detaches Draft.PropertyChanged once
-    private void UnsubscribeDraft()
-    {
-        if (!m_IsSubscribed) { return; }
-        Draft.PropertyChanged -= OnDraftPropertyChanged;
-        m_IsSubscribed = false;
-    }
-
-    // Cleans up event handlers so late UI updates won't re-mark dirty after pane closes
-    public void OnPaneClosing()
-    {
-        UnsubscribeDraft();
+        return parsed == value;
     }
     #endregion
 
-    #region Command Handlers
-    // Opens a file picker for .csv files
+    #region Handlers
+    // Opens a file picker for CSV files and updates the Draft's PlaybackFilePath if a file is selected
     private async Task OnBrowseFileAsync()
     {
         string? path = await m_FilePickerService.PickSingleFileAsync(new[] { ".csv" });
-        if (string.IsNullOrEmpty(path)) { return; }
-
-        // Validates the file with the Playback Service before applying to draft
-        string validationError = CheckFileValidity(path);
-        if (!string.IsNullOrEmpty(validationError))
-        {
-            await m_DialogService.ShowErrorAsync("Invalid File", validationError);
-            return;
-        }
-
-        Draft.PlaybackFilePath = path;
+        if (!string.IsNullOrEmpty(path)) Draft.PlaybackFilePath = path;
     }
 
-    // Validates the selected file for playback devices, checking existence and required columns
-    private string CheckFileValidity(string i_Path)
-    {
-        if (string.IsNullOrWhiteSpace(i_Path)) return "File path is empty.";
-        if (!File.Exists(i_Path)) return "File does not exist.";
-
-        try
-        {
-            using var reader = new StreamReader(i_Path);
-            string? headerLine = reader.ReadLine();
-
-            if (string.IsNullOrWhiteSpace(headerLine)) return "File is empty.";
-
-            return CheckMissingColumns(headerLine);
-        }
-        catch (Exception ex)
-        {
-            return $"Error reading file: {ex.Message}";
-        }
-    }
-
-    // Checks for missing required columns in the CSV header, ignoring case and whitespace
-    private string CheckMissingColumns(string i_HeaderLine)
-    {
-        // Split and trim headers for accurate comparison
-        var fileHeaders = i_HeaderLine.Split(',')
-                                      .Select(h => h.Trim())
-                                      .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var missing = new List<string>();
-
-        foreach (string required in c_RequiredColumns)
-        {
-            if (!fileHeaders.Contains(required))
-            {
-                missing.Add(required);
-            }
-        }
-
-        if (missing.Count > 0)
-        {
-            // Limit error message length if many are missing
-            string missingList = missing.Count > 3
-                ? $"{string.Join(", ", missing.Take(3))} and {missing.Count - 3} more"
-                : string.Join(", ", missing);
-
-            return $"Missing required columns: {missingList}";
-        }
-
-        return string.Empty;
-    }
-
-    // Exports a CSV template using the Playback Service
+    // Opens a file picker to select where to save a CSV template, then calls the PlaybackService to create it
     private async Task OnExportTemplateAsync()
     {
-        string defaultName = "Playback_Template.csv";
-        var choices = new Dictionary<string, IList<string>> { { "CSV File", new List<string> { ".csv" } } };
-
-        // 1. Ask User for Path (UI Service)
-        string? path = await m_FilePickerService.PickSaveFileAsync(defaultName, choices);
-
-        if (string.IsNullOrEmpty(path)) { return; }
-
-        try
-        {
-            // 2. Ask Domain to Generate File (Infrastructure Service)
-            await m_PlaybackService.CreateTemplateAsync(path);
-
-            m_Device.LogService.Info(nameof(DeviceSettingsPaneViewModel), $"Exported template to {path}");
-        }
-        catch (Exception ex)
-        {
-            m_Device.LogService.Error(nameof(DeviceSettingsPaneViewModel), "Failed to export template", ex);
-        }
+        string? path = await m_FilePickerService.PickSaveFileAsync("Playback_Template.csv", new Dictionary<string, IList<string>> { { "CSV", new[] { ".csv" } } });
+        if (!string.IsNullOrEmpty(path)) await m_PlaybackService.CreateTemplateAsync(path);
     }
-
-    // Discard command handler
-    private void OnDiscard() { Discard(); }
     #endregion
 }

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using NavigationIntegrationSystem.UI.Enums;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 
 namespace NavigationIntegrationSystem.UI.Views.Pages;
@@ -22,22 +21,12 @@ public sealed partial class DevicesPage : Page
     #endregion
 
     #region Event Handlers
-    // Intercepts light-dismiss close to allow unsaved-changes decision
+    // We have to handle the pane's closing event in code-behind because we need to do async checks before allowing it to close.
     private async void OnPaneClosing(SplitView sender, SplitViewPaneClosingEventArgs args)
     {
-        if (!ViewModel.ShouldConfirmPaneClose())
-        {
-            ViewModel.ClosePane();
-            return;
-        }
-
         args.Cancel = true;
 
-        DialogCloseDecision decision = await ViewModel.ConfirmCloseSettingsAsync(sender.XamlRoot);
-
-        if (decision == DialogCloseDecision.Cancel) { return; }
-
-        ViewModel.ForceClosePaneAfterDecision(decision);
+        await ViewModel.RequestPaneCloseAsync();
     }
     #endregion
 }
