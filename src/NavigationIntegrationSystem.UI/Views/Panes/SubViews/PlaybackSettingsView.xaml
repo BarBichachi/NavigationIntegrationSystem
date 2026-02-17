@@ -31,19 +31,19 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBox Grid.Column="0" IsReadOnly="True" PlaceholderText="Select .csv file"
-                                 Text="{x:Bind ViewModel.Draft.PlaybackFilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Grid.Column="1" Command="{x:Bind ViewModel.BrowseFileCommand}">
+                                 Text="{Binding Draft.PlaybackFilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Grid.Column="1" Command="{Binding BrowseFileCommand}">
                             <SymbolIcon Symbol="BrowsePhotos" />
                         </Button>
                     </Grid>
 
                     <TextBlock Grid.Row="1" Text="Frequency (Hz)" VerticalAlignment="Center" Opacity="0.7"/>
-                    <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" 
-                              ItemsSource="{x:Bind ViewModel.Frequencies, Mode=OneWay}" 
-                              SelectedItem="{x:Bind ViewModel.Draft.PlaybackFrequency, Mode=TwoWay}" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Frequencies}"
+                              SelectedItem="{Binding Draft.PlaybackFrequency, Mode=TwoWay}" />
 
                     <TextBlock Grid.Row="2" Text="Loop" VerticalAlignment="Center" Opacity="0.7"/>
-                    <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{x:Bind ViewModel.Draft.PlaybackLoop, Mode=TwoWay}" />
+                    <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding Draft.PlaybackLoop, Mode=TwoWay}" />
                 </Grid>
             </StackPanel>
         </Border>
@@ -52,7 +52,7 @@
         <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
             <StackPanel Spacing="10">
                 <TextBlock FontSize="16" Opacity="0.8" Text="Tools" />
-                <Button HorizontalAlignment="Left" Command="{x:Bind ViewModel.ExportTemplateCommand}" Content="Export CSV Template" />
+                <Button HorizontalAlignment="Left" Command="{Binding ExportTemplateCommand}" Content="Export CSV Template" />
             </StackPanel>
         </Border>
     </StackPanel>

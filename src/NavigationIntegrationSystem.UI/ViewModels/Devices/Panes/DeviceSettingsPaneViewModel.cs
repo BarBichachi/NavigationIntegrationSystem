@@ -1,8 +1,4 @@
-﻿// ---------------------------------------------------------
-// FILE: .\src\NavigationIntegrationSystem.UI\ViewModels\Devices\Panes\DeviceSettingsPaneViewModel.cs
-// ---------------------------------------------------------
-
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Enums;
@@ -44,18 +40,7 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
     public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
     public ObservableCollection<int> Frequencies { get; } = new ObservableCollection<int> { 10, 25, 50, 100 };
-
-    public bool HasUnsavedChanges
-    {
-        get => m_HasUnsavedChanges;
-        private set
-        {
-            if (SetProperty(ref m_HasUnsavedChanges, value))
-            {
-                m_Device.HasUnsavedSettings = value;
-            }
-        }
-    }
+    public bool HasUnsavedChanges { get => m_HasUnsavedChanges; set { if (SetProperty(ref m_HasUnsavedChanges, value)) { m_Device.HasUnsavedSettings = value; } } }
     public bool IsPlaybackDevice => m_Device.Type == Core.Enums.DeviceType.Playback;
     #endregion
 
@@ -150,6 +135,7 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     // Reverts Draft to match the last saved snapshot, then updates dirty state
     public void Discard()
     {
+        m_Device.Config.CopyFrom(m_OriginalSnapshot);
         LoadDraftFromSnapshot();
         UpdateDirtyState();
     }

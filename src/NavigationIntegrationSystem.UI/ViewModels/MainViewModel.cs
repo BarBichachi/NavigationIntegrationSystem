@@ -11,11 +11,28 @@ public sealed partial class MainViewModel : ObservableObject
     #region Private Fields
     private readonly IRecordingService m_RecordingService;
     private bool m_IsRecording;
+    private bool m_IsDevicePaneOpen;
     #endregion
 
     #region Properties
     // Indicates if the system is currently recording data
-    public bool IsRecording { get => m_IsRecording; private set => SetProperty(ref m_IsRecording, value); }
+    public bool IsRecording
+    {
+        get => m_IsRecording;
+        private set
+        {
+            if (SetProperty(ref m_IsRecording, value)) { OnPropertyChanged(nameof(IsRecordingEnabled)); }
+        }
+    }
+    public bool IsDevicePaneOpen
+    {
+        get => m_IsDevicePaneOpen;
+        set
+        {
+            if (SetProperty(ref m_IsDevicePaneOpen, value)) { OnPropertyChanged(nameof(IsRecordingEnabled)); }
+        }
+    }
+    public bool IsRecordingEnabled => !IsDevicePaneOpen || IsRecording;
     #endregion
 
     #region Commands

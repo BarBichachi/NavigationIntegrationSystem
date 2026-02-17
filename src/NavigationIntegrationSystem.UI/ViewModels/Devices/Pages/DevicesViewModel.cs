@@ -15,6 +15,7 @@ using NavigationIntegrationSystem.Devices.Runtime;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
 using NavigationIntegrationSystem.UI.Enums;
+using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
@@ -40,8 +41,7 @@ public sealed partial class DevicesViewModel : ObservableObject
     private DevicesPaneMode m_PaneMode;
     private DeviceSettingsPaneViewModel? m_CurrentSettingsPane;
     private readonly IDialogService m_DialogService;
-    private string m_SaveButtonText = "Save";
-    private Symbol m_SaveButtonIcon = Symbol.Save;
+    private readonly MainViewModel m_MainViewModel;
     #endregion
 
     #region Properties
@@ -49,21 +49,26 @@ public sealed partial class DevicesViewModel : ObservableObject
     public DeviceCardViewModel? SelectedDevice { get => m_SelectedDevice; set => SetProperty(ref m_SelectedDevice, value);}
     public DevicesPaneMode PaneMode { get => m_PaneMode; set => SetProperty(ref m_PaneMode, value); }
     public DeviceSettingsPaneViewModel? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
-    public string SaveButtonText { get => m_SaveButtonText; private set => SetProperty(ref m_SaveButtonText, value); }
-    public Symbol SaveButtonIcon { get => m_SaveButtonIcon; private set => SetProperty(ref m_SaveButtonIcon, value); }
-    public bool IsPaneOpen { get => m_IsPaneOpen; set => SetProperty(ref m_IsPaneOpen, value); }
+    public bool IsPaneOpen
+    {
+        get => m_IsPaneOpen;
+        set
+        {
+            if (SetProperty(ref m_IsPaneOpen, value)) { m_MainViewModel.IsDevicePaneOpen = value; }
+        }
+    }
     #endregion
 
     #region Commands
     public IRelayCommand<DeviceCardViewModel> OpenSettingsCommand { get; }
     public IRelayCommand<DeviceCardViewModel> OpenInspectCommand { get; }
     public IAsyncRelayCommand SaveDevicesConfigCommand { get; }
-    public IRelayCommand ApplySettingsCommand { get; }
     #endregion
 
     #region Ctors
-    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, ILogService i_LogService, 
-        IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry, IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService)
+    public DevicesViewModel(DeviceCatalogService i_CatalogService, DevicesConfigService i_ConfigService, ILogService i_LogService,
+        IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry, IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService,
+        MainViewModel i_MainViewModel)
     {
         m_ConfigService = i_ConfigService;
         m_LogService = i_LogService;
@@ -71,6 +76,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         m_ConfigFile = m_ConfigService.Load();
         m_FilePickerService = i_FilePickerService;
         m_PlaybackService = i_PlaybackService;
+        m_MainViewModel = i_MainViewModel;
 
         m_IsPaneOpen = false;
         m_PaneMode = DevicesPaneMode.None;
@@ -80,7 +86,6 @@ public sealed partial class DevicesViewModel : ObservableObject
         OpenSettingsCommand = new RelayCommand<DeviceCardViewModel>(OnOpenSettings);
         OpenInspectCommand = new RelayCommand<DeviceCardViewModel>(OnOpenInspect);
         SaveDevicesConfigCommand = new AsyncRelayCommand(OnSaveConfigAsync);
-        ApplySettingsCommand = new RelayCommand(OnApplySettings);
     }
 
     // Builds all device cards from the catalog and config
@@ -138,15 +143,6 @@ public sealed partial class DevicesViewModel : ObservableObject
         m_ConfigService.Save(m_ConfigFile);
         foreach (var device in Devices) { device.HasUnsavedSettings = false; }
         m_LogService.Info(nameof(DevicesViewModel), $"Saved devices config: {AppPaths.DevicesConfigPath}");
-
-        await ShowSavedFeedbackAsync();
-    }
-
-    // Applies current settings pane changes if available
-    private void OnApplySettings()
-    {
-        if (CurrentSettingsPane == null) { return; }
-        CurrentSettingsPane.ApplyCommand.Execute(null);
     }
 
     // Shows validation-failed dialog with summary
@@ -192,18 +188,6 @@ public sealed partial class DevicesViewModel : ObservableObject
     public void ForceClosePaneAfterApply()
     {
         ClosePane();
-    }
-
-    // Shows a short "Saved" feedback on the Save button
-    private async Task ShowSavedFeedbackAsync()
-    {
-        SaveButtonText = "Saved";
-        SaveButtonIcon = Symbol.Accept;
-
-        await Task.Delay(1400);
-
-        SaveButtonText = "Save";
-        SaveButtonIcon = Symbol.Save;
     }
 
     // Opens settings pane for a device requested by the card
