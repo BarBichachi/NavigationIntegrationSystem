@@ -35,6 +35,9 @@ public interface IPlaybackService : IDisposable
     // Stops playback and resets index to 0
     void Stop();
 
+    // Unloads the current playback file and clears state
+    void Unload();
+
     // Seeks to a specific line index
     void Seek(int i_LineIndex);
 

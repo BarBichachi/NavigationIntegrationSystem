@@ -6,6 +6,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <!--  Page header: title + Save devices config  -->
         <Grid>
@@ -14,6 +15,10 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock FontSize="28" FontWeight="SemiBold" Text="Devices" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Command="{x:Bind ViewModel.ImportDevicesConfigCommand}" Content="Import Settings" />
+                <Button Command="{x:Bind ViewModel.ExportDevicesConfigCommand}" Content="Export Settings" />
+            </StackPanel>
         </Grid>
 
         <!--  Main layout: devices list on the left + right pane for Settings/Inspect  -->
@@ -126,5 +131,14 @@
                 </Grid>
             </SplitView.Pane>
         </SplitView>
+
+        <Grid Grid.Row="2" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center" Opacity="0.7" Text="{x:Bind ViewModel.DevicesConfigPath, Mode=OneWay}" />
+            <HyperlinkButton Grid.Column="1" Command="{x:Bind ViewModel.OpenDevicesConfigFolderCommand}" Content="Open config folder" />
+        </Grid>
     </Grid>
 </Page>

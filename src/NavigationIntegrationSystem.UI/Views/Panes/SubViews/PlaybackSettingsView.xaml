@@ -40,7 +40,7 @@
                     <TextBlock Grid.Row="1" Text="Frequency (Hz)" VerticalAlignment="Center" Opacity="0.7"/>
                     <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Frequencies}"
-                              SelectedItem="{Binding Draft.PlaybackFrequency, Mode=TwoWay}" />
+                              SelectedItem="{Binding Draft.PlaybackFrequency, Mode=TwoWay, Converter={StaticResource SelectionToIntConverter}, ConverterParameter=10}" />
 
                     <TextBlock Grid.Row="2" Text="Loop" VerticalAlignment="Center" Opacity="0.7"/>
                     <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding Draft.PlaybackLoop, Mode=TwoWay}" />

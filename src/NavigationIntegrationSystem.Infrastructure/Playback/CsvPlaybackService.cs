@@ -1,5 +1,6 @@
 ﻿using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Playback;
+using NavigationIntegrationSystem.Devices.Validation;
 
 using System;
 using System.Collections.Generic;
@@ -28,14 +29,6 @@ public sealed class CsvPlaybackService : IPlaybackService
     private string? m_LoadedFilePath;
     private int m_Frequency = 10;
 
-    private static readonly string[] c_CsvSchema =
-    {
-        "PositionLatValue", "PositionLonValue", "PositionAltValue",
-        "EulerRollValue", "EulerPitchValue", "EulerAzimuthValue",
-        "EulerRollRateValue", "EulerPitchRateValue", "EulerAzimuthRateValue",
-        "VelocityNorthValue", "VelocityEastValue", "VelocityDownValue", "VelocityTotalValue",
-        "CourseValue", "StatusValue"
-    };
     #endregion
 
     #region Properties
@@ -62,9 +55,9 @@ public sealed class CsvPlaybackService : IPlaybackService
     // Loads the CSV file and prepares for playback.
     public async Task LoadFileAsync(string i_FilePath)
     {
-        if (string.IsNullOrWhiteSpace(i_FilePath) || !File.Exists(i_FilePath))
+        if (!CsvPlaybackFileValidator.ValidateFile(i_FilePath, out string errorMessage))
         {
-            throw new FileNotFoundException("Playback file not found", i_FilePath);
+            throw new InvalidDataException(errorMessage);
         }
 
         Stop();
@@ -77,14 +70,9 @@ public sealed class CsvPlaybackService : IPlaybackService
 
         string[] lines = await File.ReadAllLinesAsync(i_FilePath).ConfigureAwait(false);
 
-        if (lines.Length < 2)
-        {
-            throw new InvalidDataException("CSV file must contain a header row and at least one data row.");
-        }
-
         lock (m_Lock)
         {
-            m_Headers = ParseCsvLine(lines[0]);
+            m_Headers = CsvPlaybackSchema.ParseCsvLine(lines[0]);
             m_FileLines.AddRange(lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)));
             m_LoadedFilePath = i_FilePath;
             m_CurrentLineIndex = 0;
@@ -133,6 +121,20 @@ public sealed class CsvPlaybackService : IPlaybackService
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    // Unloads the current playback file and clears state
+    public void Unload()
+    {
+        Pause();
+        lock (m_Lock)
+        {
+            m_FileLines.Clear();
+            m_Headers = Array.Empty<string>();
+            m_LoadedFilePath = null;
+            m_CurrentLineIndex = 0;
+        }
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     // Seeks to a specific line index, clamping to valid range.
     public void Seek(int i_LineIndex)
     {
@@ -146,7 +148,7 @@ public sealed class CsvPlaybackService : IPlaybackService
     public async Task CreateTemplateAsync(string i_FilePath)
     {
         if (string.IsNullOrWhiteSpace(i_FilePath)) throw new ArgumentNullException(nameof(i_FilePath));
-        string header = string.Join(",", c_CsvSchema);
+        string header = string.Join(",", CsvPlaybackSchema.Columns);
         await File.WriteAllTextAsync(i_FilePath, header, Encoding.UTF8).ConfigureAwait(false);
     }
 
@@ -227,7 +229,7 @@ public sealed class CsvPlaybackService : IPlaybackService
     // Parses a CSV line into a PlaybackPacket, matching headers to values
     private PlaybackPacket? ParsePacket(string i_Line)
     {
-        string[] cells = ParseCsvLine(i_Line);
+        string[] cells = CsvPlaybackSchema.ParseCsvLine(i_Line);
         // We allow partial rows, but matching headers is safer
         if (cells.Length > m_Headers.Length) return null;
 
@@ -243,13 +245,6 @@ public sealed class CsvPlaybackService : IPlaybackService
         }
 
         return new PlaybackPacket(values);
-    }
-
-    // Simple CSV line parser that trims whitespace and handles empty lines
-    private static string[] ParseCsvLine(string i_Line)
-    {
-        if (string.IsNullOrEmpty(i_Line)) return Array.Empty<string>();
-        return i_Line.Split(',').Select(s => s.Trim()).ToArray();
     }
 
     // Clean up resources when the service is disposed.

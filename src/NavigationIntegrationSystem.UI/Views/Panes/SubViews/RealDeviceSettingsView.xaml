@@ -25,7 +25,7 @@
                     <TextBlock Grid.Row="0" Text="Connection kind" VerticalAlignment="Center" Opacity="0.7"/>
                     <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
                               ItemsSource="{Binding ConnectionKinds}"
-                              SelectedItem="{Binding Draft.ConnectionKind, Mode=TwoWay}" />
+                              SelectedItem="{Binding Draft.ConnectionKind, Mode=TwoWay, TargetNullValue=Udp, FallbackValue=Udp}" />
 
                     <TextBlock Grid.Row="1" Text="Auto reconnect" VerticalAlignment="Center" Opacity="0.7"/>
                     <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding Draft.AutoReconnect, Mode=TwoWay}" />
@@ -105,7 +105,7 @@
                     <TextBlock Grid.Row="0" Text="Line Kind" VerticalAlignment="Center" Opacity="0.7"/>
                     <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
                               ItemsSource="{Binding SerialLineKinds}"
-                              SelectedItem="{Binding Draft.SerialLineKind, Mode=TwoWay}" />
+                              SelectedItem="{Binding Draft.SerialLineKind, Mode=TwoWay, TargetNullValue=Rs232, FallbackValue=Rs232}" />
 
                     <TextBlock Grid.Row="1" Text="COM Port" VerticalAlignment="Center" Opacity="0.7"/>
                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Draft.SerialComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />

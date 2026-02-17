@@ -7,11 +7,10 @@ using NavigationIntegrationSystem.UI.Services.Logging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Storage;
-using Windows.System;
 using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace NavigationIntegrationSystem.UI.ViewModels;
@@ -231,14 +230,16 @@ public sealed partial class LogsViewModel : ObservableObject
     }
 
     // Opens the logs folder in Explorer
-    private async Task ExecuteOpenLogFolderAsync()
+    private Task ExecuteOpenLogFolderAsync()
     {
         try
         {
-            StorageFolder folder = await StorageFolder.GetFolderFromPathAsync(LogFolderPath);
-            await Launcher.LaunchFolderAsync(folder);
+            ProcessStartInfo startInfo = new ProcessStartInfo("explorer.exe", LogFolderPath) { UseShellExecute = true };
+            Process.Start(startInfo);
         }
         catch { }
+
+        return Task.CompletedTask;
     }
 
     // Called by the page after it loads to scroll once to bottom

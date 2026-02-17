@@ -78,5 +78,22 @@ public sealed class DialogService : IDialogService
 
         await dialog.ShowAsync().AsTask();
     }
+
+    // Shows a generic info dialog using the main window's XamlRoot
+    public async Task ShowInfoAsync(string i_Title, string i_Message)
+    {
+        if (m_WindowProvider.MainWindow?.Content == null) return;
+
+        ContentDialog dialog = new ContentDialog
+        {
+            Title = i_Title,
+            Content = i_Message,
+            CloseButtonText = "OK",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = m_WindowProvider.MainWindow.Content.XamlRoot
+        };
+
+        await dialog.ShowAsync().AsTask();
+    }
     #endregion
 }

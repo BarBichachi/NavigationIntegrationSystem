@@ -15,4 +15,7 @@ public interface IDialogService
 
     // Shows a generic error dialog
     Task ShowErrorAsync(string i_Title, string i_Message);
+
+    // Shows a generic info dialog
+    Task ShowInfoAsync(string i_Title, string i_Message);
 }

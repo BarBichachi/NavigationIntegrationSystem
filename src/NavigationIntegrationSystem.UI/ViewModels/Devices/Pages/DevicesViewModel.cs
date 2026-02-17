@@ -1,9 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
@@ -15,15 +12,17 @@ using NavigationIntegrationSystem.Devices.Runtime;
 using NavigationIntegrationSystem.Infrastructure.Configuration.Paths;
 using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
 using NavigationIntegrationSystem.UI.Enums;
-using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
+using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
-
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 
@@ -36,12 +35,14 @@ public sealed partial class DevicesViewModel : ObservableObject
     private readonly ILogService m_LogService;
     private readonly IFilePickerService m_FilePickerService;
     private readonly IPlaybackService m_PlaybackService;
+    private readonly DeviceCatalogService m_CatalogService;
     private DeviceCardViewModel? m_SelectedDevice;
     private bool m_IsPaneOpen;
     private DevicesPaneMode m_PaneMode;
     private DeviceSettingsPaneViewModel? m_CurrentSettingsPane;
     private readonly IDialogService m_DialogService;
     private readonly MainViewModel m_MainViewModel;
+    private static readonly int[] m_PlaybackFrequencies = new[] { 10, 25, 50, 100 };
     #endregion
 
     #region Properties
@@ -49,6 +50,8 @@ public sealed partial class DevicesViewModel : ObservableObject
     public DeviceCardViewModel? SelectedDevice { get => m_SelectedDevice; set => SetProperty(ref m_SelectedDevice, value);}
     public DevicesPaneMode PaneMode { get => m_PaneMode; set => SetProperty(ref m_PaneMode, value); }
     public DeviceSettingsPaneViewModel? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
+    // Exposes the current devices.json path for footer binding
+    public string DevicesConfigPath => AppPaths.DevicesConfigPath;
     public bool IsPaneOpen
     {
         get => m_IsPaneOpen;
@@ -63,6 +66,9 @@ public sealed partial class DevicesViewModel : ObservableObject
     public IRelayCommand<DeviceCardViewModel> OpenSettingsCommand { get; }
     public IRelayCommand<DeviceCardViewModel> OpenInspectCommand { get; }
     public IAsyncRelayCommand SaveDevicesConfigCommand { get; }
+    public IAsyncRelayCommand ImportDevicesConfigCommand { get; }
+    public IAsyncRelayCommand ExportDevicesConfigCommand { get; }
+    public IAsyncRelayCommand OpenDevicesConfigFolderCommand { get; }
     #endregion
 
     #region Ctors
@@ -70,6 +76,7 @@ public sealed partial class DevicesViewModel : ObservableObject
         IDialogService i_DialogService, IInsDeviceRegistry i_DeviceRegistry, IFilePickerService i_FilePickerService, IPlaybackService i_PlaybackService,
         MainViewModel i_MainViewModel)
     {
+        m_CatalogService = i_CatalogService;
         m_ConfigService = i_ConfigService;
         m_LogService = i_LogService;
         m_DialogService = i_DialogService;
@@ -86,6 +93,9 @@ public sealed partial class DevicesViewModel : ObservableObject
         OpenSettingsCommand = new RelayCommand<DeviceCardViewModel>(OnOpenSettings);
         OpenInspectCommand = new RelayCommand<DeviceCardViewModel>(OnOpenInspect);
         SaveDevicesConfigCommand = new AsyncRelayCommand(OnSaveConfigAsync);
+        ImportDevicesConfigCommand = new AsyncRelayCommand(OnImportDevicesConfigAsync);
+        ExportDevicesConfigCommand = new AsyncRelayCommand(OnExportDevicesConfigAsync);
+        OpenDevicesConfigFolderCommand = new AsyncRelayCommand(OnOpenDevicesConfigFolderAsync);
     }
 
     // Builds all device cards from the catalog and config
@@ -140,9 +150,94 @@ public sealed partial class DevicesViewModel : ObservableObject
     // Saves all device configuration changes to devices.json
     private async Task OnSaveConfigAsync()
     {
-        m_ConfigService.Save(m_ConfigFile);
-        foreach (var device in Devices) { device.HasUnsavedSettings = false; }
+        await SaveConfigInternalAsync(false);
+    }
+
+    // Imports devices configuration from a JSON file
+    private async Task OnImportDevicesConfigAsync()
+    {
+        if (IsPaneOpen)
+        {
+            bool allowed = await RequestPaneCloseAsync();
+            if (!allowed) { return; }
+        }
+
+        string? path = await m_FilePickerService.PickSingleFileAsync(new[] { ".json" });
+        if (string.IsNullOrWhiteSpace(path)) { return; }
+
+        DevicesConfigImportResult result = m_ConfigService.ImportFromFile(path, m_CatalogService.GetDevices().Select(device => device.Type), m_PlaybackFrequencies);
+        if (!result.IsSuccess || result.Config == null)
+        {
+            m_LogService.Error(nameof(DevicesViewModel), $"Import failed: {result.Message}");
+            await m_DialogService.ShowErrorAsync("Import Failed", result.Message);
+            return;
+        }
+
+        m_ConfigService.ApplyImportedConfig(m_ConfigFile, result.Config);
+
+        bool saved = await SaveConfigInternalAsync(true);
+        if (!saved) { return; }
+
+        m_LogService.Info(nameof(DevicesViewModel), $"Imported devices config: {path}");
+        await m_DialogService.ShowInfoAsync("Import Complete", "Device settings were imported successfully.");
+    }
+
+    // Exports devices configuration to a JSON file
+    private async Task OnExportDevicesConfigAsync()
+    {
+        string? path = await m_FilePickerService.PickSaveFileAsync("devices.json", new Dictionary<string, IList<string>> { { "JSON", new[] { ".json" } } });
+        if (string.IsNullOrWhiteSpace(path)) { return; }
+
+        DevicesConfigExportResult result = m_ConfigService.ExportToFile(m_ConfigFile, path);
+        if (!result.IsSuccess)
+        {
+            m_LogService.Error(nameof(DevicesViewModel), $"Export failed: {result.Message}");
+            await m_DialogService.ShowErrorAsync("Export Failed", result.Message);
+            return;
+        }
+
+        m_LogService.Info(nameof(DevicesViewModel), $"Exported devices config: {path}");
+        await m_DialogService.ShowInfoAsync("Export Complete", "Device settings were exported successfully.");
+    }
+
+    // Opens the folder containing devices.json
+    private async Task OnOpenDevicesConfigFolderAsync()
+    {
+        string? folderPath = Path.GetDirectoryName(AppPaths.DevicesConfigPath);
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            await m_DialogService.ShowErrorAsync("Open Folder Failed", "Devices configuration folder path is invalid.");
+            return;
+        }
+
+        try
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo("explorer.exe", folderPath) { UseShellExecute = true };
+            Process.Start(startInfo);
+        }
+        catch
+        {
+            await m_DialogService.ShowErrorAsync("Open Folder Failed", "Unable to open the devices configuration folder.");
+        }
+    }
+
+    // Saves devices configuration and returns whether it succeeded
+    private async Task<bool> SaveConfigInternalAsync(bool i_ShowErrors)
+    {
+        DevicesConfigExportResult result = m_ConfigService.SaveWithResult(m_ConfigFile);
+        if (!result.IsSuccess)
+        {
+            m_LogService.Error(nameof(DevicesViewModel), $"Save failed: {result.Message}");
+            if (i_ShowErrors)
+            {
+                await m_DialogService.ShowErrorAsync("Save Failed", result.Message);
+            }
+            return false;
+        }
+
+        foreach (DeviceCardViewModel device in Devices) { device.HasUnsavedSettings = false; }
         m_LogService.Info(nameof(DevicesViewModel), $"Saved devices config: {AppPaths.DevicesConfigPath}");
+        return true;
     }
 
     // Shows validation-failed dialog with summary

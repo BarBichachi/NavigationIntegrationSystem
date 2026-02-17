@@ -72,13 +72,9 @@ public static class ConnectionSettingsValidator
     {
         if (i_Settings.Playback == null) { io_Errors.Add("Playback settings are missing"); return; }
 
-        if (string.IsNullOrWhiteSpace(i_Settings.Playback.FilePath))
+        if (!CsvPlaybackFileValidator.ValidateFile(i_Settings.Playback.FilePath, out string errorMessage))
         {
-            io_Errors.Add("Playback file path is required");
-        }
-        else if (!File.Exists(i_Settings.Playback.FilePath))
-        {
-            io_Errors.Add($"File not found: '{i_Settings.Playback.FilePath}'");
+            io_Errors.Add(errorMessage);
         }
     }
 

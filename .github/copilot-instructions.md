@@ -13,6 +13,9 @@
 - Interaction: no filler, direct code blocks, propose better architecture, prioritize maintainability, ask for missing files.
 - Do not assume APIs or types exist unless they are present in the provided code.
 - Use minimal changes to achieve the requested behavior.
+- Prefer service-based architecture for I/O, persistence, and reusable business logic. ViewModels should orchestrate and delegate.
+- Favor small, cohesive services with single responsibility and reusable helpers over repeated logic in ViewModels.
+- Add a one-line comment above every new function or constructor.
 
 ## Code Style
 - Use PascalCase for classes and properties.
