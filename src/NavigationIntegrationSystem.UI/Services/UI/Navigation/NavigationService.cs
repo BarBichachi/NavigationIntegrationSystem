@@ -26,6 +26,7 @@ public sealed class NavigationService
             case NavKeys.Devices: m_Frame.Navigate(typeof(DevicesPage)); break;
             case NavKeys.Logs: m_Frame.Navigate(typeof(LogsPage)); break;
             case NavKeys.Settings: m_Frame.Navigate(typeof(SettingsPage)); break;
+            case NavKeys.Help: m_Frame.Navigate(typeof(HelpPage)); break;
         }
     }
     #endregion

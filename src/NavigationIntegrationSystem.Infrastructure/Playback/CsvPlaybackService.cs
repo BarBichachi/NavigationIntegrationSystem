@@ -144,12 +144,16 @@ public sealed class CsvPlaybackService : IPlaybackService
         }
     }
 
-    // Creates a new CSV file with the appropriate header for recording playback data.
+    // Creates a new CSV file with the appropriate header plus one example data row (so the file passes CsvPlaybackFileValidator, which requires at least one data row).
     public async Task CreateTemplateAsync(string i_FilePath)
     {
         if (string.IsNullOrWhiteSpace(i_FilePath)) throw new ArgumentNullException(nameof(i_FilePath));
+
         string header = string.Join(",", CsvPlaybackSchema.Columns);
-        await File.WriteAllTextAsync(i_FilePath, header, Encoding.UTF8).ConfigureAwait(false);
+        string exampleRow = string.Join(",", CsvPlaybackSchema.Columns.Select(_ => "0"));
+        string content = $"{header}{Environment.NewLine}{exampleRow}{Environment.NewLine}";
+
+        await File.WriteAllTextAsync(i_FilePath, content, Encoding.UTF8).ConfigureAwait(false);
     }
 
     // The main orchestrator for the playback thread

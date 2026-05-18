@@ -49,12 +49,13 @@ public sealed class InsDeviceRegistry : IInsDeviceRegistry, IInsDeviceInstancePr
         return device;
     }
 
-    // Retrieves the assigned ID for an existing device instance
+    // Retrieves the assigned ID for an existing device instance. Throws if the device was never registered (would otherwise silently collide with the first registered instance at id 0).
     public ushort GetInstanceId(IInsDevice i_Device)
     {
         lock (m_Lock)
         {
-            return m_AssignedIds.TryGetValue(i_Device, out ushort id) ? id : (ushort)0;
+            if (m_AssignedIds.TryGetValue(i_Device, out ushort id)) { return id; }
+            throw new InvalidOperationException($"Device {i_Device.Definition.Type} has no assigned instance id (not created via the registry).");
         }
     }
     #endregion

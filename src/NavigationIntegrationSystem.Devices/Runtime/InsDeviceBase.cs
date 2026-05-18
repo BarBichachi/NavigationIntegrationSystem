@@ -16,6 +16,7 @@ public abstract class InsDeviceBase : IInsDevice
     private DeviceStatus m_Status;
     private string? m_LastError;
     private CancellationTokenSource? m_ConnectCts;
+    private readonly object m_CtsLock = new object();
     private readonly ILogService m_LogService;
     #endregion
 
@@ -46,19 +47,25 @@ public abstract class InsDeviceBase : IInsDevice
     // Connects to the device with a simulated connecting delay
     public async Task ConnectAsync()
     {
-        if (m_Status == DeviceStatus.Connected || m_Status == DeviceStatus.Connecting)
-        { return; }
+        CancellationToken token;
 
-        m_ConnectCts?.Cancel();
-        m_ConnectCts?.Dispose();
-        m_ConnectCts = new CancellationTokenSource();
+        lock (m_CtsLock)
+        {
+            if (m_Status == DeviceStatus.Connected || m_Status == DeviceStatus.Connecting)
+            { return; }
+
+            m_ConnectCts?.Cancel();
+            m_ConnectCts?.Dispose();
+            m_ConnectCts = new CancellationTokenSource();
+            token = m_ConnectCts.Token;
+        }
 
         SetStatus(DeviceStatus.Connecting, null);
 
         try
         {
             int delayMs = GetConnectDelayMs();
-            await Task.Delay(delayMs, m_ConnectCts.Token);
+            await Task.Delay(delayMs, token);
 
             await OnConnectAsync();
             SetStatus(DeviceStatus.Connected, null);
@@ -76,12 +83,14 @@ public abstract class InsDeviceBase : IInsDevice
     // Disconnects from the device
     public async Task DisconnectAsync()
     {
-        if (m_Status == DeviceStatus.Disconnected)
-        { return; }
+        lock (m_CtsLock)
+        {
+            if (m_Status == DeviceStatus.Disconnected) { return; }
 
-        m_ConnectCts?.Cancel();
-        m_ConnectCts?.Dispose();
-        m_ConnectCts = null;
+            m_ConnectCts?.Cancel();
+            m_ConnectCts?.Dispose();
+            m_ConnectCts = null;
+        }
 
         try
         {

@@ -9,6 +9,7 @@ public static class CsvPlaybackSchema
     #region Properties
     public static string[] Columns { get; } =
     {
+        "RcvTime[sec]", "OutputTime[sec]",
         "PositionLatValue", "PositionLonValue", "PositionAltValue",
         "EulerRollValue", "EulerPitchValue", "EulerAzimuthValue",
         "EulerRollRateValue", "EulerPitchRateValue", "EulerAzimuthRateValue",

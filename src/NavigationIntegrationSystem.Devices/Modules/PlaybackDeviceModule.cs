@@ -37,7 +37,7 @@ public sealed class PlaybackDeviceModule : IInsDeviceModule
             i_Type: DeviceType.Playback,
             i_Fields: new List<DeviceFieldDefinition>
             {
-                // Time
+                // Time (seconds-of-day, matches the format produced by RecordDecoderPro)
                 new("RcvTime[sec]", "Receive Time", "s"),
                 new("OutputTime[sec]", "Output Time", "s"),
 

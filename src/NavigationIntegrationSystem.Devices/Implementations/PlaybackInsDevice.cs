@@ -33,7 +33,7 @@ public sealed class PlaybackInsDevice : InsDeviceBase
 
     #region Functions
     // On connect, validate and load the playback file, set frequency, and subscribe to events
-    protected override Task OnConnectAsync()
+    protected override async Task OnConnectAsync()
     {
         // 1. Validate File
         if (string.IsNullOrEmpty(Config.Connection.Playback.FilePath))
@@ -44,7 +44,7 @@ public sealed class PlaybackInsDevice : InsDeviceBase
         // 2. Load File (if changed or not loaded)
         if (m_PlaybackService.LoadedFilePath != Config.Connection.Playback.FilePath)
         {
-            m_PlaybackService.LoadFileAsync(Config.Connection.Playback.FilePath).Wait();
+            await m_PlaybackService.LoadFileAsync(Config.Connection.Playback.FilePath).ConfigureAwait(false);
         }
 
         // 3. Set Frequency
@@ -53,8 +53,6 @@ public sealed class PlaybackInsDevice : InsDeviceBase
         // 4. Subscribe
         m_PlaybackService.PacketDispatched += OnPacketDispatched;
         m_PlaybackService.StateChanged += OnPlaybackStateChanged;
-
-        return Task.CompletedTask;
     }
 
     // On disconnect, unsubscribe from events and optionally pause playback

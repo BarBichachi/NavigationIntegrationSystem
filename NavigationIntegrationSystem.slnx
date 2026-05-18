@@ -5,7 +5,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/Solution Items/">
-    <File Path="Get-ProjectContext.ps1" />
+    <File Path="CLAUDE.md" />
     <File Path="Preferences.md" />
     <File Path="PROJECT_STATE.md" />
   </Folder>

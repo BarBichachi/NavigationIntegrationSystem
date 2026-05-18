@@ -21,6 +21,7 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
     private readonly IntegrationViewModel m_IntegrationVm;
     private readonly CsvTestingService m_CsvTester;
     private DispatcherQueueTimer? m_SnapshotTimer;
+    private DispatcherQueue? m_UiDispatcher;
     #endregion
 
     #region Constructors
@@ -35,9 +36,10 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
     #endregion
 
     #region Functions
-    // On Start, subscribes to recording state changes to manage snapshot timer and recording flow
+    // On Start, captures the UI dispatcher (StartAsync runs on the UI thread during App.OnLaunched) and subscribes to recording state changes
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        m_UiDispatcher = DispatcherQueue.GetForCurrentThread();
         m_RecordingService.RecordingStateChanged += OnRecordingStateChanged;
         return Task.CompletedTask;
     }
@@ -66,13 +68,13 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
         }
     }
 
-    // Initializes and starts the snapshot timer if not already running; ensures it runs on the UI thread for safe VM access
+    // Initializes and starts the snapshot timer if not already running. Uses the UI dispatcher captured at StartAsync so this works even when invoked from non-UI threads (e.g. the recording-state-changed callback).
     private void StartTimer()
     {
         if (m_SnapshotTimer != null) return;
+        if (m_UiDispatcher == null) return;
 
-        // Ensure we are on the UI thread for VM access
-        m_SnapshotTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        m_SnapshotTimer = m_UiDispatcher.CreateTimer();
         m_SnapshotTimer.Interval = TimeSpan.FromMilliseconds(10); // 100Hz
         m_SnapshotTimer.Tick += (s, e) => TakeSnapshot();
         m_SnapshotTimer.Start();
@@ -85,8 +87,7 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
         m_SnapshotTimer = null;
     }
 
-    // Concised one liner comment
-    // Core function that takes a snapshot of the current integration state
+    // Captures the current integration state and emits a snapshot record
     private void TakeSnapshot()
     {
         if (!m_RecordingService.IsRecording) return;
@@ -98,11 +99,13 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
             MapRowToData(row, data);
         }
 
-        // Policy: Velocity Total is derived from components
-        var vel = data.VelocityVector;
-        double total = Math.Sqrt(vel.North * vel.North + vel.East * vel.East + vel.Down * vel.Down);
+        // OutputTime represents when this integrated snapshot was captured (we don't yet propagate per-source timestamps; once real telemetry replaces dummy data this will be filled from the source).
+        data.OutputTimeDeviceCode = 0;
+        data.OutputTimeDeviceId = 0;
+        data.OutputTime = DateTime.UtcNow;
+        data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.OutputTimeValid;
 
-        // Metadata for Total follows the North component source
+        // Velocity Total metadata follows the North component source (Total itself is derived from N/E/D inside IntegratedInsOutput_Data)
         data.VelocityTotalDeviceCode = data.VelocityNorthDeviceCode;
         data.VelocityTotalDeviceId = data.VelocityNorthDeviceId;
 
@@ -135,14 +138,10 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
         switch (i_Name)
         {
             case "Latitude":
-                io_Data.LatitudeDeviceCode = i_Code; io_Data.LatitudeDeviceId = i_Id;
-                pos.Lat = i_Val; io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionLatValid;
-
-                // Output Time Source is tied to Latitude selection
-                io_Data.OutputTimeDeviceCode = i_Code;
-                io_Data.OutputTimeDeviceId = i_Id;
-                io_Data.OutputTime = DateTime.UtcNow;
-                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.OutputTimeValid;
+                io_Data.LatitudeDeviceCode = i_Code;
+                io_Data.LatitudeDeviceId = i_Id;
+                pos.Lat = i_Val;
+                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionLatValid;
                 break;
 
             case "Longitude":
