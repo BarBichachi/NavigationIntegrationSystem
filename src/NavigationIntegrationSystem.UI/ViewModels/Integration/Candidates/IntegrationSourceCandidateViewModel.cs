@@ -1,4 +1,4 @@
-﻿using NavigationIntegrationSystem.Core.Devices;
+using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 
@@ -33,5 +33,8 @@ public abstract partial class IntegrationSourceCandidateViewModel : ViewModelBas
 
     // Optional tick hook (manual does nothing)
     public virtual void Tick(double i_StepScale) { }
+
+    // Thread-safe snapshot of the current numeric value for the 100Hz background recording loop. Default returns 0; numeric and manual candidates override with volatile reads.
+    public virtual double GetSnapshotValue() => 0;
     #endregion
 }

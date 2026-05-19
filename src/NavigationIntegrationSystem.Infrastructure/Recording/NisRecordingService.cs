@@ -1,7 +1,8 @@
-﻿// FILE: src\NavigationIntegrationSystem.Infrastructure\Recording\NisRecordingService.cs
+// FILE: src\NavigationIntegrationSystem.Infrastructure\Recording\NisRecordingService.cs
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Recording;
 using Infrastructure.FileManagement.DataRecording;
@@ -17,6 +18,7 @@ public sealed class NisRecordingService : IRecordingService
     private const int c_IntegratedOutputRecordType = 50;
     private const int c_IntegratedOutputRecordId = 0;
     private const int c_LegacyBufferSize = 1024;
+    private const int c_FlushIntervalMs = 1000;
     #endregion
 
     #region Private Fields
@@ -24,6 +26,8 @@ public sealed class NisRecordingService : IRecordingService
     private readonly ILogService m_LogService;
     private readonly object m_Lock = new();
     private byte[] m_EncodeBuffer;
+    private CancellationTokenSource? m_FlushCts;
+    private Task? m_FlushTask;
     #endregion
 
     #region Properties
@@ -52,7 +56,8 @@ public sealed class NisRecordingService : IRecordingService
     #endregion
 
     #region Functions
-    // Starts recording and immediately writes a "Fill" record to prevent 0-byte deletion
+    // Starts recording, writes a 1-byte filler record (prevents legacy 0-byte deletion),
+    // and spins up a 1Hz background flush loop so the file size updates on disk while recording.
     public void Start()
     {
         lock (m_Lock)
@@ -60,32 +65,57 @@ public sealed class NisRecordingService : IRecordingService
             if (IsRecording) return;
 
             string result = m_Recorder.StartRecording();
-            if (string.IsNullOrEmpty(result))
-            {
-                // IMMEDIATELY write a dummy record to increment m_CurrentFileSize
-                // This ensures the legacy CloseCurrentFile never sees a 0 size.
-                m_Recorder.Record(99, 99, new byte[1], 1, DateTime.UtcNow);
-                m_LogService.Info(nameof(NisRecordingService), "Recording started with persistence fill.");
-            }
-            else
+            if (!string.IsNullOrEmpty(result))
             {
                 m_LogService.Error(nameof(NisRecordingService), $"Start failed: {result}");
+                return;
             }
+
+            // Filler record: forces m_CurrentFileSize > 0 so legacy CloseCurrentFile never deletes
+            m_Recorder.Record(99, 99, new byte[1], 1, DateTime.UtcNow);
+
+            m_FlushCts = new CancellationTokenSource();
+            m_FlushTask = Task.Run(() => PeriodicFlushLoopAsync(m_FlushCts.Token));
+
+            m_LogService.Info(nameof(NisRecordingService), "Recording started.");
         }
     }
 
-    // Flushes and stops the recording
+    // Stops the periodic flusher, forces a final flush, and stops the recorder
     public void Stop()
     {
+        CancellationTokenSource? ctsToCancel = null;
+        Task? taskToAwait = null;
+
         lock (m_Lock)
         {
             if (!IsRecording) return;
 
-            // FORCE a flush using the legacy periodic logic
-            // This triggers m_File.Flush() inside the legacy class
+            ctsToCancel = m_FlushCts;
+            taskToAwait = m_FlushTask;
+            m_FlushCts = null;
+            m_FlushTask = null;
+        }
+
+        try
+        {
+            ctsToCancel?.Cancel();
+            taskToAwait?.Wait(TimeSpan.FromSeconds(2));
+        }
+        catch (AggregateException) { /* cancellation */ }
+        finally
+        {
+            ctsToCancel?.Dispose();
+        }
+
+        lock (m_Lock)
+        {
+            // Final flush — drains the legacy recorder's buffer to disk
             m_Recorder.OnPeriodicOnePps(this, EventArgs.Empty);
 
-            // Give the OS a moment to finish the Async Write
+            // Legacy BinaryFileRecorderEnhanced.Record issues fire-and-forget WriteAsync;
+            // brief sleep lets the in-flight async write land before StopRecording closes the handle.
+            // (Phase 4 wraps this hack behind a proper async interface.)
             Thread.Sleep(50);
 
             m_Recorder.StopRecording();
@@ -93,7 +123,7 @@ public sealed class NisRecordingService : IRecordingService
         }
     }
 
-    // Records live snapshots
+    // Encodes a snapshot and writes it. No per-record flush — flushing happens at 1Hz via PeriodicFlushLoopAsync.
     public void RecordIntegratedOutput(object i_DataSnapshot)
     {
         if (!IsRecording || i_DataSnapshot is not IntegratedInsOutput_Data data) return;
@@ -105,27 +135,41 @@ public sealed class NisRecordingService : IRecordingService
 
             if (size > 0)
             {
-                bool success = m_Recorder.Record(
+                m_Recorder.Record(
                     c_IntegratedOutputRecordId,
                     c_IntegratedOutputRecordType,
                     m_EncodeBuffer,
                     size,
                     DateTime.UtcNow);
+            }
+        }
+    }
 
-                // Periodic flush to keep the file size updated on disk
-                // We do this every record for safety in NIS (usually 50Hz)
-                if (success)
+    // 1Hz background flush so file size updates in Explorer / file system while recording is ongoing
+    private async Task PeriodicFlushLoopAsync(CancellationToken i_Token)
+    {
+        try
+        {
+            using PeriodicTimer timer = new PeriodicTimer(TimeSpan.FromMilliseconds(c_FlushIntervalMs));
+            while (await timer.WaitForNextTickAsync(i_Token).ConfigureAwait(false))
+            {
+                lock (m_Lock)
                 {
+                    if (!IsRecording) return;
                     m_Recorder.OnPeriodicOnePps(this, EventArgs.Empty);
                 }
             }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            m_LogService.Error(nameof(NisRecordingService), "Periodic flush loop error", ex);
         }
     }
 
     // Manual encoding for VIC protocol [Sync][Payload][Checksum]
     private void EncodeDataToBuffer(IntegratedInsOutput_Data i_Data, ref byte[] io_Buffer, ref int io_Size)
     {
-        // Clear buffer to ensure no trailing garbage
         Array.Clear(io_Buffer, 0, io_Buffer.Length);
 
         using (MemoryStream ms = new MemoryStream(io_Buffer))

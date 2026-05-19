@@ -21,16 +21,16 @@ Shipped: data-correctness fixes outside `TO_BE_DELETED`. Build clean, no errors.
 
 ---
 
-## Phase 2 — Performance landmines
+## Phase 2 — Performance landmines ✅ DONE
 
-The app captures snapshots at 100Hz on the UI thread, hammers the disk with forced flushes, and loads playback files entirely into memory. Each of these is a real-world stall waiting to happen.
+Shipped: 100Hz capture is fully off the UI thread, disk-fsync hot paths eliminated, playback file streamed lazily. Build clean, no new warnings.
 
-- [ ] **Move 100Hz snapshot off the UI thread.** `IntegrationSnapshotService` currently uses a `DispatcherQueueTimer` on the UI dispatcher. Iterate the row VMs by reading immutable snapshots; the actual record write should run on a background task. Either that or drop the rate to ~50Hz event-driven.
-- [ ] **`CsvTestingService` write strategy.** Currently `FileOptions.WriteThrough` + `AutoFlush=true` + manual `Flush()` + `BaseStream.Flush()` per row = 4 fsyncs × 100/sec = 400 fsyncs/sec for a *testing* service. Use a single buffered writer, flush only on stop.
-- [ ] **`NisRecordingService.RecordIntegratedOutput` flushes every record at 50Hz.** Move flush to a periodic task (or to Stop only) — 50 fsyncs/sec to the binary file is unnecessary.
-- [ ] **`CsvPlaybackService.LoadFileAsync` uses `File.ReadAllLinesAsync`** — loads the whole file in memory. PROJECT_STATE.md explicitly required line-by-line `StreamReader`. Replace with streaming reader; index lines lazily.
-- [ ] **`CsvPlaybackService.PlaybackLoopAsync` uses `1000 / Frequency` integer division.** At 60Hz that's 16ms not 16.67ms. Switch to `Stopwatch`-based elapsed-time accounting so jitter doesn't accumulate.
-- [ ] **`IntegratedInsOutput_Data` clone-on-getter / clone-on-setter** is in `TO_BE_DELETED` so we can't fix it directly. Mitigate from the consumer side: stop reading/writing `Position`, `EulerData`, `VelocityVector` through their cloning accessors in the 100Hz hot path. Use direct field-by-field copies once per snapshot.
+- [x] **Move 100Hz snapshot off the UI thread.** `IntegrationSnapshotService` now drives a background `PeriodicTimer`. Row VMs expose `CaptureSnapshotForRecording()` — a volatile-read of the selected source + a `Volatile.Read` of the candidate's value. UI thread no longer does any per-tick recording work.
+- [x] **`CsvTestingService` write strategy.** Replaced `WriteThrough` + `AutoFlush` + per-row `Flush`+`BaseStream.Flush` with a buffered `StreamWriter` (64KB). Flush deferred until `Stop`. Locked for thread-safety since `PrintSnapshot` now runs on the background snapshot thread.
+- [x] **`NisRecordingService` per-record flush removed.** A background `PeriodicTimer` flushes every 1s; final flush still happens on `Stop`. The legacy `Thread.Sleep(50)` is retained for Phase 4 with a comment pointing at the fire-and-forget `WriteAsync` root cause.
+- [x] **`CsvPlaybackService.LoadFileAsync` lazy file indexing.** Replaced `File.ReadAllLinesAsync` with a one-pass byte-offset scan into `List<long>`. The `FileStream` stays open; data lines are read on demand at their indexed offsets. Memory: ~8 bytes per line + offsets only.
+- [x] **`CsvPlaybackService.PlaybackLoopAsync` Stopwatch-based timing.** Frame deadlines tracked in `Stopwatch.Frequency` ticks so 60Hz (16.67ms) no longer drifts via integer truncation. Mid-playback frequency changes are honored next iteration. Falls back to "reset baseline" if more than ~100ms behind.
+- [x] **`IntegratedInsOutput_Data` clone-on-accessor mitigation.** `IntegrationSnapshotService.TakeSnapshot` now reads `Position` / `EulerData` / `VelocityVector` exactly ONCE per snapshot, mutates the local clones across all rows of that group, then writes back exactly ONCE. Drops cloning cost from ~24 → 6 per snapshot.
 
 ---
 

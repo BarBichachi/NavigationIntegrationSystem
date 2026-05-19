@@ -1,8 +1,9 @@
-﻿using NavigationIntegrationSystem.Core.Devices;
+using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 
 using System;
+using System.Threading;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 
@@ -15,10 +16,17 @@ public sealed partial class NumericSourceCandidateViewModel : IntegrationSourceC
     #endregion
 
     #region Properties
+    // Setter writes via Volatile.Write so the background snapshot loop sees consistent values.
     public double Value
     {
-        get => m_Value;
-        set { if (!SetProperty(ref m_Value, value)) { return; } OnPropertyChanged(nameof(DisplayText)); }
+        get => Volatile.Read(ref m_Value);
+        set
+        {
+            if (Volatile.Read(ref m_Value) == value) { return; }
+            Volatile.Write(ref m_Value, value);
+            OnPropertyChanged(nameof(Value));
+            OnPropertyChanged(nameof(DisplayText));
+        }
     }
 
     public override string DisplayText => $"{Value:0.00000}";
@@ -41,5 +49,8 @@ public sealed partial class NumericSourceCandidateViewModel : IntegrationSourceC
         double delta = (m_Rng.NextDouble() - 0.5) * i_StepScale;
         Value += delta;
     }
+
+    // Thread-safe read for the background snapshot loop
+    public override double GetSnapshotValue() => Volatile.Read(ref m_Value);
     #endregion
 }

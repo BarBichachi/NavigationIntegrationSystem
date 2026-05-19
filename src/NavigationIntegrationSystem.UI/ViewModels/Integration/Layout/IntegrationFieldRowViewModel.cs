@@ -1,10 +1,12 @@
-﻿using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.UI.Services.Recording;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Layout;
 
@@ -13,6 +15,8 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 {
     #region Private Fields
     private IntegrationSourceCandidateViewModel? m_SelectedSource;
+    // Mirror of m_SelectedSource read by the background snapshot loop. Volatile read/write only — UI thread writes; background reads.
+    private IntegrationSourceCandidateViewModel? m_SelectedForCapture;
     private double m_CalculatedValue;
     #endregion
 
@@ -107,6 +111,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
         if (m_SelectedSource != null) { m_SelectedSource.PropertyChanged -= OnSelectedSourceChanged; }
 
         m_SelectedSource = i_Source;
+        Volatile.Write(ref m_SelectedForCapture, i_Source);
         m_SelectedSource.PropertyChanged += OnSelectedSourceChanged;
     }
 
@@ -116,6 +121,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
         if (m_SelectedSource == null) { return; }
         m_SelectedSource.PropertyChanged -= OnSelectedSourceChanged;
         m_SelectedSource = null;
+        Volatile.Write(ref m_SelectedForCapture, null);
     }
 
     // Keeps RadioButtons synced (selection state owned by row)
@@ -134,6 +140,23 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     {
         m_CalculatedValue = i_Value;
         OnPropertyChanged(nameof(SelectedValueText));
+    }
+
+    // Thread-safe immutable snapshot of the selected source, for use by the background 100Hz recording loop. Reads the volatile selected-source reference and the candidate's volatile value.
+    public IntegrationRowSnapshot CaptureSnapshotForRecording()
+    {
+        IntegrationSourceCandidateViewModel? selected = Volatile.Read(ref m_SelectedForCapture);
+        if (selected == null)
+        {
+            return new IntegrationRowSnapshot(FieldName, false, default, null, 0);
+        }
+
+        return new IntegrationRowSnapshot(
+            FieldName,
+            true,
+            selected.DeviceType,
+            selected.SourceDevice,
+            selected.GetSnapshotValue());
     }
     #endregion
 

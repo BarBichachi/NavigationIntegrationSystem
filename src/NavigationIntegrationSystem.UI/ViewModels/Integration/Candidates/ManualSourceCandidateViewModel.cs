@@ -1,6 +1,7 @@
-﻿using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 using System.Globalization;
+using System.Threading;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 
@@ -27,7 +28,7 @@ public sealed partial class ManualSourceCandidateViewModel : IntegrationSourceCa
 
     public bool IsValid { get => m_IsValid; private set => SetProperty(ref m_IsValid, value); }
 
-    public double Value => m_Value;
+    public double Value => Volatile.Read(ref m_Value);
 
     public override string DisplayText
     {
@@ -49,18 +50,23 @@ public sealed partial class ManualSourceCandidateViewModel : IntegrationSourceCa
     #endregion
 
     #region Functions
-    // Validates Text and forces DisplayText update
+    // Validates Text and forces DisplayText update; writes m_Value via Volatile.Write for background snapshot reads
     private void Validate()
     {
         if (string.IsNullOrWhiteSpace(Text))
         {
-            m_Value = 0;
+            Volatile.Write(ref m_Value, 0);
             IsValid = true;
             return;
         }
 
-        IsValid = double.TryParse(Text, NumberStyles.Any, CultureInfo.InvariantCulture, out m_Value);
+        bool ok = double.TryParse(Text, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsed);
+        Volatile.Write(ref m_Value, parsed);
+        IsValid = ok;
         OnPropertyChanged(nameof(DisplayText));
     }
+
+    // Thread-safe read for the background snapshot loop
+    public override double GetSnapshotValue() => Volatile.Read(ref m_Value);
     #endregion
 }

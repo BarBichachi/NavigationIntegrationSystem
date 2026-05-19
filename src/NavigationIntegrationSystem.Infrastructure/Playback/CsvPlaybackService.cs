@@ -1,8 +1,9 @@
-﻿using NavigationIntegrationSystem.Core.Logging;
+using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.Devices.Validation;
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -16,26 +17,31 @@ namespace NavigationIntegrationSystem.Infrastructure.Playback;
 
 public sealed class CsvPlaybackService : IPlaybackService
 {
+    #region Constants
+    private const int c_IndexScanBufferBytes = 64 * 1024;
+    private const int c_LineReadBufferBytes = 4 * 1024;
+    #endregion
+
     #region Private Fields
     private readonly ILogService m_LogService;
-    private readonly List<string> m_FileLines = new();
+    private readonly object m_Lock = new();
+
+    private FileStream? m_FileStream;
+    private readonly List<long> m_LineOffsets = new();
     private string[] m_Headers = Array.Empty<string>();
 
     private CancellationTokenSource? m_PlaybackCts;
-    private readonly object m_Lock = new();
-
     private int m_CurrentLineIndex;
     private bool m_IsPlaying;
     private string? m_LoadedFilePath;
     private int m_Frequency = 10;
-
     #endregion
 
     #region Properties
     public bool IsPlaying { get => m_IsPlaying; private set => m_IsPlaying = value; }
     public string? LoadedFilePath => m_LoadedFilePath;
     public int CurrentLineIndex => m_CurrentLineIndex;
-    public int TotalLineCount => m_FileLines.Count;
+    public int TotalLineCount => m_LineOffsets.Count;
     public int Frequency { get => m_Frequency; set { m_Frequency = Math.Clamp(value, 1, 100); } }
     #endregion
 
@@ -52,7 +58,8 @@ public sealed class CsvPlaybackService : IPlaybackService
     #endregion
 
     #region Functions
-    // Loads the CSV file and prepares for playback.
+    // Validates the file, opens it for streaming, parses the header, and lazily indexes byte offsets of each data line.
+    // The FileStream stays open for the lifetime of the loaded file; data lines are read on demand during playback.
     public async Task LoadFileAsync(string i_FilePath)
     {
         if (!CsvPlaybackFileValidator.ValidateFile(i_FilePath, out string errorMessage))
@@ -61,25 +68,96 @@ public sealed class CsvPlaybackService : IPlaybackService
         }
 
         Stop();
+        CloseFileStream();
 
-        lock (m_Lock)
+        FileStream fs = new FileStream(i_FilePath,
+                                       FileMode.Open,
+                                       FileAccess.Read,
+                                       FileShare.Read,
+                                       c_IndexScanBufferBytes,
+                                       FileOptions.SequentialScan | FileOptions.Asynchronous);
+        try
         {
-            m_FileLines.Clear();
-            m_Headers = Array.Empty<string>();
+            string? headerLine = ReadFirstLineSync(fs);
+            string[] headers = CsvPlaybackSchema.ParseCsvLine(headerLine ?? string.Empty);
+            List<long> offsets = await IndexLineOffsetsAsync(fs, fs.Position).ConfigureAwait(false);
+
+            lock (m_Lock)
+            {
+                m_FileStream = fs;
+                m_Headers = headers;
+                m_LineOffsets.Clear();
+                m_LineOffsets.AddRange(offsets);
+                m_LoadedFilePath = i_FilePath;
+                m_CurrentLineIndex = 0;
+            }
         }
-
-        string[] lines = await File.ReadAllLinesAsync(i_FilePath).ConfigureAwait(false);
-
-        lock (m_Lock)
+        catch
         {
-            m_Headers = CsvPlaybackSchema.ParseCsvLine(lines[0]);
-            m_FileLines.AddRange(lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)));
-            m_LoadedFilePath = i_FilePath;
-            m_CurrentLineIndex = 0;
+            fs.Dispose();
+            throw;
         }
 
         m_LogService.Info(nameof(CsvPlaybackService), $"Loaded playback file: {Path.GetFileName(i_FilePath)} ({TotalLineCount} frames)");
         StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Reads the first line of the file, including optional UTF-8 BOM handling. Leaves the stream positioned right after the line terminator.
+    private static string? ReadFirstLineSync(FileStream i_Stream)
+    {
+        i_Stream.Seek(0, SeekOrigin.Begin);
+
+        // Skip UTF-8 BOM (EF BB BF) if present
+        Span<byte> bomBuffer = stackalloc byte[3];
+        int bomRead = i_Stream.Read(bomBuffer);
+        if (!(bomRead == 3 && bomBuffer[0] == 0xEF && bomBuffer[1] == 0xBB && bomBuffer[2] == 0xBF))
+        {
+            i_Stream.Seek(0, SeekOrigin.Begin);
+        }
+
+        long startPos = i_Stream.Position;
+        string line = ReadLineSync(i_Stream);
+        return (line.Length == 0 && i_Stream.Position == startPos) ? null : line;
+    }
+
+    // Single scan over the file from i_StartOffset, recording the byte offset of each non-empty line.
+    // Empty lines (\r\n with nothing between) are skipped.
+    private static async Task<List<long>> IndexLineOffsetsAsync(FileStream i_Stream, long i_StartOffset)
+    {
+        List<long> offsets = new List<long>(1024);
+        i_Stream.Seek(i_StartOffset, SeekOrigin.Begin);
+
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(c_IndexScanBufferBytes);
+        try
+        {
+            long currentOffset = i_StartOffset;
+            bool atLineStart = true;
+            int bytesRead;
+
+            while ((bytesRead = await i_Stream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false)) > 0)
+            {
+                for (int i = 0; i < bytesRead; i++)
+                {
+                    byte b = buffer[i];
+                    if (atLineStart && b != (byte)'\n' && b != (byte)'\r')
+                    {
+                        offsets.Add(currentOffset + i);
+                        atLineStart = false;
+                    }
+                    if (b == (byte)'\n')
+                    {
+                        atLineStart = true;
+                    }
+                }
+                currentOffset += bytesRead;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        return offsets;
     }
 
     // Starts or resumes playback from the current line index.
@@ -121,13 +199,14 @@ public sealed class CsvPlaybackService : IPlaybackService
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // Unloads the current playback file and clears state
+    // Unloads the current playback file, closing the underlying FileStream.
     public void Unload()
     {
         Pause();
+        CloseFileStream();
         lock (m_Lock)
         {
-            m_FileLines.Clear();
+            m_LineOffsets.Clear();
             m_Headers = Array.Empty<string>();
             m_LoadedFilePath = null;
             m_CurrentLineIndex = 0;
@@ -140,7 +219,7 @@ public sealed class CsvPlaybackService : IPlaybackService
     {
         lock (m_Lock)
         {
-            m_CurrentLineIndex = Math.Clamp(i_LineIndex, 0, TotalLineCount - 1);
+            m_CurrentLineIndex = Math.Clamp(i_LineIndex, 0, Math.Max(0, TotalLineCount - 1));
         }
     }
 
@@ -156,32 +235,44 @@ public sealed class CsvPlaybackService : IPlaybackService
         await File.WriteAllTextAsync(i_FilePath, content, Encoding.UTF8).ConfigureAwait(false);
     }
 
-    // The main orchestrator for the playback thread
+    // Background playback loop. Uses Stopwatch-based deadline accounting so jitter does not accumulate at frame rates that don't divide evenly into 1000ms (e.g. 60Hz).
     private async Task PlaybackLoopAsync(CancellationToken i_Token)
     {
+        Stopwatch sw = Stopwatch.StartNew();
+        long nextDeadlineTicks = 0;
+
         try
         {
             while (!i_Token.IsCancellationRequested)
             {
-                // Calculate delay based on frequency (e.g., 10Hz = 100ms)
-                int delayMs = 1000 / Frequency;
-
-                if (!TryGetNextLine(out string line))
+                if (!TryReadCurrentLine(out string line))
                 {
                     SetPlayingState(false);
                     break;
                 }
 
                 PlaybackPacket? packet = ParsePacket(line);
-
-                if (packet != null)
-                {
-                    PacketDispatched?.Invoke(this, packet);
-                }
-
+                if (packet != null) { PacketDispatched?.Invoke(this, packet); }
                 IncrementIndex();
 
-                await Task.Delay(delayMs, i_Token).ConfigureAwait(false);
+                // Recompute per-frame ticks each iteration so a mid-playback Frequency change takes effect immediately
+                long ticksPerFrame = Stopwatch.Frequency / Math.Max(1, Frequency);
+                nextDeadlineTicks += ticksPerFrame;
+
+                long remainingTicks = nextDeadlineTicks - sw.ElapsedTicks;
+
+                // If we have fallen behind by more than ~100ms (e.g. UI thread stall, GC), reset baseline so we resume the target rate instead of trying to catch up infinitely
+                if (remainingTicks < -Stopwatch.Frequency / 10)
+                {
+                    nextDeadlineTicks = sw.ElapsedTicks;
+                    continue;
+                }
+
+                if (remainingTicks > 0)
+                {
+                    int sleepMs = (int)(remainingTicks * 1000L / Stopwatch.Frequency);
+                    if (sleepMs > 0) { await Task.Delay(sleepMs, i_Token).ConfigureAwait(false); }
+                }
             }
         }
         catch (OperationCanceledException) { }
@@ -196,19 +287,53 @@ public sealed class CsvPlaybackService : IPlaybackService
         }
     }
 
-    // Safely retrieves the next line or indicates EOF
-    private bool TryGetNextLine(out string o_Line)
+    // Reads the current line by seeking to its indexed byte offset. Returns false if EOF or no file loaded.
+    private bool TryReadCurrentLine(out string o_Line)
     {
         lock (m_Lock)
         {
-            if (m_CurrentLineIndex >= TotalLineCount)
+            if (m_FileStream == null || m_CurrentLineIndex >= m_LineOffsets.Count)
             {
                 o_Line = string.Empty;
                 return false;
             }
 
-            o_Line = m_FileLines[m_CurrentLineIndex];
+            long offset = m_LineOffsets[m_CurrentLineIndex];
+            m_FileStream.Seek(offset, SeekOrigin.Begin);
+            o_Line = ReadLineSync(m_FileStream);
             return true;
+        }
+    }
+
+    // Synchronous line read used inside the playback loop (under m_Lock). Reads until \n or EOF, excluding \r.
+    private static string ReadLineSync(FileStream i_Stream)
+    {
+        byte[] rent = ArrayPool<byte>.Shared.Rent(c_LineReadBufferBytes);
+        try
+        {
+            int written = 0;
+            while (true)
+            {
+                int b = i_Stream.ReadByte();
+                if (b == -1) { break; }
+                if (b == '\n') { break; }
+                if (b == '\r') { continue; }
+
+                if (written == rent.Length)
+                {
+                    byte[] grown = ArrayPool<byte>.Shared.Rent(rent.Length * 2);
+                    Buffer.BlockCopy(rent, 0, grown, 0, written);
+                    ArrayPool<byte>.Shared.Return(rent);
+                    rent = grown;
+                }
+                rent[written++] = (byte)b;
+            }
+
+            return written == 0 ? string.Empty : Encoding.UTF8.GetString(rent, 0, written);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rent);
         }
     }
 
@@ -234,10 +359,9 @@ public sealed class CsvPlaybackService : IPlaybackService
     private PlaybackPacket? ParsePacket(string i_Line)
     {
         string[] cells = CsvPlaybackSchema.ParseCsvLine(i_Line);
-        // We allow partial rows, but matching headers is safer
         if (cells.Length > m_Headers.Length) return null;
 
-        var values = new Dictionary<string, double>();
+        Dictionary<string, double> values = new Dictionary<string, double>(cells.Length);
 
         for (int i = 0; i < cells.Length && i < m_Headers.Length; i++)
         {
@@ -251,11 +375,24 @@ public sealed class CsvPlaybackService : IPlaybackService
         return new PlaybackPacket(values);
     }
 
+    // Closes and clears the underlying file stream. Safe to call when already closed.
+    private void CloseFileStream()
+    {
+        FileStream? fs;
+        lock (m_Lock)
+        {
+            fs = m_FileStream;
+            m_FileStream = null;
+        }
+        fs?.Dispose();
+    }
+
     // Clean up resources when the service is disposed.
     public void Dispose()
     {
         m_PlaybackCts?.Cancel();
         m_PlaybackCts?.Dispose();
+        CloseFileStream();
     }
     #endregion
 }
