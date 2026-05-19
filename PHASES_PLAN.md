@@ -52,13 +52,13 @@ Shipped: pattern violations cleaned up; Playback feature now produces real recor
 
 ---
 
-## Phase 4 — Hacks rooted in TO_BE_DELETED
+## Phase 4 — Hacks rooted in TO_BE_DELETED ✅ DONE
 
-These can't be fixed at the source because the offending code lives in `TO_BE_DELETED` (which is staying until merge into the parent solution). The strategy is to wrap and document so our code doesn't pretend the underlying behavior is sane.
+Originally framed as "wrap TO_BE_DELETED quirks behind our own abstractions." On review the wrapping itself was speculative — the legacy `BinaryFileRecorderEnhanced` will be replaced by the parent solution's version at integration, and we don't yet know the replacement's API surface. We already have a stable abstraction in our code (`IRecordingService`); a second wrapper layer would harden against an API we don't control. So Phase 4 collapsed: real fix for the one item that's actually in our code, sharper comments on the two that depend on the legacy recorder.
 
-- [ ] **Wrap `BinaryFileRecorderEnhanced` behind a proper async interface in our code.** `BinaryFileRecorderEnhanced.Record` issues a fire-and-forget `WriteAsync` (root cause of the `Thread.Sleep(50)` in `NisRecordingService.Stop`). Add an internal queue + drain-on-stop in our wrapper service so the hack is contained and labeled.
-- [ ] **Convert `FileLogService.WriteToFileAsync` to a background-queue consumer.** Currently `_ = WriteToFileAsync(record)` silently swallows disk errors. Use a `Channel<LogRecord>` with a single consumer; surface write failures to a dead-letter event.
-- [ ] **`NisRecordingService.Start` writes a dummy `(99, 99)` filler record** to avoid 0-byte file deletion. Move this hack behind the wrapper interface from item 1, with a comment that points at the underlying recorder bug. Once `TO_BE_DELETED` is replaced with the real shared recorder, both hacks vanish.
+- [x] **`FileLogService` background-queue consumer.** Replaced fire-and-forget `_ = WriteToFileAsync(record)` with a bounded `Channel<LogRecord>` (capacity 10k, Wait mode + non-blocking `TryWrite`, single reader). Producer never blocks; drops under sustained backpressure are counted via `DroppedRecordCount`. Disk-write failures surface via a new `WriteFailed` event instead of silent swallow. `Dispose` drains pending records with a 2s timeout so shutdown can't hang on a stuck disk.
+- [ ] **Wrap `BinaryFileRecorderEnhanced`** — DECIDED NOT TO DO. The legacy recorder is in `TO_BE_DELETED` and gets replaced at parent-solution integration. Wrapping today speculatively hardens against an API we don't control. `IRecordingService` already gives us the stable boundary; a second wrapper adds layering without an interface gain. Comment in `NisRecordingService.Stop` now clearly labels the `Thread.Sleep(50)` as a placeholder paired with the legacy recorder's fire-and-forget `WriteAsync`, to be deleted once the replacement exposes a real completion contract.
+- [ ] **Move the `(99, 99)` filler record behind the wrapper** — DECIDED NOT TO DO. Same reason as above. Comment in `NisRecordingService.Start` now explains the filler-record pattern paired 1-to-1 with the legacy `CloseCurrentFile` 0-byte deletion behavior. Removed at integration when the replacement recorder uses a different file lifecycle.
 
 ---
 

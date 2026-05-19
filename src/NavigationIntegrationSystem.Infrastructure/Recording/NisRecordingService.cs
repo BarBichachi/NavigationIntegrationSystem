@@ -71,7 +71,12 @@ public sealed class NisRecordingService : IRecordingService
                 return;
             }
 
-            // Filler record: forces m_CurrentFileSize > 0 so legacy CloseCurrentFile never deletes
+            // Filler record (type=99, id=99, 1 byte): legacy BinaryFileRecorderEnhanced.CloseCurrentFile deletes any file
+            // whose m_CurrentFileSize is still 0 at stop time. Writing a tiny placeholder up-front guarantees the file survives
+            // even for a recording stopped immediately. The 99/99 values are arbitrary sentinels — they don't collide with any
+            // real record type and RecordDecoderPro ignores unknown types. Lives in our code (not a wrapper) on purpose: this
+            // hack pairs 1-to-1 with the legacy file lifecycle and gets removed when BinaryFileRecorderEnhanced is replaced at
+            // parent-solution integration.
             m_Recorder.Record(99, 99, new byte[1], 1, DateTime.UtcNow);
 
             m_FlushCts = new CancellationTokenSource();
@@ -113,9 +118,13 @@ public sealed class NisRecordingService : IRecordingService
             // Final flush — drains the legacy recorder's buffer to disk
             m_Recorder.OnPeriodicOnePps(this, EventArgs.Empty);
 
-            // Legacy BinaryFileRecorderEnhanced.Record issues fire-and-forget WriteAsync;
-            // brief sleep lets the in-flight async write land before StopRecording closes the handle.
-            // (Phase 4 wraps this hack behind a proper async interface.)
+            // Legacy BinaryFileRecorderEnhanced.Record issues fire-and-forget WriteAsync (no completion handle exposed).
+            // The 50ms pause lets the in-flight async write land before StopRecording closes the file handle —
+            // otherwise the last record can be lost or land in a half-closed file.
+            // NOT wrapped behind our own abstraction by design: the legacy recorder is staged for replacement at
+            // parent-solution integration. Wrapping today would harden against an API we don't control and that is
+            // going to change. Revisit (and likely delete) this Sleep once the replacement recorder exposes a real
+            // FlushAsync / WriteAsync completion contract.
             Thread.Sleep(50);
 
             m_Recorder.StopRecording();
