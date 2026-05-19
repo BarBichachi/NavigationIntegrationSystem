@@ -27,7 +27,7 @@ using System.Diagnostics;
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 
 // Owns the Devices page state, including device cards and right-pane behavior
-public sealed class DevicesViewModel : ViewModelBase
+public sealed partial class DevicesViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly DevicesConfigService m_ConfigService;

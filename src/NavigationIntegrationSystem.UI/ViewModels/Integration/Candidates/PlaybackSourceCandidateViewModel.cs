@@ -10,7 +10,7 @@ namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 // deliberately do NOT fire PropertyChanged from there (WinUI bindings dislike cross-thread notifications).
 // UI Tick (250ms timer) copies the latest value into the observable Value, firing PropertyChanged on UI.
 // The 100Hz recording loop calls GetSnapshotValue() directly for the freshest read, bypassing UI cadence.
-public sealed class PlaybackSourceCandidateViewModel : IntegrationSourceCandidateViewModel, IDisposable
+public sealed partial class PlaybackSourceCandidateViewModel : IntegrationSourceCandidateViewModel, IDisposable
 {
     #region Private Fields
     private readonly IPlaybackService m_PlaybackService;

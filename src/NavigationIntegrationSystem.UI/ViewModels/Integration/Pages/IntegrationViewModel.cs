@@ -18,7 +18,7 @@ using System.Linq;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
 
 // Owns the Integration page state: header device toggles, per-row source selection, and dummy live updates
-public sealed class IntegrationViewModel : ViewModelBase
+public sealed partial class IntegrationViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly DevicesViewModel m_DevicesViewModel;

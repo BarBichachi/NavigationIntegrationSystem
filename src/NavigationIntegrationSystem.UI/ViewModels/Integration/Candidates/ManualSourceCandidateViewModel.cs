@@ -6,7 +6,7 @@ using System.Threading;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 
 // Candidate backed by user input (numeric text)
-public sealed class ManualSourceCandidateViewModel : IntegrationSourceCandidateViewModel
+public sealed partial class ManualSourceCandidateViewModel : IntegrationSourceCandidateViewModel
 {
     #region Private Fields
     private string m_Text = string.Empty;

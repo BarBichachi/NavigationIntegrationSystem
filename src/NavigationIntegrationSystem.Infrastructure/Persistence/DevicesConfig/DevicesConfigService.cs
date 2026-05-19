@@ -202,13 +202,18 @@ public sealed class DevicesConfigService
 
         foreach (DeviceConfig device in i_Config.Devices)
         {
+            if (device.Connection == null)
+            {
+                return $"The imported file contains device {device.DeviceType} without connection settings.";
+            }
+
             IReadOnlyList<string> errors = ConnectionSettingsValidator.Validate(device.Connection, device.DeviceType);
             if (errors.Count > 0)
             {
                 return string.Join("\n", errors);
             }
 
-            if (device.DeviceType == DeviceType.Playback && device.Connection?.Playback != null)
+            if (device.DeviceType == DeviceType.Playback && device.Connection.Playback != null)
             {
                 if (!i_AllowedPlaybackFrequencies.Contains(device.Connection.Playback.Frequency))
                 {
@@ -238,20 +243,23 @@ public sealed class DevicesConfigService
         return sanitized;
     }
 
-    // Removes irrelevant connection sections based on device type
+    // Removes irrelevant connection sections based on device type.
+    // Operates on a throwaway clone (CreateSanitizedConfig calls DeepClone first). Nulling tells System.Text.Json
+    // to omit the section in the serialized output via DefaultIgnoreCondition=WhenWritingNull. The in-memory model
+    // keeps these properties non-nullable on purpose, hence the null-forgiving operator.
     private static void SanitizeDeviceConnection(DeviceConfig i_Device)
     {
         if (i_Device.Connection == null) { return; }
 
         if (i_Device.DeviceType == DeviceType.Playback)
         {
-            i_Device.Connection.Udp = null;
-            i_Device.Connection.Tcp = null;
-            i_Device.Connection.Serial = null;
+            i_Device.Connection.Udp = null!;
+            i_Device.Connection.Tcp = null!;
+            i_Device.Connection.Serial = null!;
             return;
         }
 
-        i_Device.Connection.Playback = null;
+        i_Device.Connection.Playback = null!;
     }
     #endregion
 }

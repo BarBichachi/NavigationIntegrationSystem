@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 
 // Represents a single device card with status, config and actions for the Devices page
-public sealed class DeviceCardViewModel : ViewModelBase
+public sealed partial class DeviceCardViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly ILogService m_LogService;

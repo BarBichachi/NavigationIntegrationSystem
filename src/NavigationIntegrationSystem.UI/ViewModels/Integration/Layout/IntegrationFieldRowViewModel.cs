@@ -12,7 +12,7 @@ using System.Threading;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Layout;
 
 // Represents a single integration field row (parameter + selectable sources)
-public sealed class IntegrationFieldRowViewModel : ViewModelBase
+public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 {
     #region Private Fields
     private IntegrationSourceCandidateViewModel? m_SelectedSource;

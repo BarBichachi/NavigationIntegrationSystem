@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
-public sealed class DeviceSettingsPaneViewModel : ViewModelBase
+public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly DevicesViewModel m_Parent;

@@ -3,7 +3,7 @@
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 
 // Represents a single field row in the Inspect pane with a live value string
-public sealed class InspectFieldViewModel : ViewModelBase
+public sealed partial class InspectFieldViewModel : ViewModelBase
 {
     #region Private Fields
     private string m_ValueText;

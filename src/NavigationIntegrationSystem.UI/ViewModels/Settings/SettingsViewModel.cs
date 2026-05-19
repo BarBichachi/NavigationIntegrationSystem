@@ -9,7 +9,7 @@ using NavigationIntegrationSystem.UI.ViewModels.Base;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Settings;
 
-public sealed class SettingsViewModel : ViewModelBase
+public sealed partial class SettingsViewModel : ViewModelBase
 {
     #region Commands
     public IRelayCommand OpenRecordingsFolderCommand { get; }

@@ -16,7 +16,7 @@ using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 namespace NavigationIntegrationSystem.UI.ViewModels;
 
 // Exposes the live log buffer for UI binding and future log actions
-public sealed class LogsViewModel : ViewModelBase
+public sealed partial class LogsViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly UiLogBuffer m_LogBuffer;

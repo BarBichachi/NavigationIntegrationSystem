@@ -6,7 +6,7 @@ using NavigationIntegrationSystem.UI.ViewModels.Base;
 namespace NavigationIntegrationSystem.UI.ViewModels;
 
 // Owns top-level UI state for the app shell, including recording controls
-public sealed class MainViewModel : ViewModelBase
+public sealed partial class MainViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly IRecordingService m_RecordingService;

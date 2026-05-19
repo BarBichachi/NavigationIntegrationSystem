@@ -84,6 +84,7 @@ Every class must use `#region` blocks in this order:
 - One-line property syntax: `public string X { get => m_X; set => SetProperty(ref m_X, value); }`
 - Commands are explicit properties under `#region Commands`, typed as `IRelayCommand` or `IAsyncRelayCommand`
 - **Forbidden:** `[ObservableProperty]`, `[RelayCommand]`, or any CommunityToolkit source generators
+- **`partial` is required on every VM** — CsWinRT (the WinUI 3 marshalling source generator) emits partial extensions for any type that crosses the WinRT ABI (e.g. INotifyPropertyChanged set as DataContext, used via x:Bind). Missing `partial` works on JIT today but breaks under trimming / AOT and triggers the WinRT info diagnostic on the affected type.
 - ViewModels contain UI logic only — no device-specific logic, no file I/O
 
 ---
