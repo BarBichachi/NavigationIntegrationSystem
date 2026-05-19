@@ -25,6 +25,15 @@ public partial class App : Application
     public IServiceProvider Services => m_Host.Services;
     #endregion
 
+    #region Static Service Access
+    // Single resolution point for views/controls that can't be constructor-injected by the WinUI 3 framework.
+    // Keeps the service-locator pattern contained behind one well-known helper.
+    public static T GetService<T>() where T : notnull
+    {
+        return ((App)Current).Services.GetRequiredService<T>();
+    }
+    #endregion
+
     #region Ctors
     public App()
     {

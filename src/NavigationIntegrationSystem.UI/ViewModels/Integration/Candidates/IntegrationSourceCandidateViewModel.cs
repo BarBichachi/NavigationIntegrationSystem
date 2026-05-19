@@ -5,7 +5,7 @@ using NavigationIntegrationSystem.UI.ViewModels.Base;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 
 // Base VM for a per-row candidate source (device-provided or manual)
-public abstract partial class IntegrationSourceCandidateViewModel : ViewModelBase
+public abstract class IntegrationSourceCandidateViewModel : ViewModelBase
 {
     #region Private Fields
     private bool m_IsSelected;

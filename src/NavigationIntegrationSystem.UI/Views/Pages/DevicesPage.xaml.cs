@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 
@@ -16,7 +14,7 @@ public sealed partial class DevicesPage : Page
     public DevicesPage()
     {
         InitializeComponent();
-        ViewModel = ((App)Application.Current).Services.GetRequiredService<DevicesViewModel>();
+        ViewModel = App.GetService<DevicesViewModel>();
     }
     #endregion
 

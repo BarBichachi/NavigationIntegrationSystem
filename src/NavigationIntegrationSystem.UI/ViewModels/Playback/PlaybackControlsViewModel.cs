@@ -7,7 +7,7 @@ using System;
 namespace NavigationIntegrationSystem.UI.ViewModels.Playback;
 
 // Manages the state of the bottom playback tray
-public sealed partial class PlaybackControlsViewModel : ViewModelBase
+public sealed class PlaybackControlsViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly IPlaybackService m_PlaybackService;

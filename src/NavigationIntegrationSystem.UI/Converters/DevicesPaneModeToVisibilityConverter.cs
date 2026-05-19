@@ -18,9 +18,6 @@ public sealed class DevicesPaneModeToVisibilityConverter : IValueConverter
         { return Visibility.Visible; }
         return Visibility.Collapsed;
     }
-    public object ConvertBack(object value, Type targetType, object parameter, string language)
-    {
-        return DevicesPaneMode.None;
-    }
+    public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
     #endregion
 }

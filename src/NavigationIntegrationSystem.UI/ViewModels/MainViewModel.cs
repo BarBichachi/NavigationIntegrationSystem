@@ -1,12 +1,12 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 
 using NavigationIntegrationSystem.Core.Recording;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 
 namespace NavigationIntegrationSystem.UI.ViewModels;
 
 // Owns top-level UI state for the app shell, including recording controls
-public sealed partial class MainViewModel : ObservableObject
+public sealed class MainViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly IRecordingService m_RecordingService;

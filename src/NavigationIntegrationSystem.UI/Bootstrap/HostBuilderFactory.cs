@@ -48,9 +48,11 @@ public static class HostBuilderFactory
                 services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
 
                 // 2. Logging Infrastructure
+                // Register the concrete FileLogService once, then bind both interfaces to the same instance — avoids the brittle ILogService -> ILogPaths cross-cast.
                 string logRoot = PathResolver.Resolve(settings.Nis.Log.Root);
-                services.AddSingleton<ILogService>(sp => new FileLogService(logRoot));
-                services.AddSingleton<ILogPaths>(sp => (ILogPaths)sp.GetRequiredService<ILogService>());
+                services.AddSingleton(sp => new FileLogService(logRoot));
+                services.AddSingleton<ILogService>(sp => sp.GetRequiredService<FileLogService>());
+                services.AddSingleton<ILogPaths>(sp => sp.GetRequiredService<FileLogService>());
                 services.AddSingleton(sp => new UiLogBuffer(sp.GetRequiredService<ILogService>(), settings.Nis.Log.MaxUiEntries));
 
                 // 3. Playback Services

@@ -1,5 +1,7 @@
 ﻿using Microsoft.UI.Dispatching;
 using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.Core.Integration;
+using NavigationIntegrationSystem.Core.Playback;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
@@ -16,10 +18,11 @@ using System.Linq;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
 
 // Owns the Integration page state: header device toggles, per-row source selection, and dummy live updates
-public sealed partial class IntegrationViewModel : ViewModelBase
+public sealed class IntegrationViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly DevicesViewModel m_DevicesViewModel;
+    private readonly IPlaybackService m_PlaybackService;
     private readonly Random m_Rng = new();
     private readonly Dictionary<DeviceType, bool> m_DeviceVisibility = new();
     private DispatcherQueueTimer? m_Timer;
@@ -31,9 +34,10 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     #endregion
 
     #region Constructors
-    public IntegrationViewModel(DevicesViewModel i_DevicesViewModel)
+    public IntegrationViewModel(DevicesViewModel i_DevicesViewModel, IPlaybackService i_PlaybackService)
     {
         m_DevicesViewModel = i_DevicesViewModel;
+        m_PlaybackService = i_PlaybackService;
 
         InitializeIntegrationRows();
         HookDevices();
@@ -46,30 +50,30 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     private void InitializeIntegrationRows()
     {
         // Position
-        Rows.Add(new IntegrationFieldRowViewModel("Latitude", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Longitude", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Altitude", "m"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Latitude, "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Longitude, "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Altitude, "m"));
 
         // Euler Angles
-        Rows.Add(new IntegrationFieldRowViewModel("Roll", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Pitch", "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel("Azimuth", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Roll, "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Pitch, "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Azimuth, "deg"));
 
         // Euler Rates
-        Rows.Add(new IntegrationFieldRowViewModel("Roll Rate", "deg/s"));
-        Rows.Add(new IntegrationFieldRowViewModel("Pitch Rate", "deg/s"));
-        Rows.Add(new IntegrationFieldRowViewModel("Azimuth Rate", "deg/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.RollRate, "deg/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.PitchRate, "deg/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.AzimuthRate, "deg/s"));
 
         // Velocity Components (Required for calculated Total)
-        Rows.Add(new IntegrationFieldRowViewModel("Velocity North", "m/s"));
-        Rows.Add(new IntegrationFieldRowViewModel("Velocity East", "m/s"));
-        Rows.Add(new IntegrationFieldRowViewModel("Velocity Down", "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.VelocityNorth, "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.VelocityEast, "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.VelocityDown, "m/s"));
 
         // Derived/Calculated Fields
-        Rows.Add(new IntegrationFieldRowViewModel("Velocity Total", "m/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.VelocityTotal, "m/s"));
 
         // Miscellaneous
-        Rows.Add(new IntegrationFieldRowViewModel("Course", "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Course, "deg"));
     }
 
     // Starts dummy live updates using DispatcherQueue
@@ -125,9 +129,9 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     // Logic to calculate the magnitude of the selected velocity components
     private void UpdateCalculatedRow(IntegrationFieldRowViewModel i_TotalRow)
     {
-        var vnRow = Rows.FirstOrDefault(r => r.FieldName == "Velocity North");
-        var veRow = Rows.FirstOrDefault(r => r.FieldName == "Velocity East");
-        var vdRow = Rows.FirstOrDefault(r => r.FieldName == "Velocity Down");
+        var vnRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityNorth);
+        var veRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityEast);
+        var vdRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityDown);
 
         if (vnRow == null || veRow == null || vdRow == null) return;
 
@@ -186,12 +190,28 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         {
             DeviceType? previousDeviceType = row.SelectedDeviceType;
 
+            // Dispose any source that holds external subscriptions (e.g. PlaybackSourceCandidateViewModel) before dropping the references
+            foreach (IntegrationSourceCandidateViewModel src in row.Sources)
+            {
+                if (src is IDisposable disposable) { disposable.Dispose(); }
+            }
             row.Sources.Clear();
+
             foreach (DeviceCardViewModel device in i_Connected)
             {
                 if (device.Type == DeviceType.Manual)
                 {
                     row.Sources.Add(new ManualSourceCandidateViewModel(device.DisplayName));
+                    continue;
+                }
+
+                if (device.Type == DeviceType.Playback)
+                {
+                    if (IntegrationFieldKeyMap.FieldToCsvKey.TryGetValue(row.FieldName, out string? csvKey))
+                    {
+                        row.Sources.Add(new PlaybackSourceCandidateViewModel(device.Device, device.DisplayName, csvKey, m_PlaybackService));
+                    }
+                    // Calculated rows (Velocity Total) have no key — silently skipped
                     continue;
                 }
 
@@ -273,14 +293,12 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         double baseValue =
             i_FieldName switch
             {
-                "Azimuth" => 8.0,
-                "Elevation" => 1.25,
-                "Latitude" => 32.0853,
-                "Longitude" => 34.7818,
-                "Altitude" => 120.5,
-                "Pitch" => 0.2,
-                "Roll" => -0.1,
-                "Speed" => 52.1,
+                IntegrationFieldNames.Azimuth => 8.0,
+                IntegrationFieldNames.Latitude => 32.0853,
+                IntegrationFieldNames.Longitude => 34.7818,
+                IntegrationFieldNames.Altitude => 120.5,
+                IntegrationFieldNames.Pitch => 0.2,
+                IntegrationFieldNames.Roll => -0.1,
                 _ => 0.0
             };
 

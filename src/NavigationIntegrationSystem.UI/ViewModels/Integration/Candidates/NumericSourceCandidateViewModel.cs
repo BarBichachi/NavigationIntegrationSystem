@@ -8,7 +8,7 @@ using System.Threading;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 
 // Candidate backed by a numeric value (dummy telemetry for now)
-public sealed partial class NumericSourceCandidateViewModel : IntegrationSourceCandidateViewModel
+public sealed class NumericSourceCandidateViewModel : IntegrationSourceCandidateViewModel
 {
     #region Private Fields
     private readonly Random m_Rng;

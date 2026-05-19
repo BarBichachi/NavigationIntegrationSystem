@@ -1,4 +1,5 @@
 using NavigationIntegrationSystem.Core.Enums;
+using NavigationIntegrationSystem.Core.Integration;
 using NavigationIntegrationSystem.UI.Services.Recording;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
@@ -11,7 +12,7 @@ using System.Threading;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Layout;
 
 // Represents a single integration field row (parameter + selectable sources)
-public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
+public sealed class IntegrationFieldRowViewModel : ViewModelBase
 {
     #region Private Fields
     private IntegrationSourceCandidateViewModel? m_SelectedSource;
@@ -30,7 +31,7 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     public DeviceType? SelectedDeviceType => m_SelectedSource?.DeviceType;
 
     public bool IsOutputEmpty => m_SelectedSource == null || !VisibleSources.Contains(m_SelectedSource);
-    public bool IsCalculated { get => FieldName.Contains("Velocity Total"); }
+    public bool IsCalculated { get => FieldName == IntegrationFieldNames.VelocityTotal; }
 
     public string SelectedValueText
     {

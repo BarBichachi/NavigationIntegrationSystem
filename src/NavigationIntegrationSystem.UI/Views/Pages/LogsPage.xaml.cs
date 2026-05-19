@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -22,7 +21,7 @@ public sealed partial class LogsPage : Page
     #region Ctors
     public LogsPage()
     {
-        ViewModel = ((App)Application.Current).Services.GetRequiredService<LogsViewModel>();
+        ViewModel = App.GetService<LogsViewModel>();
 
         InitializeComponent();
 

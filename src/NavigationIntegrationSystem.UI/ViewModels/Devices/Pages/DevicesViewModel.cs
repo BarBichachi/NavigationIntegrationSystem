@@ -1,5 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
@@ -15,6 +14,7 @@ using NavigationIntegrationSystem.UI.Enums;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
 using NavigationIntegrationSystem.UI.ViewModels;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 using System.Collections.Generic;
@@ -27,7 +27,7 @@ using System.Diagnostics;
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 
 // Owns the Devices page state, including device cards and right-pane behavior
-public sealed partial class DevicesViewModel : ObservableObject
+public sealed class DevicesViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly DevicesConfigService m_ConfigService;

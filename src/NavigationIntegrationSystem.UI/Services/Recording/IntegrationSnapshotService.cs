@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using NavigationIntegrationSystem.Core.Devices;
+using NavigationIntegrationSystem.Core.Integration;
 using NavigationIntegrationSystem.Core.Recording;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Layout;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
@@ -183,82 +184,82 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
     {
         switch (i_Name)
         {
-            case "Latitude":
+            case IntegrationFieldNames.Latitude:
                 io_Data.LatitudeDeviceCode = i_Code;
                 io_Data.LatitudeDeviceId = i_Id;
                 io_Position.Lat = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionLatValid;
                 break;
-            case "Longitude":
+            case IntegrationFieldNames.Longitude:
                 io_Data.LongitudeDeviceCode = i_Code;
                 io_Data.LongitudeDeviceId = i_Id;
                 io_Position.Lon = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionLonValid;
                 break;
-            case "Altitude":
+            case IntegrationFieldNames.Altitude:
                 io_Data.AltitudeDeviceCode = i_Code;
                 io_Data.AltitudeDeviceId = i_Id;
                 io_Position.Alt = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionAltValid;
                 break;
 
-            case "Roll":
+            case IntegrationFieldNames.Roll:
                 io_Data.RollDeviceCode = i_Code;
                 io_Data.RollDeviceId = i_Id;
                 io_Euler.Angles.Roll = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollValid;
                 break;
-            case "Pitch":
+            case IntegrationFieldNames.Pitch:
                 io_Data.PitchDeviceCode = i_Code;
                 io_Data.PitchDeviceId = i_Id;
                 io_Euler.Angles.Pitch = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PitchValid;
                 break;
-            case "Azimuth":
+            case IntegrationFieldNames.Azimuth:
                 io_Data.AzimuthDeviceCode = i_Code;
                 io_Data.AzimuthDeviceId = i_Id;
                 io_Euler.Angles.Yaw = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthValid;
                 break;
-            case "Roll Rate":
+            case IntegrationFieldNames.RollRate:
                 io_Data.RollRateDeviceCode = i_Code;
                 io_Data.RollRateDeviceId = i_Id;
                 io_Euler.Rates.Roll = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollRateValid;
                 break;
-            case "Pitch Rate":
+            case IntegrationFieldNames.PitchRate:
                 io_Data.PitchRateDeviceCode = i_Code;
                 io_Data.PitchRateDeviceId = i_Id;
                 io_Euler.Rates.Pitch = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PitchRateValid;
                 break;
-            case "Azimuth Rate":
+            case IntegrationFieldNames.AzimuthRate:
                 io_Data.AzimuthRateDeviceCode = i_Code;
                 io_Data.AzimuthRateDeviceId = i_Id;
                 io_Euler.Rates.Yaw = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthRateValid;
                 break;
 
-            case "Velocity North":
+            case IntegrationFieldNames.VelocityNorth:
                 io_Data.VelocityNorthDeviceCode = i_Code;
                 io_Data.VelocityNorthDeviceId = i_Id;
                 io_Velocity.North = i_Val;
                 io_Data.StatusValue |= (uint)(IntegratedInsOutputStatusFlags.VelocityNorthValid | IntegratedInsOutputStatusFlags.VelocityTotalValid);
                 break;
-            case "Velocity East":
+            case IntegrationFieldNames.VelocityEast:
                 io_Data.VelocityEastDeviceCode = i_Code;
                 io_Data.VelocityEastDeviceId = i_Id;
                 io_Velocity.East = i_Val;
                 io_Data.StatusValue |= (uint)(IntegratedInsOutputStatusFlags.VelocityEastValid | IntegratedInsOutputStatusFlags.VelocityTotalValid);
                 break;
-            case "Velocity Down":
+            case IntegrationFieldNames.VelocityDown:
                 io_Data.VelocityDownDeviceCode = i_Code;
                 io_Data.VelocityDownDeviceId = i_Id;
                 io_Velocity.Down = i_Val;
                 io_Data.StatusValue |= (uint)(IntegratedInsOutputStatusFlags.VelocityDownValid | IntegratedInsOutputStatusFlags.VelocityTotalValid);
                 break;
 
-            case "Course":
+            case IntegrationFieldNames.Course:
                 io_Data.CourseDeviceCode = i_Code;
                 io_Data.CourseDeviceId = i_Id;
                 io_Data.Course = i_Val;

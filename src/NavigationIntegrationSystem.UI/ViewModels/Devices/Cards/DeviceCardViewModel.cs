@@ -1,10 +1,10 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 
 // Represents a single device card with status, config and actions for the Devices page
-public sealed partial class DeviceCardViewModel : ObservableObject
+public sealed class DeviceCardViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly ILogService m_LogService;

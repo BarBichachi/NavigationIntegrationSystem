@@ -23,6 +23,5 @@ public sealed class LogLevelToBrushConverter : IValueConverter
         };
     }
 
-    // Not used
-    public object ConvertBack(object value, Type targetType, object parameter, string language) { return value; }
+    public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }

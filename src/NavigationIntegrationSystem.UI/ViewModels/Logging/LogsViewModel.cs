@@ -1,9 +1,9 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.WinUI.Collections;
 using Microsoft.UI.Xaml.Controls;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.UI.Services.Logging;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,7 +16,7 @@ using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 namespace NavigationIntegrationSystem.UI.ViewModels;
 
 // Exposes the live log buffer for UI binding and future log actions
-public sealed partial class LogsViewModel : ObservableObject
+public sealed class LogsViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly UiLogBuffer m_LogBuffer;

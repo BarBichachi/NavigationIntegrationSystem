@@ -13,5 +13,5 @@ public sealed class InverseBoolToVisibilityConverter : IValueConverter
         return Visibility.Visible;
     }
 
-    public object ConvertBack(object i_Value, Type i_TargetType, object i_Parameter, string i_Language) => throw new NotImplementedException();
+    public object ConvertBack(object i_Value, Type i_TargetType, object i_Parameter, string i_Language) => throw new NotSupportedException();
 }

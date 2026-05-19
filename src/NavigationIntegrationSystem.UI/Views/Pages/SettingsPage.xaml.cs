@@ -1,5 +1,4 @@
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.Extensions.DependencyInjection;
 using NavigationIntegrationSystem.UI.ViewModels.Settings;
 
 namespace NavigationIntegrationSystem.UI.Views.Pages;
@@ -14,8 +13,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
-
-        ViewModel = ((App)Microsoft.UI.Xaml.Application.Current).Services.GetRequiredService<SettingsViewModel>();
+        ViewModel = App.GetService<SettingsViewModel>();
     }
     #endregion
 }

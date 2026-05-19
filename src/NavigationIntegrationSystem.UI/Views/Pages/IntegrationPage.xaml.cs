@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -19,7 +18,7 @@ public sealed partial class IntegrationPage : Page
     public IntegrationPage()
     {
         InitializeComponent();
-        ViewModel = ((App)Application.Current).Services.GetRequiredService<IntegrationViewModel>();
+        ViewModel = App.GetService<IntegrationViewModel>();
         ViewModel.Initialize(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
 
         this.Unloaded += (s, e) => ViewModel.Deinitialize();

@@ -34,21 +34,21 @@ Shipped: 100Hz capture is fully off the UI thread, disk-fsync hot paths eliminat
 
 ---
 
-## Phase 3 — Convention and architecture cleanup
+## Phase 3 — Convention and architecture cleanup ✅ DONE
 
-Pattern violations and inconsistencies that don't break anything but make the codebase harder to maintain. Most of these are documented in `CLAUDE.md` and `Preferences.md` and currently violated.
+Shipped: pattern violations cleaned up; Playback feature now produces real recordings instead of random-walk noise. Build clean, no new warnings.
 
-- [ ] **Unify MVVM base.** `MainViewModel`, `DeviceCardViewModel`, `InspectFieldViewModel`, `DevicesViewModel`, `LogsViewModel` extend `CommunityToolkit.Mvvm.ComponentModel.ObservableObject`. The project rule is manual `ViewModelBase` only. Migrate.
-- [ ] **Drop dead `partial` modifiers.** No source generators are in use; `partial` on every VM is misleading. Remove.
-- [ ] **Replace Service Locator in Pages.** Every Page does `((App)Application.Current).Services.GetRequiredService<TVm>()`. Use a DI-driven factory or page activation.
-- [ ] **Magic strings.** `IntegrationSnapshotService` and `IntegrationViewModel` match field names by literal string (`"Latitude"`, `"Velocity North"`, etc.). Define `IntegrationFieldNames` constants in Core.
-- [ ] **Delete duplicate converters.** `PaneModeToInspectVisibilityConverter` and `PaneModeToSettingsVisibilityConverter` are hardcoded clones of the already-parameterized `DevicesPaneModeToVisibilityConverter`.
-- [ ] **Normalize `ConvertBack`.** Some throw `NotSupportedException`, some throw `NotImplementedException`, some return the input unchanged, some return `false`. Pick one (WinUI convention is `NotSupportedException`).
-- [ ] **Fix `ILogPaths` cross-cast.** `HostBuilderFactory.cs:53` casts the `ILogService` singleton to `ILogPaths` — brittle. Register `FileLogService` as the concrete and bind both interfaces to that instance.
-- [ ] **PascalCase the legacy-style props** in `Infrastructure/Recording/RecordTypeItem.cs`, `RecordFieldItem.cs`, `RecordIDItem.cs` (`recordTypeName` → `RecordTypeName`, etc.) — these are production code, not `TO_BE_DELETED`.
-- [ ] **Mixed binding strategy.** `PlaybackSettingsView.xaml` and `RealDeviceSettingsView.xaml` use `{Binding}`, every other page uses `{x:Bind}`. Standardize on `x:Bind` where possible (compile-time-checked).
-- [ ] **Playback as integration source actually sources nothing.** `NumericSourceCandidateViewModel` generates random walk data via `Tick()`, even for Playback-connected devices. When Playback is connected, the candidate should pull from `PlaybackInsDevice.Telemetry` keyed on the row's field key.
-- [ ] **Round-trip `OutputTime` when Playback is the source.** Currently `OutputTime` is always set to snapshot-time in `TakeSnapshot`. When the Playback device is selected for any field, the source's `OutputTime[sec]` should drive `IntegratedInsOutput_Data.OutputTime` so a record-then-playback-then-record cycle preserves the original time.
+- [x] **Unify MVVM base.** `MainViewModel`, `DeviceCardViewModel`, `InspectFieldViewModel`, `DevicesViewModel`, `LogsViewModel` migrated from `ObservableObject` to project `ViewModelBase`. Manual `SetProperty`/`OnPropertyChanged` pattern preserved.
+- [x] **Drop dead `partial` modifiers.** Removed `partial` from 14 VM files (and `ViewModelBase` itself); confirmed no `.g.cs` codegen partner exists for any VM.
+- [x] **Replace Service Locator in Pages.** Introduced `App.GetService<T>()` static helper; 5 callers (`IntegrationPage`, `SettingsPage`, `DevicesPage`, `LogsPage`, `PlaybackTrayView`) now use the helper. Single resolution point; still service-locator at heart, but contained.
+- [x] **Magic strings.** New `IntegrationFieldNames` constants in Core (`Latitude`, `Roll`, `VelocityNorth`, etc.). Wired through `IntegrationViewModel.InitializeIntegrationRows`, `UpdateCalculatedRow`, `CreateInitialValue`; `IntegrationFieldRowViewModel.IsCalculated`; `IntegrationSnapshotService.ApplyRowSnapshot`. Removed dead "Elevation"/"Speed" cases that referenced non-existent rows.
+- [x] **Delete duplicate converters.** `PaneModeToInspectVisibilityConverter` and `PaneModeToSettingsVisibilityConverter` `.cs` files removed. XAML already used `DevicesPaneModeToVisibilityConverter` with `TargetMode` via `x:Key` aliases in `App.xaml` — the deleted classes were never referenced.
+- [x] **Normalize `ConvertBack`.** All non-implementations now `throw new NotSupportedException()` (WinUI convention). 6 converters fixed; real implementations (`BoolToVisibilityConverter`, `SelectionToIntConverter`) untouched.
+- [x] **Fix `ILogPaths` cross-cast.** `FileLogService` registered as concrete; `ILogService` and `ILogPaths` both bound to the same instance via `sp.GetRequiredService<FileLogService>()`. No more interface cross-cast.
+- [ ] **PascalCase legacy-style props** — DEFERRED. Renaming would force a touch in `TO_BE_DELETED/RecordTypeItem.cs` (which references `recordFieldName`); per policy, TO_BE_DELETED stays untouched until parent-solution integration replaces it.
+- [x] **Mixed binding strategy.** `PlaybackSettingsView` and `RealDeviceSettingsView` converted to `{x:Bind ViewModel.X}`. Code-behind subscribes to `DataContextChanged` and calls `Bindings.Update()` — matches the established pattern in `DeviceSettingsPaneView`.
+- [x] **Playback as integration source.** New `PlaybackSourceCandidateViewModel : IntegrationSourceCandidateViewModel, IDisposable` subscribes to `IPlaybackService.PacketDispatched`, stores latest value via `Volatile.Write` (no cross-thread PropertyChanged), exposes `GetSnapshotValue()` for the 100Hz recording loop. UI display refreshes at 4Hz via the existing `Tick` cadence. `IntegrationViewModel.RebuildRowSources` branches on `DeviceType.Playback` using new `IntegrationFieldKeyMap` in Core. Disposable candidates are disposed before `Sources.Clear()` so playback unsubscribes cleanly on device-list rebuild.
+- [ ] **Round-trip `OutputTime`** — DECIDED NOT TO DO. `OutputTime` continues to be `DateTime.UtcNow` regardless of source. Round-tripping via `OutputTime[sec]` is lossy across midnight (seconds-of-day only), and mixed-source recordings make "whose time wins" ambiguous. See spec: `docs/superpowers/specs/2026-05-19-phase-3-playback-as-source-design.md`.
 
 ---
 
@@ -66,7 +66,6 @@ These can't be fixed at the source because the offending code lives in `TO_BE_DE
 
 - **Help page content** — currently a stub. Decide what goes here (keyboard shortcuts? troubleshooting? device-format reference?).
 - **Speed parameter** — referenced in PROJECT_STATE.md but no row in the integration grid. Either remove from docs or add as a derived field.
-- **Time format on the wire** — `RcvTime[sec]` and `OutputTime[sec]` are seconds-of-day (matches RecordDecoderPro). This wraps at midnight. For multi-day recordings or recordings crossing midnight, this is lossy. Revisit when round-trip semantics get implemented.
 
 ---
 

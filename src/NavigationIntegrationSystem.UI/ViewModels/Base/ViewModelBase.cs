@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 namespace NavigationIntegrationSystem.UI.ViewModels.Base;
 
 // Base class for ViewModels with INotifyPropertyChanged and SetProperty support
-public abstract partial class ViewModelBase : INotifyPropertyChanged
+public abstract class ViewModelBase : INotifyPropertyChanged
 {
     #region Events
     public event PropertyChangedEventHandler? PropertyChanged;

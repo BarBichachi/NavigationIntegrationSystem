@@ -1,9 +1,9 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using NavigationIntegrationSystem.UI.ViewModels.Base;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
 
 // Represents a single field row in the Inspect pane with a live value string
-public sealed partial class InspectFieldViewModel : ObservableObject
+public sealed class InspectFieldViewModel : ViewModelBase
 {
     #region Private Fields
     private string m_ValueText;

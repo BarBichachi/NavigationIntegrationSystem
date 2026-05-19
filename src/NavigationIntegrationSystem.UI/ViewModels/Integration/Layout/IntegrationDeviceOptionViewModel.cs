@@ -7,7 +7,7 @@ using System.Windows.Input;
 namespace NavigationIntegrationSystem.UI.ViewModels.Integration.Layout;
 
 // Represents a device option in the Integration header (visibility toggle + apply-to-all)
-public sealed partial class IntegrationDeviceOptionViewModel : ViewModelBase
+public sealed class IntegrationDeviceOptionViewModel : ViewModelBase
 {
     #region Private Fields
     private bool m_IsVisible;
