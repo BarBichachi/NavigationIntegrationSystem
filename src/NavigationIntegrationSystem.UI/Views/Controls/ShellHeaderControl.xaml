@@ -17,6 +17,10 @@
                         <TextBlock Text="{x:Bind ViewModel.IsRecording, Mode=OneWay, Converter={StaticResource RecordingStatusToTextConverter}}" />
                     </StackPanel>
                 </Button>
+                <!-- Elapsed-time readout: only visible while recording -->
+                <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="12" Opacity="0.8"
+                           Text="{x:Bind ViewModel.ElapsedRecordingTime, Mode=OneWay}"
+                           Visibility="{x:Bind ViewModel.IsRecording, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
             </StackPanel>
         </Grid>
 

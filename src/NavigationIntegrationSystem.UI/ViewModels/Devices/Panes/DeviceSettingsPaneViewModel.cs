@@ -32,12 +32,21 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     private XamlRoot? m_XamlRoot;
     #endregion
 
+    #region Static Lookups
+    // ItemsSource references MUST be stable across VM instances. Each new VM was previously creating a fresh
+    // ObservableCollection; when the settings pane re-opened with a new VM, ComboBox saw a different collection
+    // reference, cleared its SelectedItem mid-rebuild, and the TwoWay binding's generated cast
+    // `(SerialLineKind)null` threw NullReferenceException. Sharing one immutable list per enum avoids the clear.
+    private static readonly IReadOnlyList<DeviceConnectionKind> s_ConnectionKinds = (DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind));
+    private static readonly IReadOnlyList<SerialLineKind> s_SerialLineKinds = (SerialLineKind[])Enum.GetValues(typeof(SerialLineKind));
+    #endregion
+
     #region Properties
     public DeviceCardViewModel Device => m_Device;
     public DeviceSettingsDraftViewModel Draft { get; }
-    public ObservableCollection<DeviceConnectionKind> ConnectionKinds { get; } = new ObservableCollection<DeviceConnectionKind>((DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind)));
-    public ObservableCollection<SerialLineKind> SerialLineKinds { get; } = new ObservableCollection<SerialLineKind>((SerialLineKind[])Enum.GetValues(typeof(SerialLineKind)));
-    public ObservableCollection<int> Frequencies { get; } = new ObservableCollection<int> { 10, 25, 50, 100 };
+    public IReadOnlyList<DeviceConnectionKind> ConnectionKinds => s_ConnectionKinds;
+    public IReadOnlyList<SerialLineKind> SerialLineKinds => s_SerialLineKinds;
+    public IReadOnlyList<int> Frequencies => PlaybackFrequencies.All;
     public bool HasUnsavedChanges { get => m_HasUnsavedChanges; set { if (SetProperty(ref m_HasUnsavedChanges, value)) { m_Device.HasUnsavedSettings = value; } } }
     public bool IsPlaybackDevice => m_Device.Type == Core.Enums.DeviceType.Playback;
     #endregion

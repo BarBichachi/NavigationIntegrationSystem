@@ -45,7 +45,7 @@
             <!--  Right: actions  -->
             <Button Grid.Column="3" Width="120" Command="{x:Bind ViewModel.CopyCommand}" CommandParameter="{x:Bind ViewModel.SelectedItems, Mode=OneWay}" Content="{x:Bind ViewModel.CopyButtonText, Mode=OneWay}" />
             <Button Grid.Column="4" Width="120" Command="{x:Bind ViewModel.ClearCommand}" CommandParameter="{x:Bind ViewModel.SelectedItems, Mode=OneWay}" Content="{x:Bind ViewModel.ClearButtonText, Mode=OneWay}" />
-            <Button Grid.Column="5" Width="120" Command="{x:Bind ViewModel.ToggleSelectAllCommand}" CommandParameter="{Binding ElementName=LogsList}" Content="{x:Bind ViewModel.SelectAllButtonText, Mode=OneWay}" />
+            <Button Grid.Column="5" Width="120" Command="{x:Bind ViewModel.ToggleSelectAllCommand}" CommandParameter="{x:Bind LogsList}" Content="{x:Bind ViewModel.SelectAllButtonText, Mode=OneWay}" />
         </Grid>
 
         <!--  Log list container  -->

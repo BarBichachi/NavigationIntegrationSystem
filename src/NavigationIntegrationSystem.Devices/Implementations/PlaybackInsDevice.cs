@@ -47,8 +47,9 @@ public sealed class PlaybackInsDevice : InsDeviceBase
             await m_PlaybackService.LoadFileAsync(Config.Connection.Playback.FilePath).ConfigureAwait(false);
         }
 
-        // 3. Set Frequency
+        // 3. Push live config to the service
         m_PlaybackService.Frequency = Config.Connection.Playback.Frequency;
+        m_PlaybackService.Loop = Config.Connection.Playback.Loop;
 
         // 4. Subscribe
         m_PlaybackService.PacketDispatched += OnPacketDispatched;

@@ -3,8 +3,8 @@
       xmlns:layout="using:NavigationIntegrationSystem.UI.ViewModels.Integration.Layout" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d">
 
     <Page.Resources>
-        <!--  Numeric candidate: RadioButton + Text  -->
-        <DataTemplate x:Key="NumericCandidateTemplate" x:DataType="candidates:NumericSourceCandidateViewModel">
+        <!--  Device-sourced candidate (Numeric, Playback, …): RadioButton + DisplayText. Typed against the abstract base so any concrete candidate that doesn't need a custom editor uses this template.  -->
+        <DataTemplate x:Key="DeviceCandidateTemplate" x:DataType="candidates:IntegrationSourceCandidateViewModel">
             <Grid Width="150">
                 <RadioButton VerticalAlignment="Center" Click="OnSourceRadioButtonClicked" IsChecked="{x:Bind IsSelected, Mode=OneWay}">
                     <RadioButton.Content>
@@ -36,7 +36,7 @@
         </DataTemplate>
 
         <!--  Chooses template by candidate type  -->
-        <candidates:IntegrationCandidateTemplateSelector x:Key="IntegrationCandidateTemplateSelector" ManualTemplate="{StaticResource ManualCandidateTemplate}" NumericTemplate="{StaticResource NumericCandidateTemplate}" />
+        <candidates:IntegrationCandidateTemplateSelector x:Key="IntegrationCandidateTemplateSelector" ManualTemplate="{StaticResource ManualCandidateTemplate}" DeviceTemplate="{StaticResource DeviceCandidateTemplate}" />
     </Page.Resources>
 
     <!--  Page layout: Title + Integration surface  -->

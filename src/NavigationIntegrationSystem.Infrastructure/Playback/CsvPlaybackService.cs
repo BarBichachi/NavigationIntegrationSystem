@@ -35,6 +35,7 @@ public sealed class CsvPlaybackService : IPlaybackService
     private bool m_IsPlaying;
     private string? m_LoadedFilePath;
     private int m_Frequency = 10;
+    private bool m_Loop;
     #endregion
 
     #region Properties
@@ -43,11 +44,13 @@ public sealed class CsvPlaybackService : IPlaybackService
     public int CurrentLineIndex => m_CurrentLineIndex;
     public int TotalLineCount => m_LineOffsets.Count;
     public int Frequency { get => m_Frequency; set { m_Frequency = Math.Clamp(value, 1, 100); } }
+    public bool Loop { get => Volatile.Read(ref m_Loop); set => Volatile.Write(ref m_Loop, value); }
     #endregion
 
     #region Events
     public event EventHandler<PlaybackPacket>? PacketDispatched;
     public event EventHandler? StateChanged;
+    public event EventHandler? PositionChanged;
     #endregion
 
     #region Constructors
@@ -197,6 +200,7 @@ public sealed class CsvPlaybackService : IPlaybackService
             m_CurrentLineIndex = 0;
         }
         StateChanged?.Invoke(this, EventArgs.Empty);
+        PositionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // Unloads the current playback file, closing the underlying FileStream.
@@ -212,6 +216,7 @@ public sealed class CsvPlaybackService : IPlaybackService
             m_CurrentLineIndex = 0;
         }
         StateChanged?.Invoke(this, EventArgs.Empty);
+        PositionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // Seeks to a specific line index, clamping to valid range.
@@ -221,6 +226,7 @@ public sealed class CsvPlaybackService : IPlaybackService
         {
             m_CurrentLineIndex = Math.Clamp(i_LineIndex, 0, Math.Max(0, TotalLineCount - 1));
         }
+        PositionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // Creates a new CSV file with the appropriate header plus one example data row (so the file passes CsvPlaybackFileValidator, which requires at least one data row).
@@ -247,6 +253,13 @@ public sealed class CsvPlaybackService : IPlaybackService
             {
                 if (!TryReadCurrentLine(out string line))
                 {
+                    // EOF: if Loop is set and the file has any data, rewind and continue; otherwise stop.
+                    if (Loop && TotalLineCount > 0)
+                    {
+                        lock (m_Lock) { m_CurrentLineIndex = 0; }
+                        PositionChanged?.Invoke(this, EventArgs.Empty);
+                        continue;
+                    }
                     SetPlayingState(false);
                     break;
                 }
@@ -254,6 +267,7 @@ public sealed class CsvPlaybackService : IPlaybackService
                 PlaybackPacket? packet = ParsePacket(line);
                 if (packet != null) { PacketDispatched?.Invoke(this, packet); }
                 IncrementIndex();
+                PositionChanged?.Invoke(this, EventArgs.Empty);
 
                 // Recompute per-frame ticks each iteration so a mid-playback Frequency change takes effect immediately
                 long ticksPerFrame = Stopwatch.Frequency / Math.Max(1, Frequency);

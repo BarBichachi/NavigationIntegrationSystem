@@ -42,7 +42,6 @@ public sealed partial class DevicesViewModel : ViewModelBase
     private DeviceSettingsPaneViewModel? m_CurrentSettingsPane;
     private readonly IDialogService m_DialogService;
     private readonly MainViewModel m_MainViewModel;
-    private static readonly int[] m_PlaybackFrequencies = new[] { 10, 25, 50, 100 };
     #endregion
 
     #region Properties
@@ -165,7 +164,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         string? path = await m_FilePickerService.PickSingleFileAsync(new[] { ".json" });
         if (string.IsNullOrWhiteSpace(path)) { return; }
 
-        DevicesConfigImportResult result = m_ConfigService.ImportFromFile(path, m_CatalogService.GetDevices().Select(device => device.Type), m_PlaybackFrequencies);
+        DevicesConfigImportResult result = m_ConfigService.ImportFromFile(path, m_CatalogService.GetDevices().Select(device => device.Type), PlaybackFrequencies.All);
         if (!result.IsSuccess || result.Config == null)
         {
             m_LogService.Error(nameof(DevicesViewModel), $"Import failed: {result.Message}");

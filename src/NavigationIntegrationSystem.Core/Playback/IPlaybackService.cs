@@ -12,6 +12,9 @@ public interface IPlaybackService : IDisposable
     int CurrentLineIndex { get; }
     int TotalLineCount { get; }
     int Frequency { get; set; }
+
+    // When true, the playback loop seeks back to line 0 at EOF and continues instead of stopping.
+    bool Loop { get; set; }
     #endregion
 
     #region Events
@@ -20,6 +23,9 @@ public interface IPlaybackService : IDisposable
 
     // Fired when play/pause state or file load status changes
     event EventHandler? StateChanged;
+
+    // Fired when the current line index advances or is seeked (background or UI thread). Subscribers must marshal to UI before mutating bound properties.
+    event EventHandler? PositionChanged;
     #endregion
 
     #region Functions
