@@ -84,18 +84,27 @@ solution can adopt NIS's naming OR NIS can keep aliasing — decide per item.
 ## 3. Library dependencies
 
 ### VectorNav SDK
-- NIS adds a `VectorNav` package reference (NuGet `VectorNav` v1.1.5, ships
-  `net472`; loaded on .NET 8 via netstandard2.0 compatibility).
+- **NIS vendors `VectorNav.dll` v1.1.5** at `lib/VectorNav/VectorNav.dll`, wired
+  via `<Reference Include="VectorNav"><HintPath>..\..\lib\VectorNav\VectorNav.dll</HintPath><Private>true</Private></Reference>`
+  in `src/NavigationIntegrationSystem.Devices/NavigationIntegrationSystem.Devices.csproj`.
+- **Why vendored, not NuGet:** the `VectorNav` package id does not exist on
+  nuget.org (`NU1101` on restore). The parent solution consumed it from its
+  local `packages/` folder via old-style `packages.config`, not from a public
+  feed. Phase 1 confirmed the net472-only DLL loads cleanly on .NET 8 at
+  runtime (Phase 1 smoke test, 2026-05-20).
+- **Source of the vendored DLL:** copied from
+  `C:\Users\BARBIC\Desktop\Work\NavigationControlSystem\Navigation\Navigation\NavigationSystemsController\packages\VectorNav.1.1.5\lib\net472\VectorNav.dll`
+  (external research artifact — see VN310_PLAN.md glossary; NOT part of the
+  parent solution).
 - The actual parent solution's stance on VectorNav is unknown until merge.
   Possibilities to check at merge time:
-  - Parent already references the same package → consolidate, single reference.
-  - Parent references a different version → reconcile (prefer the newer; verify
+  - Parent already vendors the same DLL → drop NIS's `lib/VectorNav/`, point
+    the `HintPath` at the parent's copy.
+  - Parent vendors a different version → reconcile (prefer the newer; verify
     NIS still compiles).
-  - Parent vendors the DLL → switch NIS to the same vendored DLL; drop NuGet.
-  - Parent doesn't use VectorNav at all → NIS keeps its reference, no change.
-- If NIS ends up vendoring `VectorNav.dll` locally (NuGet fallback during
-  Phase 1), drop the local `lib/VectorNav.dll` on merge unless the parent
-  also vendors.
+  - Parent adds VectorNav to a private NuGet feed → switch NIS to a
+    `PackageReference`; drop `lib/VectorNav/`.
+  - Parent doesn't use VectorNav at all → keep the vendored DLL; NIS owns it.
 
 ### `System.IO.Ports`
 - Required separately on .NET 8 as a NuGet package (it's only in-box on

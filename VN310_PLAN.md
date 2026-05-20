@@ -562,7 +562,7 @@ you actually observe):
 
 Append updates here as phases complete, so future-you knows where to pick up.
 
-- [ ] Phase 1 — Library bring-up
+- [x] Phase 1 — Library bring-up (2026-05-20; vendored DLL path taken — `VectorNav` not on nuget.org)
 - [ ] Phase 2 — Telemetry service + parsing
 - [ ] Phase 3 — Wire `Vn310InsDevice` to the service
 - [ ] Phase 4 — Integration grid candidate
