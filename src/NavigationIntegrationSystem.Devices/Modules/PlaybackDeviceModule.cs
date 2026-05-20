@@ -46,15 +46,15 @@ public sealed class PlaybackDeviceModule : IInsDeviceModule
                 new("PositionLonValue", "Longitude", "deg"),
                 new("PositionAltValue", "Altitude", "m"),
 
-                // Euler
-                new("EulerRollValue", "Roll", "deg"),
+                // Euler (display order: Yaw/Pitch/Roll; CSV keys keep the parent solution's "EulerAzimuth*" spelling)
+                new("EulerAzimuthValue", "Yaw", "deg"),
                 new("EulerPitchValue", "Pitch", "deg"),
-                new("EulerAzimuthValue", "Azimuth", "deg"),
+                new("EulerRollValue", "Roll", "deg"),
 
                 // Rates
-                new("EulerRollRateValue", "Roll Rate", "deg/s"),
+                new("EulerAzimuthRateValue", "Yaw Rate", "deg/s"),
                 new("EulerPitchRateValue", "Pitch Rate", "deg/s"),
-                new("EulerAzimuthRateValue", "Azimuth Rate", "deg/s"),
+                new("EulerRollRateValue", "Roll Rate", "deg/s"),
 
                 // Velocity
                 new("VelocityNorthValue", "Vel North", "m/s"),

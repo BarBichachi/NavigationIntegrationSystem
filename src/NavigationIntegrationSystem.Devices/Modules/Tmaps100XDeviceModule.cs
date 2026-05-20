@@ -29,6 +29,10 @@ public sealed class Tmaps100XDeviceModule : IInsDeviceModule
                 new("LonDeg", "Longitude", "deg"),
                 new("AltM", "Altitude", "m"),
 
+                // TBD: confirm against TMAPS100X ICD whether the device emits "Azimuth"
+                // (true heading from north) or "Yaw" (body rotation). Names below are
+                // placeholders; will reconcile with the integration grid's "Yaw" label
+                // when TMAPS is wired for real telemetry.
                 new("AzimuthDeg", "Azimuth", "deg"),
                 new DeviceFieldDefinition("PitchDeg", "Pitch", "deg"),
                 new DeviceFieldDefinition("RollDeg", "Roll", "deg"),

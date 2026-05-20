@@ -54,15 +54,15 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Longitude, "deg"));
         Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Altitude, "m"));
 
-        // Euler Angles
-        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Roll, "deg"));
+        // Euler Angles (avionics display order: heading, pitch, bank)
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Yaw, "deg"));
         Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Pitch, "deg"));
-        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Azimuth, "deg"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.Roll, "deg"));
 
         // Euler Rates
-        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.RollRate, "deg/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.YawRate, "deg/s"));
         Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.PitchRate, "deg/s"));
-        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.AzimuthRate, "deg/s"));
+        Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.RollRate, "deg/s"));
 
         // Velocity Components (Required for calculated Total)
         Rows.Add(new IntegrationFieldRowViewModel(IntegrationFieldNames.VelocityNorth, "m/s"));
@@ -293,7 +293,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         double baseValue =
             i_FieldName switch
             {
-                IntegrationFieldNames.Azimuth => 8.0,
+                IntegrationFieldNames.Yaw => 8.0,
                 IntegrationFieldNames.Latitude => 32.0853,
                 IntegrationFieldNames.Longitude => 34.7818,
                 IntegrationFieldNames.Altitude => 120.5,

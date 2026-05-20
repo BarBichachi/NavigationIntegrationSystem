@@ -203,11 +203,15 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionAltValid;
                 break;
 
-            case IntegrationFieldNames.Roll:
-                io_Data.RollDeviceCode = i_Code;
-                io_Data.RollDeviceId = i_Id;
-                io_Euler.Angles.Roll = i_Val;
-                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollValid;
+            // Euler angle arms. Inner field/flag names keep the "Azimuth" spelling — that's the
+            // parent solution's binary record contract (TO_BE_DELETED-rooted). NIS internally
+            // calls this field "Yaw" because that's what VN310 (and the underlying sensor
+            // convention) emits.
+            case IntegrationFieldNames.Yaw:
+                io_Data.AzimuthDeviceCode = i_Code;
+                io_Data.AzimuthDeviceId = i_Id;
+                io_Euler.Angles.Yaw = i_Val;
+                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthValid;
                 break;
             case IntegrationFieldNames.Pitch:
                 io_Data.PitchDeviceCode = i_Code;
@@ -215,17 +219,17 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
                 io_Euler.Angles.Pitch = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PitchValid;
                 break;
-            case IntegrationFieldNames.Azimuth:
-                io_Data.AzimuthDeviceCode = i_Code;
-                io_Data.AzimuthDeviceId = i_Id;
-                io_Euler.Angles.Yaw = i_Val;
-                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthValid;
+            case IntegrationFieldNames.Roll:
+                io_Data.RollDeviceCode = i_Code;
+                io_Data.RollDeviceId = i_Id;
+                io_Euler.Angles.Roll = i_Val;
+                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollValid;
                 break;
-            case IntegrationFieldNames.RollRate:
-                io_Data.RollRateDeviceCode = i_Code;
-                io_Data.RollRateDeviceId = i_Id;
-                io_Euler.Rates.Roll = i_Val;
-                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollRateValid;
+            case IntegrationFieldNames.YawRate:
+                io_Data.AzimuthRateDeviceCode = i_Code;
+                io_Data.AzimuthRateDeviceId = i_Id;
+                io_Euler.Rates.Yaw = i_Val;
+                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthRateValid;
                 break;
             case IntegrationFieldNames.PitchRate:
                 io_Data.PitchRateDeviceCode = i_Code;
@@ -233,11 +237,11 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
                 io_Euler.Rates.Pitch = i_Val;
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PitchRateValid;
                 break;
-            case IntegrationFieldNames.AzimuthRate:
-                io_Data.AzimuthRateDeviceCode = i_Code;
-                io_Data.AzimuthRateDeviceId = i_Id;
-                io_Euler.Rates.Yaw = i_Val;
-                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.AzimuthRateValid;
+            case IntegrationFieldNames.RollRate:
+                io_Data.RollRateDeviceCode = i_Code;
+                io_Data.RollRateDeviceId = i_Id;
+                io_Euler.Rates.Roll = i_Val;
+                io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.RollRateValid;
                 break;
 
             case IntegrationFieldNames.VelocityNorth:

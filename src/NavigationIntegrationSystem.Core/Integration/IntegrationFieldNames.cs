@@ -7,13 +7,13 @@ public static class IntegrationFieldNames
     public const string Longitude = "Longitude";
     public const string Altitude = "Altitude";
 
-    public const string Roll = "Roll";
+    public const string Yaw = "Yaw";
     public const string Pitch = "Pitch";
-    public const string Azimuth = "Azimuth";
+    public const string Roll = "Roll";
 
-    public const string RollRate = "Roll Rate";
+    public const string YawRate = "Yaw Rate";
     public const string PitchRate = "Pitch Rate";
-    public const string AzimuthRate = "Azimuth Rate";
+    public const string RollRate = "Roll Rate";
 
     public const string VelocityNorth = "Velocity North";
     public const string VelocityEast = "Velocity East";

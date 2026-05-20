@@ -4,7 +4,10 @@ namespace NavigationIntegrationSystem.Core.Integration;
 
 // Maps integration grid row names (IntegrationFieldNames.*) to the CSV column keys
 // produced by PlaybackDeviceModule.BuildDefinition / consumed by CsvPlaybackSchema.
-// Velocity Total is intentionally absent — it is a calculated row with no source.
+// The CSV keys (EulerAzimuth*) are locked to the parent solution's recorder format
+// (see TO_BE_DELETED/IntegratedInsOutputItem.IntegratedInsOutputColumns), even though
+// NIS now labels these rows "Yaw" instead of "Azimuth". Velocity Total is intentionally
+// absent — it is a calculated row with no source.
 public static class IntegrationFieldKeyMap
 {
     #region Properties
@@ -14,13 +17,13 @@ public static class IntegrationFieldKeyMap
         [IntegrationFieldNames.Longitude]     = "PositionLonValue",
         [IntegrationFieldNames.Altitude]      = "PositionAltValue",
 
-        [IntegrationFieldNames.Roll]          = "EulerRollValue",
+        [IntegrationFieldNames.Yaw]           = "EulerAzimuthValue",
         [IntegrationFieldNames.Pitch]         = "EulerPitchValue",
-        [IntegrationFieldNames.Azimuth]       = "EulerAzimuthValue",
+        [IntegrationFieldNames.Roll]          = "EulerRollValue",
 
-        [IntegrationFieldNames.RollRate]      = "EulerRollRateValue",
+        [IntegrationFieldNames.YawRate]       = "EulerAzimuthRateValue",
         [IntegrationFieldNames.PitchRate]     = "EulerPitchRateValue",
-        [IntegrationFieldNames.AzimuthRate]   = "EulerAzimuthRateValue",
+        [IntegrationFieldNames.RollRate]      = "EulerRollRateValue",
 
         [IntegrationFieldNames.VelocityNorth] = "VelocityNorthValue",
         [IntegrationFieldNames.VelocityEast]  = "VelocityEastValue",
