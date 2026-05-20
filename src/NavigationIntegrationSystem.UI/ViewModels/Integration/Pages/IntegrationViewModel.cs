@@ -2,6 +2,7 @@
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Integration;
 using NavigationIntegrationSystem.Core.Playback;
+using NavigationIntegrationSystem.Devices.Implementations.Vn310;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
@@ -212,6 +213,16 @@ public sealed partial class IntegrationViewModel : ViewModelBase
                         row.Sources.Add(new PlaybackSourceCandidateViewModel(device.Device, device.DisplayName, csvKey, m_PlaybackService));
                     }
                     // Calculated rows (Velocity Total) have no key — silently skipped
+                    continue;
+                }
+
+                if (device.Type == DeviceType.VN310)
+                {
+                    if (IntegrationFieldKeyMap.FieldToVn310Key.TryGetValue(row.FieldName, out string? vnKey))
+                    {
+                        row.Sources.Add(new Vn310SourceCandidateViewModel((Vn310InsDevice)device.Device, device.DisplayName, vnKey));
+                    }
+                    // Rows without a VN310 mapping (Course, Velocity Total) — silently skipped
                     continue;
                 }
 

@@ -576,7 +576,7 @@ Append updates here as phases complete, so future-you knows where to pick up.
 - [x] Phase 1 — Library bring-up (2026-05-20; vendored DLL path taken — `VectorNav` not on nuget.org)
 - [x] Phase 2 — Telemetry service + parsing (2026-05-20; smoke-tested against COM_NOT_REAL — `System.IO.FileNotFoundException` surfaces cleanly through `StartAsync`)
 - [x] Phase 3 — Wire `Vn310InsDevice` to the service (2026-05-20; bad-port path verified via UI → Error status with friendly message; SDK-originated `FileNotFoundException` shielded behind a `SerialPort.GetPortNames()` pre-flight to avoid VS first-chance breaks)
-- [ ] Phase 4 — Integration grid candidate
+- [x] Phase 4 — Integration grid candidate (2026-05-20; bad-port path re-verified, column-lifecycle deferred to Phase 7 hardware bring-up)
 - [ ] Phase 5 — Connection settings UI + RecommendedHint
 - [ ] Phase 6 — Status surfaces (badge + inspect page)
 - [ ] Phase 7 — Real hardware bring-up
