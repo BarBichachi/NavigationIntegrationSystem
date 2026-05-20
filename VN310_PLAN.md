@@ -555,6 +555,17 @@ you actually observe):
 - Yaw wrap-around edge cases (0/360 boundary).
 - ASCII mode detection if the factory shipped VNINS instead of binary.
 - Watchdog timeout tuning if 2s is too tight at the actual packet rate.
+- **Binary group expansion** — Phase 2 deliberately subscribed only to
+  `CommonGroup` + `TimeGroup`. The VN can also emit `AttitudeGroup` (YprU
+  uncertainty, body-frame accels, quaternions), `InsGroup` (PosU/VelU
+  uncertainty, ECEF variants), `ImuGroup` (raw IMU + temp + pressure),
+  `GpsGroup` (fix info, DOP, sat counts). Decision deferred to here so we
+  match whatever the factory is actually configured to emit. To add a
+  group: extend `s_ExpectedCommonGroup` (or equivalent), append the new
+  fields to the binary extraction order in `Vn310TelemetryService.ParseBinary`
+  in the exact order the VN serializes them, and add the corresponding
+  properties to `Vn310Telemetry`. ASCII path already captures everything
+  VNINS carries (including the three uncertainties) — no change needed there.
 
 ---
 
@@ -564,7 +575,7 @@ Append updates here as phases complete, so future-you knows where to pick up.
 
 - [x] Phase 1 — Library bring-up (2026-05-20; vendored DLL path taken — `VectorNav` not on nuget.org)
 - [x] Phase 2 — Telemetry service + parsing (2026-05-20; smoke-tested against COM_NOT_REAL — `System.IO.FileNotFoundException` surfaces cleanly through `StartAsync`)
-- [ ] Phase 3 — Wire `Vn310InsDevice` to the service
+- [x] Phase 3 — Wire `Vn310InsDevice` to the service (2026-05-20; bad-port path verified via UI → Error status with friendly message; SDK-originated `FileNotFoundException` shielded behind a `SerialPort.GetPortNames()` pre-flight to avoid VS first-chance breaks)
 - [ ] Phase 4 — Integration grid candidate
 - [ ] Phase 5 — Connection settings UI + RecommendedHint
 - [ ] Phase 6 — Status surfaces (badge + inspect page)

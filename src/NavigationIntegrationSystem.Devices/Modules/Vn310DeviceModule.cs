@@ -2,7 +2,7 @@
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Models.DeviceCatalog;
 using NavigationIntegrationSystem.Core.Models.Devices;
-using NavigationIntegrationSystem.Devices.Implementations;
+using NavigationIntegrationSystem.Devices.Implementations.Vn310;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Runtime;
 using System.Collections.Generic;
@@ -42,9 +42,9 @@ public sealed class Vn310DeviceModule : IInsDeviceModule
                 new DeviceFieldDefinition("VelDown", "Velocity Down", "m/s"),
                 new DeviceFieldDefinition("Speed", "Speed", "m/s"),
 
-                new DeviceFieldDefinition("AttUnc", "Att Uncertainty", ""),
-                new DeviceFieldDefinition("PosUnc", "Pos Uncertainty", ""),
-                new DeviceFieldDefinition("VelUnc", "Vel Uncertainty", ""),
+                new DeviceFieldDefinition("AttUncertainty", "Att Uncertainty", ""),
+                new DeviceFieldDefinition("PosUncertainty", "Pos Uncertainty", ""),
+                new DeviceFieldDefinition("VelUncertainty", "Vel Uncertainty", ""),
 
                 new DeviceFieldDefinition("InsStatus", "INS Status", ""),
                 new DeviceFieldDefinition("TimeStatus", "Time Status", "")
