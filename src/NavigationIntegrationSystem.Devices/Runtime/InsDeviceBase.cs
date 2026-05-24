@@ -22,9 +22,17 @@ public abstract class InsDeviceBase : IInsDevice
     // Auto-reconnect (Config.AutoReconnect=true): runs when an active device unexpectedly drops to Error (watchdog stall, USB unplug, etc.). Separate token from m_ConnectCts so user-initiated Disconnect/Retry doesn't tear down an in-flight backoff loop's bookkeeping, and so the loop can be cancelled without affecting the next user-initiated connect
     private CancellationTokenSource? m_AutoReconnectCts;
     private bool m_IsAutoReconnecting;
+    private string? m_ReconnectStatusText;
     private readonly object m_AutoReconnectLock = new object();
-    // Backoff schedule (seconds). Caps at the last value -- after 16s we retry every 30s indefinitely until the device reconnects, the user clicks Disconnect, or AutoReconnect is turned off. Total: 1, 2, 4, 8, 16, then 30s repeating
-    private static readonly int[] s_AutoReconnectBackoffSec = { 1, 2, 4, 8, 16, 30 };
+    // Class-level attempt counter (NOT loop-local). Survives across multiple loop spawns triggered by Connected->Error flaps -- otherwise each flap resets backoff to 5s and the schedule never progresses. Reset to 0 only when a Connect is stable for c_StableConnectedResetMs (the connection actually held long enough to count as "recovered")
+    private int m_AutoReconnectAttempt;
+    private DateTime? m_LastConnectedAtUtc;
+    // After this long Connected without an Error, treat the next drop as a fresh problem and reset the backoff counter. Anything less = the previous "Connected" was probably a flap (e.g. SDK reported connect, but link was actually still bad) and the backoff should keep progressing
+    private const int c_StableConnectedResetMs = 30000;
+    // Backoff schedule (seconds): 5s gives the user time to perceive the wait and click Cancel before the next attempt fires. Caps at 60s after enough failures. Total: 5, 10, 30, 60, then 60 repeating until reconnected / user clicks Disconnect / AutoReconnect turned off
+    private static readonly int[] s_AutoReconnectBackoffSec = { 5, 10, 30, 60 };
+    // Ticks the "Reconnecting in Ns..." countdown text at 1Hz so the UI can show a live countdown rather than a frozen "Reconnecting in 5s..." that never updates
+    private const int c_CountdownTickMs = 1000;
     #endregion
 
     #region Properties
@@ -33,6 +41,9 @@ public abstract class InsDeviceBase : IInsDevice
     public string? LastError => m_LastError;
     public DeviceConfig Config { get; }
     public virtual DeviceModeSnapshot? CurrentMode => null;
+    public bool IsAutoReconnecting { get { lock (m_AutoReconnectLock) { return m_IsAutoReconnecting; } } }
+    // Updated by the backoff loop ("Reconnecting in 5s...", "Reconnecting...", null when not auto-reconnecting). UI binds to this to surface the wait so the user knows what's happening (and can click Cancel during it)
+    public string? ReconnectStatusText { get { lock (m_AutoReconnectLock) { return m_ReconnectStatusText; } } }
     #endregion
 
     #region Events
@@ -126,10 +137,13 @@ public abstract class InsDeviceBase : IInsDevice
         {
             case DeviceStatus.Connected:
                 m_LogService.Info(nameof(InsDeviceBase), $"{Definition.DisplayName} connected successfully");
+                m_LastConnectedAtUtc = DateTime.UtcNow;
                 break;
 
             case DeviceStatus.Disconnected:
                 m_LogService.Info(nameof(InsDeviceBase), $"{Definition.DisplayName} disconnected");
+                m_AutoReconnectAttempt = 0;  // user-initiated stop -- next failure starts fresh
+                m_LastConnectedAtUtc = null;
                 break;
 
             case DeviceStatus.Connecting:
@@ -138,6 +152,16 @@ public abstract class InsDeviceBase : IInsDevice
 
             case DeviceStatus.Error:
                 m_LogService.Error(nameof(InsDeviceBase), $"{Definition.DisplayName} error: {i_Error}");
+                // If we just dropped from a Connected that was stable long enough, treat as a fresh problem and reset the counter. Short-lived Connecteds (flaps) keep the counter so backoff actually progresses 5 -> 10 -> 30 -> 60 instead of perma-5s
+                if (previous == DeviceStatus.Connected && m_LastConnectedAtUtc.HasValue)
+                {
+                    TimeSpan connectedFor = DateTime.UtcNow - m_LastConnectedAtUtc.Value;
+                    if (connectedFor.TotalMilliseconds >= c_StableConnectedResetMs)
+                    {
+                        m_AutoReconnectAttempt = 0;
+                    }
+                }
+                m_LastConnectedAtUtc = null;
                 break;
         }
 
@@ -170,34 +194,59 @@ public abstract class InsDeviceBase : IInsDevice
             token = m_AutoReconnectCts.Token;
         }
         m_LogService.Info(nameof(InsDeviceBase), $"{Definition.DisplayName} auto-reconnect started");
+        StateChanged?.Invoke(this, EventArgs.Empty);
         _ = AutoReconnectLoopAsync(token);
     }
 
-    // Cancels and clears a running loop. Called when status transitions to Connected (success -> stop trying) or Disconnected (user-initiated stop). Idempotent
+    // Cancels and clears a running loop. Called when status transitions to Connected (success -> stop trying), Disconnected (user-initiated stop), and from NotifyAutoReconnectChanged when the user toggles AutoReconnect off. Idempotent
     private void CancelAutoReconnectLoop()
     {
+        bool wasRunning;
         lock (m_AutoReconnectLock)
         {
-            if (!m_IsAutoReconnecting && m_AutoReconnectCts == null) { return; }
+            wasRunning = m_IsAutoReconnecting || m_AutoReconnectCts != null;
+            if (!wasRunning) { return; }
             m_AutoReconnectCts?.Cancel();
             m_AutoReconnectCts?.Dispose();
             m_AutoReconnectCts = null;
             m_IsAutoReconnecting = false;
+            m_ReconnectStatusText = null;
+        }
+        if (wasRunning) { StateChanged?.Invoke(this, EventArgs.Empty); }
+    }
+
+    // Called by the UI when the user toggles AutoReconnect. If turned ON while in Error, kick off a fresh loop so the change takes effect immediately. If turned OFF, cancel any in-flight loop right now -- otherwise the loop would only check the flag at its next iteration (which could be up to 60s away mid-backoff)
+    public void NotifyAutoReconnectChanged()
+    {
+        if (Config.AutoReconnect)
+        {
+            if (m_Status == DeviceStatus.Error) { StartAutoReconnectLoop(); }
+        }
+        else
+        {
+            CancelAutoReconnectLoop();
         }
     }
 
-    // Backoff retry loop. Waits per schedule, then ConnectAsync. ConnectAsync handles its own status transitions; this loop just keeps trying until the token is cancelled (via SetStatus -> Connected/Disconnected) or AutoReconnect is turned off mid-flight
+    // Backoff retry loop. Reads m_AutoReconnectAttempt (class-level, NOT loop-local) so the schedule progresses 5 -> 10 -> 30 -> 60 across loop respawns triggered by Connected->Error flaps. Tracks countdown text per-second so the UI can show "Reconnecting in 5s..." → "...4s..." → fire connect
     private async Task AutoReconnectLoopAsync(CancellationToken i_Token)
     {
-        int attempt = 0;
         try
         {
             while (!i_Token.IsCancellationRequested)
             {
-                int waitSec = s_AutoReconnectBackoffSec[Math.Min(attempt, s_AutoReconnectBackoffSec.Length - 1)];
-                m_LogService.Info(nameof(InsDeviceBase), $"{Definition.DisplayName} auto-reconnect attempt {attempt + 1} scheduled in {waitSec}s");
-                try { await Task.Delay(TimeSpan.FromSeconds(waitSec), i_Token).ConfigureAwait(false); }
-                catch (OperationCanceledException) { return; }
+                int attemptForSchedule = m_AutoReconnectAttempt;
+                int waitSec = s_AutoReconnectBackoffSec[Math.Min(attemptForSchedule, s_AutoReconnectBackoffSec.Length - 1)];
+                m_LogService.Info(nameof(InsDeviceBase), $"{Definition.DisplayName} auto-reconnect attempt {attemptForSchedule + 1} scheduled in {waitSec}s");
+
+                // Per-second countdown tick so the UI shows a live "Reconnecting in Ns..." instead of a frozen number that never moves. Each tick raises StateChanged so any binding to ReconnectStatusText re-evaluates
+                for (int remaining = waitSec; remaining > 0; remaining--)
+                {
+                    if (i_Token.IsCancellationRequested) { return; }
+                    SetReconnectStatusText($"Reconnecting in {remaining}s…");
+                    try { await Task.Delay(c_CountdownTickMs, i_Token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
+                }
 
                 if (i_Token.IsCancellationRequested) { return; }
                 // Bail if the user disabled AutoReconnect mid-loop (the flag is read fresh, not snapshot at loop start)
@@ -205,16 +254,25 @@ public abstract class InsDeviceBase : IInsDevice
                 // If somehow we're no longer in Error (user clicked Connect manually, etc.), stop
                 if (m_Status != DeviceStatus.Error) { return; }
 
-                attempt++;
+                m_AutoReconnectAttempt++;
+                SetReconnectStatusText("Reconnecting…");
                 await ConnectAsync().ConfigureAwait(false);
-                // On success: ConnectAsync -> SetStatus(Connected) -> CancelAutoReconnectLoop -> token cancelled, next Delay throws, we exit
-                // On failure: ConnectAsync -> SetStatus(Error). previous was Connecting (not Connected), so SetStatus does NOT spawn a second loop. We continue this loop's next iteration
+                // On success: ConnectAsync -> SetStatus(Connected) -> CancelAutoReconnectLoop -> token cancelled, next Delay throws, we exit. m_LastConnectedAtUtc set; if the connect holds for 30s+, the NEXT drop resets the counter to 0; otherwise next loop spawns with our current counter
+                // On failure: ConnectAsync -> SetStatus(Error). previous was Connecting (not Connected), so SetStatus does NOT spawn a second loop. We continue this loop's next iteration with the incremented counter
             }
         }
         finally
         {
-            lock (m_AutoReconnectLock) { m_IsAutoReconnecting = false; }
+            lock (m_AutoReconnectLock) { m_IsAutoReconnecting = false; m_ReconnectStatusText = null; }
+            StateChanged?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    // Sets the countdown text under lock and pings StateChanged so x:Bind/Binding re-reads. Called once per second during the backoff wait
+    private void SetReconnectStatusText(string i_Text)
+    {
+        lock (m_AutoReconnectLock) { m_ReconnectStatusText = i_Text; }
+        StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     protected void RaiseModeChanged()

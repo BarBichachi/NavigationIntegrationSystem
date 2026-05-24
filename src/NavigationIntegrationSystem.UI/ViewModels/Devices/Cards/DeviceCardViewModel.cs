@@ -35,14 +35,26 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
     public ObservableCollection<InspectFieldViewModel> InspectFields { get; }
     public DeviceStatus Status => m_Device.Status;
     public string? LastError => m_Device.LastError;
-    public string ConnectButtonText => Status switch
+    // Button label: while auto-reconnecting we override "Retry" with "Cancel reconnect" so the user has a clear stop affordance during the backoff wait. During Connecting we now show "Cancel" instead of disabled "Connecting..." so the user can abort an in-flight connect (the OnToggleConnectAsync handler already does DisconnectAsync in that branch -- previously unreachable because CanToggleConnect gated it)
+    public string ConnectButtonText
     {
-        DeviceStatus.Connected => "Disconnect",
-        DeviceStatus.Connecting => "Connecting...",
-        DeviceStatus.Error => "Retry",
-        _ => "Connect"
-    };
-    public bool CanToggleConnect => Status != DeviceStatus.Connecting;
+        get
+        {
+            if (m_Device.IsAutoReconnecting) { return "Cancel reconnect"; }
+            return Status switch
+            {
+                DeviceStatus.Connected => "Disconnect",
+                DeviceStatus.Connecting => "Cancel",
+                DeviceStatus.Error => "Retry",
+                _ => "Connect"
+            };
+        }
+    }
+    // Always enabled. The previous "disabled during Connecting" gate prevented the existing cancel-mid-connect logic in OnToggleConnectAsync from ever firing
+    public bool CanToggleConnect => true;
+    // Forwarded so the card can show "Reconnecting in 5s..." with a visible Cancel button during the backoff wait
+    public bool IsAutoReconnecting => m_Device.IsAutoReconnecting;
+    public string? ReconnectStatusText => m_Device.ReconnectStatusText;
     public bool AutoReconnect
     {
         get => Config.AutoReconnect;
@@ -81,7 +93,8 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         m_Device.StateChanged += OnDeviceStateChanged;
         m_Device.ModeChanged += OnDeviceModeChanged;
 
-        ToggleConnectCommand = new AsyncRelayCommand(OnToggleConnectAsync);
+        // AllowConcurrentExecutions because the button must remain clickable WHILE OnToggleConnectAsync is awaiting an inner ConnectAsync/DisconnectAsync -- this is exactly the "Cancel during Connecting" / "Cancel reconnect during backoff" path. Default AsyncRelayCommand disables CanExecute during execution, which made my CanToggleConnect=true property ignored
+        ToggleConnectCommand = new AsyncRelayCommand(OnToggleConnectAsync, AsyncRelayCommandOptions.AllowConcurrentExecutions);
         OpenSettingsCommand = new RelayCommand(() => m_OpenSettings(this));
         OpenInspectCommand = new RelayCommand(() => m_OpenInspect(this));
     }
@@ -91,6 +104,14 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
     // Toggles the device connection state via the runtime device
     private async Task OnToggleConnectAsync()
     {
+        // Auto-reconnect cancel takes precedence over Status-based dispatch. During backoff the device is in Error status (button text says "Cancel reconnect"); without this check OnToggleConnectAsync would fall through to the "connect requested" branch and just kick off a manual connect attempt instead of stopping the loop
+        if (m_Device.IsAutoReconnecting)
+        {
+            m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} auto-reconnect cancelled by user");
+            await m_Device.DisconnectAsync();
+            return;
+        }
+
         if (Status == DeviceStatus.Connected)
         {
             m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} disconnect requested by user");
@@ -108,8 +129,8 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         m_LogService.Info(nameof(DeviceCardViewModel), $"{DisplayName} connect requested by user");
         await m_Device.ConnectAsync();
 
-        // Check if connection failed and show dialog if so
-        if (Status == DeviceStatus.Error)
+        // Check if connection failed and show dialog if so. Skip the dialog when we're now in auto-reconnect mode -- the user can already see "Reconnecting in 5s..." on the card and doesn't need a modal explaining what they're already watching
+        if (Status == DeviceStatus.Error && !m_Device.IsAutoReconnecting)
         {
             string msg = !string.IsNullOrWhiteSpace(LastError) ? LastError : "Unknown error occurred during connection.";
             await m_DialogService.ShowErrorAsync($"Connection Failed ({DisplayName})", msg);
@@ -123,6 +144,9 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         OnPropertyChanged(nameof(LastError));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CanToggleConnect));
+        // Auto-reconnect props ride on StateChanged because InsDeviceBase raises StateChanged when IsAutoReconnecting/ReconnectStatusText change (the countdown ticks at 1Hz)
+        OnPropertyChanged(nameof(IsAutoReconnecting));
+        OnPropertyChanged(nameof(ReconnectStatusText));
     }
 
     private void RaiseModePropertyChanges()

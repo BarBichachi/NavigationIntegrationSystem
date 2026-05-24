@@ -131,6 +131,12 @@ public abstract partial class DeviceSettingsPaneViewModelBase : ViewModelBase
         // 5. React to connection-relevant changes. Fire-and-forget so the pane closes immediately and the device cycle (or live-tune) runs in the background; the card already listens for StateChanged so the user sees the transition without the pane staying up. Subclasses override for per-device live-apply semantics (e.g. Playback frequency)
         _ = ApplyConnectionChangesAfterSaveAsync(oldSnapshot, Device.Config);
 
+        // 6. Notify device of AutoReconnect flag changes. Without this, toggling AutoReconnect off only takes effect at the loop's next iteration check (up to 60s away mid-backoff). Calling NotifyAutoReconnectChanged cancels in-flight loops immediately on disable, or starts a fresh loop on enable-while-in-error
+        if (oldSnapshot.AutoReconnect != Device.Config.AutoReconnect)
+        {
+            Device.Device.NotifyAutoReconnectChanged();
+        }
+
         m_Parent.ForceClosePaneAfterApply();
         return true;
     }

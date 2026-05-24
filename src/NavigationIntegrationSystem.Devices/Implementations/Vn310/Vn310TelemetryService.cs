@@ -44,6 +44,9 @@ public sealed class Vn310TelemetryService : IDisposable
     // Size cap for the recent-timestamps ring used by Hz computation. 256 is more than enough to cover the highest plausible VN310 rate (~400Hz) over a 1s window with headroom; anything older than 1s gets trimmed in the writer
     private const int c_RecentTimestampsRingCap = 256;
 
+    // Initial-handshake timeout: how long StartAsync waits for the first packet AFTER SDK Connect succeeds before failing. Without this guard, SDK reports "Connected" on a port that's wired up but has no sensor on the other end -- we'd transition to Connected, the watchdog would fire 2s later, and auto-reconnect would loop forever. By failing the StartAsync we surface this as Connecting->Error (not Connected->Error), which short-circuits the auto-reconnect path. 3s is generous enough to cover sensor warm-up + SDK first-packet jitter
+    private const int c_InitialPacketTimeoutMs = 3000;
+
     private static readonly CommonGroup s_ExpectedCommonGroup =
         CommonGroup.YawPitchRoll | CommonGroup.AngularRate | CommonGroup.Position | CommonGroup.Velocity | CommonGroup.InsStatus;
 
@@ -65,6 +68,9 @@ public sealed class Vn310TelemetryService : IDisposable
     private Vn310PacketSourceMode m_LastSourceMode = Vn310PacketSourceMode.Unknown;
     private readonly Queue<DateTime> m_RecentPacketTimestamps = new Queue<DateTime>(c_RecentTimestampsRingCap);
     private readonly object m_StatsLock = new object();
+
+    // First-packet TCS used by StartAsync to wait for proof-of-life from the sensor. Non-null only during the initial-handshake window (between SDK Connect succeeding and first packet arriving). OnAsyncPacketReceived signals it on first packet so StartAsync returns; if timeout fires before first packet, StartAsync throws TimeoutException and the caller treats Connecting->Error (no auto-reconnect)
+    private TaskCompletionSource<bool>? m_FirstPacketTcs;
     #endregion
 
     #region Events
@@ -80,7 +86,7 @@ public sealed class Vn310TelemetryService : IDisposable
     #endregion
 
     #region Functions
-    // Opens the serial port, attaches the packet listener, and arms the watchdog. Throws on Connect failure (caller maps to DeviceStatus.Error). Idempotent: calling while already connected throws InvalidOperationException
+    // Opens the serial port, attaches the packet listener, AWAITS the first telemetry packet (initial handshake), then arms the watchdog and returns. Throws on Connect failure OR if no packet arrives within c_InitialPacketTimeoutMs (caller maps to DeviceStatus.Error). Idempotent: calling while already connected throws InvalidOperationException
     public Task StartAsync(string i_ComPort, int i_BaudRate, CancellationToken i_CancellationToken)
     {
         ThrowIfDisposed();
@@ -94,11 +100,13 @@ public sealed class Vn310TelemetryService : IDisposable
         }
 
         // vs.Connect is synchronous and blocking; offload so we don't block the caller's thread
-        return Task.Run(() =>
+        return Task.Run(async () =>
         {
             i_CancellationToken.ThrowIfCancellationRequested();
 
             VnSensor sensor = new VnSensor();
+            TaskCompletionSource<bool> firstPacketTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            bool handlerAttached = false;
             try
             {
                 sensor.Connect(i_ComPort, (uint)i_BaudRate);
@@ -110,8 +118,30 @@ public sealed class Vn310TelemetryService : IDisposable
                     throw new InvalidOperationException($"VN310 Connect on {i_ComPort} @ {i_BaudRate} returned IsConnected=false.");
                 }
 
+                // Wire up the first-packet gate BEFORE subscribing -- OnAsyncPacketReceived checks m_FirstPacketTcs and signals it on first packet. Must be set before the handler attaches or we could miss the first packet (race window)
+                Volatile.Write(ref m_FirstPacketTcs, firstPacketTcs);
                 sensor.AsyncPacketReceived += OnAsyncPacketReceived;
+                handlerAttached = true;
 
+                // Wait for first packet OR initial-handshake timeout OR external cancel. SDK Connect "succeeding" on a wired-but-dead link is the exact reason this exists -- we need proof-of-life before reporting Connected, otherwise auto-reconnect would flap forever on a misconfigured sensor
+                using (CancellationTokenSource initialCts = CancellationTokenSource.CreateLinkedTokenSource(i_CancellationToken))
+                {
+                    initialCts.CancelAfter(c_InitialPacketTimeoutMs);
+                    using (initialCts.Token.Register(() => firstPacketTcs.TrySetCanceled()))
+                    {
+                        try
+                        {
+                            await firstPacketTcs.Task.ConfigureAwait(false);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            if (i_CancellationToken.IsCancellationRequested) { throw new OperationCanceledException(i_CancellationToken); }
+                            throw new TimeoutException($"VN310 connected on {i_ComPort} but no telemetry received within {c_InitialPacketTimeoutMs / 1000}s. Check that the sensor is powered on and configured to stream.");
+                        }
+                    }
+                }
+
+                // Proof-of-life received: commit to Connected state, arm the runtime watchdog. The first packet has already been processed by OnAsyncPacketReceived (m_LatestTelemetry / PacketCount / etc. are populated) -- the caller will see live data the moment Connected fires
                 lock (m_StateLock)
                 {
                     m_Sensor = sensor;
@@ -119,13 +149,16 @@ public sealed class Vn310TelemetryService : IDisposable
                     Volatile.Write(ref m_IsConnected, true);
                     m_Watchdog = new Timer(OnWatchdogTick, null, c_WatchdogMs, Timeout.Infinite);
                 }
+                Volatile.Write(ref m_FirstPacketTcs, null);
 
-                m_LogService.Info(nameof(Vn310TelemetryService), $"VN310 connected on {i_ComPort} @ {i_BaudRate}");
+                m_LogService.Info(nameof(Vn310TelemetryService), $"VN310 connected on {i_ComPort} @ {i_BaudRate} (first packet received)");
             }
             catch (Exception ex)
             {
                 Volatile.Write(ref m_LastError, ex.Message);
-                // Best-effort cleanup of the half-initialized sensor before rethrowing
+                Volatile.Write(ref m_FirstPacketTcs, null);
+                // Best-effort cleanup of the half-initialized sensor before rethrowing. Unsubscribe first to avoid handler firing during/after Disconnect
+                if (handlerAttached) { try { sensor.AsyncPacketReceived -= OnAsyncPacketReceived; } catch { /* swallow */ } }
                 try { sensor.Disconnect(); } catch { /* swallow; already in failure path */ }
                 throw;
             }
@@ -419,6 +452,9 @@ public sealed class Vn310TelemetryService : IDisposable
         }
 
         Volatile.Write(ref m_LatestTelemetry, telemetry);
+
+        // Signal the initial-handshake gate if StartAsync is waiting for proof-of-life. TrySetResult is no-op on subsequent packets (already completed), and idempotent if the timeout already fired (already cancelled). Done BEFORE stats / event raise so StartAsync's await returns as fast as possible
+        Volatile.Read(ref m_FirstPacketTcs)?.TrySetResult(true);
 
         // Update packet stats: increment count, refresh source mode, push timestamp into the rolling ring (trim entries older than 1s and enforce hard cap to bound memory)
         Interlocked.Increment(ref m_PacketCount);

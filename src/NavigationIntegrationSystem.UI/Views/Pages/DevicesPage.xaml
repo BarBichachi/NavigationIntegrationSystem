@@ -49,6 +49,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -87,6 +88,13 @@
                                                   Foreground="{x:Bind Status, Mode=OneWay, Converter={StaticResource DeviceStatusToBrushConverter}}" />
                                         <TextBlock Text="{x:Bind LastError, Mode=OneWay}" Opacity="0.85" VerticalAlignment="Center"
                                                    Foreground="{x:Bind Status, Mode=OneWay, Converter={StaticResource DeviceStatusToBrushConverter}}" />
+                                    </StackPanel>
+
+                                    <!--  Auto-reconnect countdown ("Reconnecting in 5s..."). Visible only while a backoff loop is running; ticks at 1Hz so the user sees a live countdown and has time to click "Cancel reconnect" before the next attempt fires  -->
+                                    <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="0,4,0,0" Orientation="Horizontal" Spacing="6"
+                                                Visibility="{x:Bind IsAutoReconnecting, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <FontIcon Glyph="&#xE895;" FontSize="14" VerticalAlignment="Center" Opacity="0.7" />
+                                        <TextBlock Text="{x:Bind ReconnectStatusText, Mode=OneWay}" Opacity="0.85" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Grid>
                             </Border>

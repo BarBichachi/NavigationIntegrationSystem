@@ -50,6 +50,9 @@ public sealed class Vn310InsDevice : InsDeviceBase
     #endregion
 
     #region Functions
+    // Skip the base's 1-2s simulated connecting delay. That delay exists to make fake/Manual devices feel "real" by lingering on Connecting; for VN310 the actual SDK Connect + first-packet wait (typically 1-4s) is already the real connecting time, and adding 1-2s on top just delays the Connected transition
+    protected override int GetConnectDelayMs() { return 0; }
+
     // Opens the serial port via the telemetry service. Throws on misconfiguration or SDK failure; the base class converts to DeviceStatus.Error
     protected override async Task OnConnectAsync()
     {
