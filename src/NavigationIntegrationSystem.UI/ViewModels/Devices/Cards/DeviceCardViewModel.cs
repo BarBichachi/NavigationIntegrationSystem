@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Dispatching;
 using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
@@ -20,6 +21,8 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
     private readonly IInsDevice m_Device;
     private readonly Action<DeviceCardViewModel> m_OpenSettings;
     private readonly Action<DeviceCardViewModel> m_OpenInspect;
+    // Captured at construction (which runs on the UI thread). Used to marshal StateChanged property notifications back to UI when the underlying device fires the event from a background thread (e.g. VN310's watchdog timer callback after 2s of telemetry silence)
+    private readonly DispatcherQueue m_DispatcherQueue;
     private bool m_HasUnsavedSettings;
     #endregion
 
@@ -32,7 +35,13 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
     public ObservableCollection<InspectFieldViewModel> InspectFields { get; }
     public DeviceStatus Status => m_Device.Status;
     public string? LastError => m_Device.LastError;
-    public string ConnectButtonText => Status == DeviceStatus.Connected ? "Disconnect" : (Status == DeviceStatus.Connecting ? "Connecting..." : "Connect");
+    public string ConnectButtonText => Status switch
+    {
+        DeviceStatus.Connected => "Disconnect",
+        DeviceStatus.Connecting => "Connecting...",
+        DeviceStatus.Error => "Retry",
+        _ => "Connect"
+    };
     public bool CanToggleConnect => Status != DeviceStatus.Connecting;
     public bool AutoReconnect
     {
@@ -66,13 +75,8 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         m_OpenSettings = i_OpenSettings;
         m_OpenInspect = i_OpenInspect;
         m_Device = i_Device;
-        m_Device.StateChanged += (_, _) =>
-        {
-            OnPropertyChanged(nameof(Status));
-            OnPropertyChanged(nameof(LastError));
-            OnPropertyChanged(nameof(ConnectButtonText));
-            OnPropertyChanged(nameof(CanToggleConnect));
-        };
+        m_DispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        m_Device.StateChanged += OnDeviceStateChanged;
 
         ToggleConnectCommand = new AsyncRelayCommand(OnToggleConnectAsync);
         OpenSettingsCommand = new RelayCommand(() => m_OpenSettings(this));
@@ -106,6 +110,30 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         {
             string msg = !string.IsNullOrWhiteSpace(LastError) ? LastError : "Unknown error occurred during connection.";
             await m_DialogService.ShowErrorAsync($"Connection Failed ({DisplayName})", msg);
+        }
+    }
+
+    // Raises the state-derived property notifications. Pulled into a method so OnDeviceStateChanged can route through DispatcherQueue when the underlying StateChanged was fired off the UI thread (e.g. VN310 watchdog timer)
+    private void RaiseStatePropertyChanges()
+    {
+        OnPropertyChanged(nameof(Status));
+        OnPropertyChanged(nameof(LastError));
+        OnPropertyChanged(nameof(ConnectButtonText));
+        OnPropertyChanged(nameof(CanToggleConnect));
+    }
+    #endregion
+
+    #region Event Handlers
+    // Marshals state-change notifications back to the UI thread. The Vn310 watchdog raises Stalled (and thus StateChanged) from a System.Threading.Timer callback; without this hop, x:Bind doesn't pick up the property changes until the next layout pass (visible to the user as "the card doesn't update until I switch pages and come back")
+    private void OnDeviceStateChanged(object? i_Sender, EventArgs i_Args)
+    {
+        if (m_DispatcherQueue.HasThreadAccess)
+        {
+            RaiseStatePropertyChanges();
+        }
+        else
+        {
+            m_DispatcherQueue.TryEnqueue(RaiseStatePropertyChanges);
         }
     }
     #endregion

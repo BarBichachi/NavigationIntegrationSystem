@@ -20,6 +20,14 @@
 
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToSettingsVisibilityConverter" TargetMode="Settings" />
             <converters:DevicesPaneModeToVisibilityConverter x:Key="PaneModeToInspectVisibilityConverter" TargetMode="Inspect" />
+
+            <!-- Styling for italic muted hint text used by the RecommendedHint control, displayed below the input's label -->
+            <Style x:Key="RecommendedHintTextStyle" TargetType="TextBlock">
+                <Setter Property="FontStyle" Value="Italic" />
+                <Setter Property="FontSize" Value="10" />
+                <Setter Property="Opacity" Value="0.55" />
+                <Setter Property="Margin" Value="0,1,0,0" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

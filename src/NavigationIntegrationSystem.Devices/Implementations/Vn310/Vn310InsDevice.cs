@@ -112,10 +112,23 @@ public sealed class Vn310InsDevice : InsDeviceBase
         }
     }
 
-    // Watchdog fired: no telemetry for 2s. Map to DeviceStatus.Error so the UI surfaces it; don't auto-disconnect (user decides whether to retry)
+    // Watchdog fired: no telemetry for 2s. Mirror what OnDisconnectAsync does -- unsubscribe handlers, cancel the connect token, stop the service -- but keep DeviceStatus.Error (instead of going Disconnected) so the UI surfaces WHY we tore down. Without this teardown the service stays IsConnected=true and the next Retry hits StartAsync's "already started" guard
     private void OnServiceStalled(object? i_Sender, EventArgs i_Args)
     {
+        m_Service.TelemetryUpdated -= OnServiceTelemetryUpdated;
+        m_Service.Stalled -= OnServiceStalled;
+
+        lock (m_CtsLock)
+        {
+            m_ConnectCts?.Cancel();
+            m_ConnectCts?.Dispose();
+            m_ConnectCts = null;
+        }
+
         SetStatus(DeviceStatus.Error, "No telemetry for 2s");
+
+        // Fire-and-forget; StopAsync flips m_IsConnected=false synchronously under its own lock and completes the SDK-level teardown on a thread pool thread, so a subsequent Retry observes a stopped service
+        _ = m_Service.StopAsync();
     }
     #endregion
 }

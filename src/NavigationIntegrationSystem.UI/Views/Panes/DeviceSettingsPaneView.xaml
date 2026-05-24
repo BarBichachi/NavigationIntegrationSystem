@@ -18,8 +18,11 @@
 
             <TextBlock FontSize="18" Text="Device Settings" />
 
-            <!-- Real Device Settings -->
-            <sub:RealDeviceSettingsView DataContext="{x:Bind ViewModel, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsPlaybackDevice, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+            <!-- Generic real-device settings (TMAPS, etc.) -->
+            <sub:RealDeviceSettingsView DataContext="{x:Bind ViewModel, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsGenericRealDevice, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+            <!-- VN310-specific settings (serial-only, COM-port dropdown) -->
+            <sub:Vn310SettingsView DataContext="{x:Bind ViewModel, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsVn310Device, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
             <!-- Playback Settings -->
             <sub:PlaybackSettingsView DataContext="{x:Bind ViewModel, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsPlaybackDevice, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />

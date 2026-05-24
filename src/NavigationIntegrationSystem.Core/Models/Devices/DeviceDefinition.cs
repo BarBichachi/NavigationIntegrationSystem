@@ -11,13 +11,16 @@ public sealed class DeviceDefinition
     public DeviceType Type { get; }
     public string DisplayName => Type.ToString();
     public IReadOnlyList<DeviceFieldDefinition> Fields { get; }
+    // Optional hints rendered above connection-setting inputs in the device settings pane. Null when the device has nothing to recommend
+    public RecommendedConnectionSettings? RecommendedConnection { get; }
     #endregion
 
     #region Ctors
-    public DeviceDefinition(DeviceType i_Type, IReadOnlyList<DeviceFieldDefinition> i_Fields)
+    public DeviceDefinition(DeviceType i_Type, IReadOnlyList<DeviceFieldDefinition> i_Fields, RecommendedConnectionSettings? i_RecommendedConnection = null)
     {
         Type = i_Type;
         Fields = i_Fields;
+        RecommendedConnection = i_RecommendedConnection;
     }
     #endregion
 }

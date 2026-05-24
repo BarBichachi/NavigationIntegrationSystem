@@ -49,6 +49,13 @@ public sealed partial class DeviceSettingsPaneViewModel : ViewModelBase
     public IReadOnlyList<int> Frequencies => PlaybackFrequencies.All;
     public bool HasUnsavedChanges { get => m_HasUnsavedChanges; set { if (SetProperty(ref m_HasUnsavedChanges, value)) { m_Device.HasUnsavedSettings = value; } } }
     public bool IsPlaybackDevice => m_Device.Type == Core.Enums.DeviceType.Playback;
+    public bool IsVn310Device => m_Device.Type == Core.Enums.DeviceType.VN310;
+    // True for any "real" device that doesn't have its own bespoke settings pane (TMAPS today). Used by the DeviceSettingsPaneView router to fall back to the generic RealDeviceSettingsView
+    public bool IsGenericRealDevice => !IsPlaybackDevice && !IsVn310Device;
+
+    // Hint string accessors for the RecommendedHint control. Null-coalesce to empty so the hint control collapses cleanly via StringNullOrEmptyToVisibilityConverter
+    public string BaudRateHintText => m_Device.Device.Definition.RecommendedConnection?.BaudRateHint ?? string.Empty;
+    public string ComPortHintText => m_Device.Device.Definition.RecommendedConnection?.ComPortHint ?? string.Empty;
     #endregion
 
     #region Commands

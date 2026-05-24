@@ -22,6 +22,10 @@ public sealed class Vn310DeviceModule : IInsDeviceModule
     {
         return new DeviceDefinition(
             i_Type: DeviceType.VN310,
+            i_RecommendedConnection: new RecommendedConnectionSettings
+            {
+                BaudRateHint = "Recommended: 115200",
+            },
             i_Fields: new List<DeviceFieldDefinition>
             {
                 new DeviceFieldDefinition("UtcTime", "UTC Time", ""),

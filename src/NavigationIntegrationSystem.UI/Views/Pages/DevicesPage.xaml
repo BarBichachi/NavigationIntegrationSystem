@@ -40,10 +40,10 @@
 
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeviceCardViewModel">
-                            <!--  Device card  -->
+                            <!--  Device card. Border color tracks Status via DeviceStatusToBrushConverter so at-a-glance scanning of multiple cards conveys state without reading text  -->
                             <Border Margin="0,0,0,10" Padding="14"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderBrush="{x:Bind Status, Mode=OneWay, Converter={StaticResource DeviceStatusToBrushConverter}}"
                                     BorderThickness="1" CornerRadius="12">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -90,10 +90,14 @@
                                         </Button>
                                     </StackPanel>
 
-                                    <!--  Show last error (only when not null/empty)  -->
-                                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Opacity="0.85"
-                                               Text="{x:Bind LastError, Mode=OneWay}"
-                                               Visibility="{x:Bind LastError, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}" />
+                                    <!--  Last error (only when not null/empty). Icon + text both tint to Status color via DeviceStatusToBrushConverter so the row reads as "error" not "footnote" -->
+                                    <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Orientation="Horizontal" Spacing="6"
+                                                Visibility="{x:Bind LastError, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}">
+                                        <FontIcon Glyph="&#xE7BA;" FontSize="14" VerticalAlignment="Center"
+                                                  Foreground="{x:Bind Status, Mode=OneWay, Converter={StaticResource DeviceStatusToBrushConverter}}" />
+                                        <TextBlock Text="{x:Bind LastError, Mode=OneWay}" Opacity="0.85" VerticalAlignment="Center"
+                                                   Foreground="{x:Bind Status, Mode=OneWay, Converter={StaticResource DeviceStatusToBrushConverter}}" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>

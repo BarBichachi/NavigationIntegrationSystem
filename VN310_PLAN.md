@@ -577,7 +577,7 @@ Append updates here as phases complete, so future-you knows where to pick up.
 - [x] Phase 2 — Telemetry service + parsing (2026-05-20; smoke-tested against COM_NOT_REAL — `System.IO.FileNotFoundException` surfaces cleanly through `StartAsync`)
 - [x] Phase 3 — Wire `Vn310InsDevice` to the service (2026-05-20; bad-port path verified via UI → Error status with friendly message; SDK-originated `FileNotFoundException` shielded behind a `SerialPort.GetPortNames()` pre-flight to avoid VS first-chance breaks)
 - [x] Phase 4 — Integration grid candidate (2026-05-20; bad-port path re-verified, column-lifecycle deferred to Phase 7 hardware bring-up)
-- [ ] Phase 5 — Connection settings UI + RecommendedHint
+- [x] Phase 5 — Connection settings UI + RecommendedHint (2026-05-24; VN310-specific settings pane w/ COM-port dropdown + Refresh + stale-port warning; card UX: border-tint-on-status, error-row icon + red text, "Retry" button text in Error state; fixed UI refresh on background StateChanged via DispatcherQueue, fixed stall-handler not stopping service)
 - [ ] Phase 6 — Status surfaces (badge + inspect page)
 - [ ] Phase 7 — Real hardware bring-up
 

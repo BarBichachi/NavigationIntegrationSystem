@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl x:Class="NavigationIntegrationSystem.UI.Views.Panes.SubViews.Vn310SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="using:NavigationIntegrationSystem.UI.Views.Controls"
+             mc:Ignorable="d">
+
+    <StackPanel Spacing="14">
+        <!-- General Settings: VN310 is serial-locked, so no Connection-kind selector -->
+        <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="General" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Auto reconnect" VerticalAlignment="Center" Opacity="0.7"/>
+                    <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{x:Bind ViewModel.Draft.AutoReconnect, Mode=TwoWay}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Serial Settings: the only transport VN310 supports. No Visibility binding since this section is always shown -->
+        <Border Padding="12" BorderThickness="1" CornerRadius="10">
+            <StackPanel Spacing="10">
+                <TextBlock FontSize="16" Opacity="0.8" Text="Serial" />
+                <Grid ColumnSpacing="12" RowSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Line Kind" VerticalAlignment="Center" Opacity="0.7"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Stretch"
+                              ItemsSource="{x:Bind ViewModel.SerialLineKinds, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.Draft.SerialLineKind, Mode=TwoWay}" />
+
+                    <!-- COM Port: dropdown sourced from SerialPort.GetPortNames() (populated by code-behind); Refresh button re-enumerates on demand. Hint stamped below the label so muted text doesn't compete with the label for visual priority -->
+                    <StackPanel Grid.Row="1" Grid.Column="0">
+                        <TextBlock Text="COM Port" VerticalAlignment="Center" Opacity="0.7"/>
+                        <controls:RecommendedHint Text="{x:Bind ViewModel.ComPortHintText, Mode=OneWay}" />
+                    </StackPanel>
+                    <!-- SelectedItem is NOT bound; code-behind sets it explicitly via SyncComPortSelection. Binding made the ComboBox visually surface the first item when Draft.SerialComPort was an unresolvable value (e.g. "COM4" not in detected list), fooling the user into thinking COM3 was selected while Draft was still stuck on COM4. Manual sync ensures the dropdown looks honestly empty in that case so clicking COM3 fires a real SelectionChanged -->
+                    <ComboBox x:Name="ComPortComboBox" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                              ItemsSource="{x:Bind ComPorts, Mode=OneWay}"
+                              SelectionChanged="OnComPortSelectionChanged" />
+                    <Button Grid.Row="1" Grid.Column="2" VerticalAlignment="Top"
+                            Click="OnRefreshComPortsClick"
+                            ToolTipService.ToolTip="Refresh detected COM ports">
+                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                    </Button>
+
+                    <!-- Inline warning shown only when Draft.SerialComPort is a value that GetPortNames() did NOT return. Tells the user their saved port is stale (e.g. USB-serial unplugged) instead of leaving them to discover it via the Connect-time error -->
+                    <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,0" Orientation="Horizontal" Spacing="6"
+                                Visibility="{x:Bind SavedPortMissingMessage, Mode=OneWay, Converter={StaticResource StringNullOrEmptyToVisibilityConverter}}">
+                        <FontIcon Glyph="&#xE7BA;" FontSize="12" Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                        <TextBlock Text="{x:Bind SavedPortMissingMessage, Mode=OneWay}" FontSize="12"
+                                   Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                    </StackPanel>
+
+                    <!-- Baud Rate: free text; hint below the label -->
+                    <StackPanel Grid.Row="3" Grid.Column="0">
+                        <TextBlock Text="Baud Rate" VerticalAlignment="Center" Opacity="0.7"/>
+                        <controls:RecommendedHint Text="{x:Bind ViewModel.BaudRateHintText, Mode=OneWay}" />
+                    </StackPanel>
+                    <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" VerticalAlignment="Top"
+                             Text="{x:Bind ViewModel.Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
