@@ -1,3 +1,4 @@
+using NavigationIntegrationSystem.Core.Devices;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Logging;
 using NavigationIntegrationSystem.Core.Models.Devices;
@@ -20,10 +21,19 @@ public sealed class Vn310InsDevice : InsDeviceBase
     // Per-connect token; cancelled in OnDisconnectAsync so a Disconnect during the SDK's ~1s settle delay short-circuits the in-flight Connect
     private CancellationTokenSource? m_ConnectCts;
     private readonly object m_CtsLock = new object();
+    // Cached mode snapshot + the underlying Vn310InsMode it was derived from. Compared on each packet so ModeChanged only fires on actual transitions, not per-packet (which would flood UI listeners at ~10-200Hz). Lock-protected because read/write happens on the SDK packet thread + UI thread
+    private DeviceModeSnapshot? m_CurrentMode;
+    private Vn310InsMode? m_LastEmittedMode;
+    private readonly object m_ModeLock = new object();
     #endregion
 
     #region Properties
     public Vn310Telemetry? LatestTelemetry => m_Service.LatestTelemetry;
+    public override DeviceModeSnapshot? CurrentMode { get { lock (m_ModeLock) { return m_CurrentMode; } } }
+    // Packet stats forwarded from the inner service so the inspect VM doesn't have to reach into m_Service. Stats persist across inspect pane open/close because the service lives for this device's whole runtime lifetime
+    public long PacketCount => m_Service.PacketCount;
+    public Vn310PacketSourceMode LastSourceMode => m_Service.LastSourceMode;
+    public DateTime[] GetRecentPacketTimestamps() => m_Service.GetRecentPacketTimestamps();
     #endregion
 
     #region Events
@@ -95,13 +105,61 @@ public sealed class Vn310InsDevice : InsDeviceBase
         }
 
         await m_Service.StopAsync().ConfigureAwait(false);
+        ResetModeAndRaiseIfChanged();
+    }
+
+    // Maps a VN310 INS mode value to its display snapshot. Severity buckets follow the convention "Good = trustworthy outputs, Bad = nothing valid yet"
+    private static DeviceModeSnapshot MapMode(Vn310InsMode i_Mode)
+    {
+        return i_Mode switch
+        {
+            Vn310InsMode.Tracking => new DeviceModeSnapshot { Label = "TRACKING", Severity = DeviceModeSeverity.Good },
+            Vn310InsMode.Aligning => new DeviceModeSnapshot { Label = "ALIGNING", Severity = DeviceModeSeverity.Warning },
+            Vn310InsMode.GnssLoss => new DeviceModeSnapshot { Label = "GNSS LOSS", Severity = DeviceModeSeverity.Caution },
+            Vn310InsMode.NotTracking => new DeviceModeSnapshot { Label = "NOT TRACKING", Severity = DeviceModeSeverity.Bad },
+            _ => new DeviceModeSnapshot { Label = "?", Severity = DeviceModeSeverity.Unknown }
+        };
+    }
+
+    // Sets CurrentMode from the just-received telemetry and raises ModeChanged iff the underlying mode value differs from the last one we emitted. Called from OnServiceTelemetryUpdated on the SDK packet thread
+    private void UpdateModeAndRaiseIfChanged(Vn310InsMode i_NewMode)
+    {
+        bool changed;
+        lock (m_ModeLock)
+        {
+            changed = !m_LastEmittedMode.HasValue || m_LastEmittedMode.Value != i_NewMode;
+            if (changed)
+            {
+                m_LastEmittedMode = i_NewMode;
+                m_CurrentMode = MapMode(i_NewMode);
+            }
+        }
+        if (changed) { RaiseModeChanged(); }
+    }
+
+    // Clears CurrentMode -> null and raises ModeChanged iff we previously had a mode. Called on Disconnect + Stall so the UI chip collapses (no stale "TRACKING" left over after a serial cable yank)
+    private void ResetModeAndRaiseIfChanged()
+    {
+        bool changed;
+        lock (m_ModeLock)
+        {
+            changed = m_LastEmittedMode.HasValue;
+            if (changed)
+            {
+                m_LastEmittedMode = null;
+                m_CurrentMode = null;
+            }
+        }
+        if (changed) { RaiseModeChanged(); }
     }
     #endregion
 
     #region Event Handlers
-    // Re-raises the service's telemetry event under this device's identity. Wrapped so a buggy subscriber can't surface as a packet-parsing failure inside the service
+    // Re-raises the service's telemetry event under this device's identity. Wrapped so a buggy subscriber can't surface as a packet-parsing failure inside the service. Also drives the mode-change event so the device card chip updates without needing to subscribe to TelemetryUpdated directly
     private void OnServiceTelemetryUpdated(object? i_Sender, Vn310Telemetry i_Telemetry)
     {
+        UpdateModeAndRaiseIfChanged(i_Telemetry.InsStatus.Mode);
+
         try
         {
             TelemetryUpdated?.Invoke(this, i_Telemetry);
@@ -126,6 +184,7 @@ public sealed class Vn310InsDevice : InsDeviceBase
         }
 
         SetStatus(DeviceStatus.Error, "No telemetry for 2s");
+        ResetModeAndRaiseIfChanged();
 
         // Fire-and-forget; StopAsync flips m_IsConnected=false synchronously under its own lock and completes the SDK-level teardown on a thread pool thread, so a subsequent Retry observes a stopped service
         _ = m_Service.StopAsync();

@@ -57,6 +57,8 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
     public ILogService LogService => m_LogService;
     public bool IsSettingsVisible => Type != DeviceType.Manual;
     public bool IsInspectVisible => Type != DeviceType.Manual && Type != DeviceType.Playback;
+    public string? ModeLabel => m_Device.CurrentMode?.Label;
+    public DeviceModeSeverity ModeSeverity => m_Device.CurrentMode?.Severity ?? DeviceModeSeverity.Unknown;
     #endregion
 
     #region Commands
@@ -77,6 +79,7 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         m_Device = i_Device;
         m_DispatcherQueue = DispatcherQueue.GetForCurrentThread();
         m_Device.StateChanged += OnDeviceStateChanged;
+        m_Device.ModeChanged += OnDeviceModeChanged;
 
         ToggleConnectCommand = new AsyncRelayCommand(OnToggleConnectAsync);
         OpenSettingsCommand = new RelayCommand(() => m_OpenSettings(this));
@@ -121,6 +124,12 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CanToggleConnect));
     }
+
+    private void RaiseModePropertyChanges()
+    {
+        OnPropertyChanged(nameof(ModeLabel));
+        OnPropertyChanged(nameof(ModeSeverity));
+    }
     #endregion
 
     #region Event Handlers
@@ -134,6 +143,18 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         else
         {
             m_DispatcherQueue.TryEnqueue(RaiseStatePropertyChanges);
+        }
+    }
+
+    private void OnDeviceModeChanged(object? i_Sender, EventArgs i_Args)
+    {
+        if (m_DispatcherQueue.HasThreadAccess)
+        {
+            RaiseModePropertyChanges();
+        }
+        else
+        {
+            m_DispatcherQueue.TryEnqueue(RaiseModePropertyChanges);
         }
     }
     #endregion

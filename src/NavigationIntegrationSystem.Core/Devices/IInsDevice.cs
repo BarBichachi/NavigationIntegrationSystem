@@ -12,10 +12,12 @@ public interface IInsDevice
     DeviceDefinition Definition { get; }
     DeviceStatus Status { get; }
     string? LastError { get; }
+    DeviceModeSnapshot? CurrentMode { get; }
     #endregion
 
     #region Events
     event EventHandler? StateChanged;
+    event EventHandler? ModeChanged;
     #endregion
 
     #region Functions

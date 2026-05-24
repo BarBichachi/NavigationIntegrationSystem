@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.Input;
 using NavigationIntegrationSystem.Core.Playback;
+using NavigationIntegrationSystem.Devices.Connections;
+using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Validation;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
 using NavigationIntegrationSystem.UI.Services.UI.FilePicking;
@@ -38,6 +40,39 @@ public sealed partial class PlaybackSettingsPaneViewModel : DeviceSettingsPaneVi
 
         BrowseFileCommand = new AsyncRelayCommand(OnBrowseFileAsync);
         ExportTemplateCommand = new AsyncRelayCommand(OnExportTemplateAsync);
+    }
+    #endregion
+
+    #region Functions
+    // Playback-specific override: CSV path change requires a full cycle (the file has to be re-loaded). Frequency and Loop are live-tunable on the running IPlaybackService -- pushing them in-place avoids stalling playback for a reconnect. Anything in the Connection block OTHER than the Playback subsection (Kind change, etc.) falls back to the base cycle behavior
+    protected override async Task ApplyConnectionChangesAfterSaveAsync(DeviceConfig i_OldConfig, DeviceConfig i_NewConfig)
+    {
+        PlaybackConnectionSettings oldP = i_OldConfig.Connection.Playback;
+        PlaybackConnectionSettings newP = i_NewConfig.Connection.Playback;
+
+        // Path change is the only Playback field that requires re-loading the file -- cycle the device so the new path takes effect
+        bool pathChanged = oldP.FilePath != newP.FilePath;
+        if (pathChanged)
+        {
+            if (IsDeviceActive()) { await CycleDeviceAsync().ConfigureAwait(false); }
+            return;
+        }
+
+        // Anything else in the Connection block changed (Kind, UDP/TCP/Serial -- shouldn't happen for Playback but defensive) -> fall back to the base behavior which cycles
+        if (HasConnectionChanged(i_OldConfig.Connection, i_NewConfig.Connection))
+        {
+            bool playbackOnlyChange = oldP.Frequency != newP.Frequency || oldP.Loop != newP.Loop;
+            bool otherSectionChanged = !playbackOnlyChange;
+            if (otherSectionChanged)
+            {
+                if (IsDeviceActive()) { await CycleDeviceAsync().ConfigureAwait(false); }
+                return;
+            }
+        }
+
+        // Live-apply: Frequency and Loop can be set on the running service without disconnecting. The IPlaybackService setters are safe to call whether or not a file is loaded (no-op when idle)
+        if (oldP.Frequency != newP.Frequency) { m_PlaybackService.Frequency = newP.Frequency; }
+        if (oldP.Loop != newP.Loop) { m_PlaybackService.Loop = newP.Loop; }
     }
     #endregion
 

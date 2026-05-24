@@ -15,6 +15,7 @@ using NavigationIntegrationSystem.Infrastructure.Logging;
 using NavigationIntegrationSystem.Infrastructure.Persistence.DevicesConfig;
 using NavigationIntegrationSystem.Infrastructure.Playback;
 using NavigationIntegrationSystem.Infrastructure.Recording;
+using NavigationIntegrationSystem.UI.Services.Devices;
 using NavigationIntegrationSystem.UI.Services.Logging;
 using NavigationIntegrationSystem.UI.Services.Recording;
 using NavigationIntegrationSystem.UI.Services.UI.Dialog;
@@ -77,6 +78,8 @@ public static class HostBuilderFactory
 
                 // HOSTED SERVICE: Starts background recording logic
                 services.AddHostedService<IntegrationSnapshotService>();
+                // HOSTED SERVICE: Disconnects still-active devices at shutdown so OS resources (serial ports, sockets) release before the host disposes
+                services.AddHostedService<InsDevicesShutdownService>();
 
                 // 7. UI Services
                 services.AddSingleton<WindowProvider>();

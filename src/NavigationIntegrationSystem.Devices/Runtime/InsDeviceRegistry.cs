@@ -58,5 +58,14 @@ public sealed class InsDeviceRegistry : IInsDeviceRegistry, IInsDeviceInstancePr
             throw new InvalidOperationException($"Device {i_Device.Definition.Type} has no assigned instance id (not created via the registry).");
         }
     }
+
+    // Snapshot of all devices created via Create() this session. Used by InsDevicesShutdownService at app exit to disconnect still-active devices before host dispose
+    public IReadOnlyList<IInsDevice> GetAllDevices()
+    {
+        lock (m_Lock)
+        {
+            return new List<IInsDevice>(m_AssignedIds.Keys);
+        }
+    }
     #endregion
 }

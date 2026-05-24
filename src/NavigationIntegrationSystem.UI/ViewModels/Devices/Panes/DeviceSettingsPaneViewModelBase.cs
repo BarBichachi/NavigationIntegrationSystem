@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
+using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Devices.Enums;
 using NavigationIntegrationSystem.Devices.Models;
 using NavigationIntegrationSystem.Devices.Validation;
@@ -118,7 +119,8 @@ public abstract partial class DeviceSettingsPaneViewModelBase : ViewModelBase
             return false;
         }
 
-        // 3. Save to Real Device Config
+        // 3. Save to Real Device Config. Capture the pre-save snapshot first -- ApplyConnectionChangesAfterSaveAsync needs the old vs new comparison to decide whether to cycle the device
+        DeviceConfig oldSnapshot = m_OriginalSnapshot;
         Draft.ApplyTo(Device.Config);
         await m_Parent.SaveDevicesConfigCommand.ExecuteAsync(null);
 
@@ -126,8 +128,63 @@ public abstract partial class DeviceSettingsPaneViewModelBase : ViewModelBase
         m_OriginalSnapshot = Device.Config.DeepClone();
         UpdateDirtyState();
 
+        // 5. React to connection-relevant changes. Fire-and-forget so the pane closes immediately and the device cycle (or live-tune) runs in the background; the card already listens for StateChanged so the user sees the transition without the pane staying up. Subclasses override for per-device live-apply semantics (e.g. Playback frequency)
+        _ = ApplyConnectionChangesAfterSaveAsync(oldSnapshot, Device.Config);
+
         m_Parent.ForceClosePaneAfterApply();
         return true;
+    }
+
+    // Default behavior after Apply&Save: if anything in the Connection block changed AND the device was active (Connected or mid-Connecting), cycle it so the new settings take effect immediately. Subclasses override -- PlaybackSettingsPaneViewModel pushes Frequency/Loop changes to the playback service in-place and only cycles on CSV path change
+    protected virtual async Task ApplyConnectionChangesAfterSaveAsync(DeviceConfig i_OldConfig, DeviceConfig i_NewConfig)
+    {
+        if (!HasConnectionChanged(i_OldConfig.Connection, i_NewConfig.Connection)) { return; }
+        if (!IsDeviceActive()) { return; }
+        await CycleDeviceAsync().ConfigureAwait(false);
+    }
+
+    // Disconnect then reconnect with the now-saved Config. Used by the default ApplyConnectionChangesAfterSaveAsync and any subclass override that needs the heavy cycle
+    protected async Task CycleDeviceAsync()
+    {
+        try
+        {
+            await Device.Device.DisconnectAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // Swallow: a failed disconnect should still let us attempt to connect with the new settings. The connect path will surface its own error via DeviceStatus.Error if it can't open the connection
+        }
+        await Device.Device.ConnectAsync().ConfigureAwait(false);
+    }
+
+    // True if the device is in a state where re-applying connection settings means cycling. Disconnected/Error states don't need cycling -- the next user-initiated Connect will pick up the new config naturally
+    protected bool IsDeviceActive()
+    {
+        return Device.Status == DeviceStatus.Connected || Device.Status == DeviceStatus.Connecting;
+    }
+
+    // Field-by-field compare of the Connection block. Mirrors IsDraftEqualToSnapshot's coverage so the two stay in sync if the schema grows. Returns true iff any field differs
+    protected static bool HasConnectionChanged(DeviceConnectionSettings i_A, DeviceConnectionSettings i_B)
+    {
+        if (i_A.Kind != i_B.Kind) { return true; }
+
+        if (i_A.Udp.RemoteIp != i_B.Udp.RemoteIp) { return true; }
+        if (i_A.Udp.RemotePort != i_B.Udp.RemotePort) { return true; }
+        if (i_A.Udp.LocalIp != i_B.Udp.LocalIp) { return true; }
+        if (i_A.Udp.LocalPort != i_B.Udp.LocalPort) { return true; }
+
+        if (i_A.Tcp.Host != i_B.Tcp.Host) { return true; }
+        if (i_A.Tcp.Port != i_B.Tcp.Port) { return true; }
+
+        if (i_A.Serial.SerialLineKind != i_B.Serial.SerialLineKind) { return true; }
+        if (i_A.Serial.ComPort != i_B.Serial.ComPort) { return true; }
+        if (i_A.Serial.BaudRate != i_B.Serial.BaudRate) { return true; }
+
+        if (i_A.Playback.FilePath != i_B.Playback.FilePath) { return true; }
+        if (i_A.Playback.Loop != i_B.Playback.Loop) { return true; }
+        if (i_A.Playback.Frequency != i_B.Playback.Frequency) { return true; }
+
+        return false;
     }
 
     // Reverts Draft to match the last saved snapshot, then updates dirty state

@@ -27,8 +27,10 @@
                               ItemsSource="{x:Bind ViewModel.ConnectionKinds, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.Draft.ConnectionKind, Mode=TwoWay}" />
 
-                    <TextBlock Grid.Row="1" Text="Auto reconnect" VerticalAlignment="Center" Opacity="0.7"/>
-                    <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{x:Bind ViewModel.Draft.AutoReconnect, Mode=TwoWay}" />
+                    <TextBlock Grid.Row="1" Text="Auto reconnect" VerticalAlignment="Center" Opacity="0.7"
+                               ToolTipService.ToolTip="When enabled, the device automatically retries connection after an unexpected drop (watchdog stall, USB unplug, sensor power loss). Backoff: 1s, 2s, 4s, 8s, 16s, then 30s repeating until reconnected or you click Disconnect."/>
+                    <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{x:Bind ViewModel.Draft.AutoReconnect, Mode=TwoWay}"
+                              ToolTipService.ToolTip="When enabled, the device automatically retries connection after an unexpected drop (watchdog stall, USB unplug, sensor power loss). Backoff: 1s, 2s, 4s, 8s, 16s, then 30s repeating until reconnected or you click Disconnect." />
                 </Grid>
             </StackPanel>
         </Border>

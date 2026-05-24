@@ -1,6 +1,7 @@
 using NavigationIntegrationSystem.Core.Logging;
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,6 +20,15 @@ public sealed class Vn310TelemetryService : IDisposable
     public Vn310Telemetry? LatestTelemetry => Volatile.Read(ref m_LatestTelemetry);
 
     public string? LastError => Volatile.Read(ref m_LastError);
+
+    // Total packets successfully decoded since this service was constructed. Persists across pane open/close so the inspect view's counter is meaningful. Reset only when the service is recreated (one per device instance, which lives for the device's whole runtime lifetime)
+    public long PacketCount => Interlocked.Read(ref m_PacketCount);
+
+    // The wire format of the most recently decoded packet (or Unknown if none yet). Inspect view uses this to render the ASCII-vs-Binary banners
+    public Vn310PacketSourceMode LastSourceMode { get { lock (m_StatsLock) { return m_LastSourceMode; } } }
+
+    // Snapshot of recent packet-arrival timestamps for Hz computation. Returned as a fresh array under the stats lock so the caller can compute rate without racing the writer
+    public DateTime[] GetRecentPacketTimestamps() { lock (m_StatsLock) { return m_RecentPacketTimestamps.ToArray(); } }
     #endregion
 
     #region Private Fields
@@ -30,6 +40,9 @@ public sealed class Vn310TelemetryService : IDisposable
 
     // Rate limit for "incompatible binary packet" log noise (the sensor may emit groups other than what we configured for)
     private const int c_IncompatibleLogIntervalSec = 60;
+
+    // Size cap for the recent-timestamps ring used by Hz computation. 256 is more than enough to cover the highest plausible VN310 rate (~400Hz) over a 1s window with headroom; anything older than 1s gets trimmed in the writer
+    private const int c_RecentTimestampsRingCap = 256;
 
     private static readonly CommonGroup s_ExpectedCommonGroup =
         CommonGroup.YawPitchRoll | CommonGroup.AngularRate | CommonGroup.Position | CommonGroup.Velocity | CommonGroup.InsStatus;
@@ -46,6 +59,12 @@ public sealed class Vn310TelemetryService : IDisposable
     private bool m_IsConnected;
     private bool m_Disposed;
     private DateTime m_LastIncompatibleLogUtc = DateTime.MinValue;
+
+    // Packet stats. Read on the inspect VM's UI-thread timer tick; written on the SDK packet thread. Lock-guarded for the source-mode + ring (PacketCount uses Interlocked)
+    private long m_PacketCount;
+    private Vn310PacketSourceMode m_LastSourceMode = Vn310PacketSourceMode.Unknown;
+    private readonly Queue<DateTime> m_RecentPacketTimestamps = new Queue<DateTime>(c_RecentTimestampsRingCap);
+    private readonly object m_StatsLock = new object();
     #endregion
 
     #region Events
@@ -302,6 +321,9 @@ public sealed class Vn310TelemetryService : IDisposable
         }
     }
 
+    // Bounded sync-wait on Dispose so the OS-level serial port handle is actually released before the process exits. The previous fire-and-forget StopAsyncSafe() returned immediately and the port could remain held by the SDK's read thread for several seconds after process exit (visible as "port busy" if the user immediately relaunches). Cap the wait at 2s so a hung SDK can't block shutdown forever. Disconnect via InsDevicesShutdownService should run first in normal shutdown -- this is a backstop
+    private const int c_DisposeTimeoutMs = 2000;
+
     public void Dispose()
     {
         if (m_Disposed)
@@ -309,8 +331,15 @@ public sealed class Vn310TelemetryService : IDisposable
             return;
         }
         m_Disposed = true;
-        // Fire-and-forget the async cleanup; Dispose must not block
-        _ = StopAsyncSafe();
+        try
+        {
+            Task stopTask = StopAsyncSafe();
+            stopTask.Wait(c_DisposeTimeoutMs);
+        }
+        catch
+        {
+            // Dispose must not throw. StopAsyncSafe already swallows its own errors; this catches anything Task.Wait wraps in AggregateException
+        }
     }
 
     // StopAsync wrapper that swallows ObjectDisposedException so Dispose can call it without checking state
@@ -390,6 +419,23 @@ public sealed class Vn310TelemetryService : IDisposable
         }
 
         Volatile.Write(ref m_LatestTelemetry, telemetry);
+
+        // Update packet stats: increment count, refresh source mode, push timestamp into the rolling ring (trim entries older than 1s and enforce hard cap to bound memory)
+        Interlocked.Increment(ref m_PacketCount);
+        lock (m_StatsLock)
+        {
+            m_LastSourceMode = packet.Type == PacketType.Binary ? Vn310PacketSourceMode.Binary : Vn310PacketSourceMode.Ascii;
+            DateTime cutoff = receivedAt - TimeSpan.FromSeconds(1);
+            while (m_RecentPacketTimestamps.Count > 0 && m_RecentPacketTimestamps.Peek() < cutoff)
+            {
+                m_RecentPacketTimestamps.Dequeue();
+            }
+            while (m_RecentPacketTimestamps.Count >= c_RecentTimestampsRingCap)
+            {
+                m_RecentPacketTimestamps.Dequeue();
+            }
+            m_RecentPacketTimestamps.Enqueue(receivedAt);
+        }
 
         // Reset the watchdog window. Grab the timer ref under lock to avoid racing with StopAsync nulling it out
         Timer? watchdog;

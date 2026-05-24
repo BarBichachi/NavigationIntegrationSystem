@@ -40,6 +40,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     private bool m_IsPaneOpen;
     private DevicesPaneMode m_PaneMode;
     private DeviceSettingsPaneViewModelBase? m_CurrentSettingsPane;
+    private DeviceInspectPaneViewModelBase? m_CurrentInspectPane;
     private readonly IDialogService m_DialogService;
     private readonly MainViewModel m_MainViewModel;
     #endregion
@@ -49,6 +50,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     public DeviceCardViewModel? SelectedDevice { get => m_SelectedDevice; set => SetProperty(ref m_SelectedDevice, value);}
     public DevicesPaneMode PaneMode { get => m_PaneMode; set => SetProperty(ref m_PaneMode, value); }
     public DeviceSettingsPaneViewModelBase? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
+    public DeviceInspectPaneViewModelBase? CurrentInspectPane { get => m_CurrentInspectPane; set => SetProperty(ref m_CurrentInspectPane, value); }
     // Exposes the current devices.json path for footer binding
     public string DevicesConfigPath => AppPaths.DevicesConfigPath;
     public bool IsPaneOpen
@@ -124,26 +126,36 @@ public sealed partial class DevicesViewModel : ViewModelBase
     #endregion
 
     #region Functions
-    // Opens the settings pane for a selected device
+    // Opens the settings pane for a selected device. Also disposes any active inspect pane so its subscriptions don't keep firing while a different pane is on screen
     private void OnOpenSettings(DeviceCardViewModel? i_Device)
     {
         if (i_Device == null) { return; }
 
         SelectedDevice = i_Device;
+        DisposeCurrentInspectPane();
         CurrentSettingsPane = DeviceSettingsPaneFactory.Create(this, i_Device, m_DialogService, m_FilePickerService, m_PlaybackService);
         PaneMode = DevicesPaneMode.Settings;
         IsPaneOpen = true;
     }
 
-    // Opens the inspect pane for a selected device
+    // Opens the inspect pane for a selected device. Creates a fresh inspect VM via the factory; disposes any prior one so device-event subscriptions and DispatcherTimers in bespoke subclasses don't leak across opens
     private void OnOpenInspect(DeviceCardViewModel? i_Device)
     {
         if (i_Device == null) { return; }
 
         SelectedDevice = i_Device;
         CurrentSettingsPane = null;
+        DisposeCurrentInspectPane();
+        CurrentInspectPane = DeviceInspectPaneFactory.Create(i_Device);
         PaneMode = DevicesPaneMode.Inspect;
         IsPaneOpen = true;
+    }
+
+    // Disposes and clears the active inspect pane VM. Called when opening a new pane (settings or inspect) and when the pane closes, so subscriptions/timers don't outlive the pane
+    private void DisposeCurrentInspectPane()
+    {
+        m_CurrentInspectPane?.Dispose();
+        CurrentInspectPane = null;
     }
 
     // Saves all device configuration changes to devices.json
@@ -251,6 +263,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         PaneMode = DevicesPaneMode.None;
         SelectedDevice = null;
         CurrentSettingsPane = null;
+        DisposeCurrentInspectPane();
     }
 
     // Requests pane close with confirmation if there are unsaved changes. Returns true if the pane can be closed.
@@ -273,6 +286,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     public void ClosePane()
     {
         CurrentSettingsPane = null;
+        DisposeCurrentInspectPane();
         IsPaneOpen = false;
         PaneMode = DevicesPaneMode.None;
         SelectedDevice = null;

@@ -12,6 +12,8 @@
             <converters:BoolToConnectTextConverter x:Key="BoolToConnectTextConverter" />
             <converters:ConnectionKindToVisibilityConverter x:Key="ConnectionKindToVisibilityConverter" />
             <converters:DeviceStatusToBrushConverter x:Key="DeviceStatusToBrushConverter" />
+            <converters:DeviceModeSeverityToBrushConverter x:Key="DeviceModeSeverityToBrushConverter" />
+            <converters:DeviceModeSeverityToVisibilityConverter x:Key="DeviceModeSeverityToVisibilityConverter" />
             <converters:LogLevelToBrushConverter x:Key="LogLevelToBrushConverter" />
             <converters:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter" />
             <converters:RecordingStatusToTextConverter x:Key="RecordingStatusToTextConverter" />

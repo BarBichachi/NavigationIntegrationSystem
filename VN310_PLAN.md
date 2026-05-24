@@ -468,56 +468,92 @@ relevant inputs.
 
 ---
 
-### Phase 6 — Status surfaces (device card badge + inspect page)
+### Phase 6 — Status surfaces (device card badge + inspect view)
+
+**Naming note:** the original plan said "inspect page". The actual NIS
+architecture renders inspect as a **side pane** on `DevicesPage`, not a
+navigated full page. Implementation uses `Vn310InspectView` (mirroring
+`Vn310SettingsView` from Phase 5.5), not `Vn310InspectPage`.
 
 **Goal:** User can see at a glance whether VN310 is `TRACKING` /
 `ALIGNING` / `GNSS LOSS` / `NOT TRACKING`, and can drill into a per-INS
-inspect page showing all decoded telemetry + status flags.
+inspect view showing all decoded telemetry + status flags.
 
-**Steps:**
+**Steps as implemented:**
 
-1. Device card badge (small UI addition to existing
-   `DeviceCardViewModel` and its XAML):
-   - Add a property `string? ModeText` and `Brush? ModeBrush` to the card VM
-     (or a more typed `DeviceModeIndicator` value object).
-   - VN310 device card subscribes to `Vn310InsDevice.TelemetryUpdated` and
-     updates these props from `LatestTelemetry.InsStatus.Mode`.
-   - Card XAML: tiny rounded chip with `ModeText`, fill = `ModeBrush`.
-     Color mapping:
-     - Tracking → green
-     - Aligning → yellow
-     - GnssLoss → orange
-     - NotTracking → red
-     - No data yet → gray "—"
-   - Generic enough that other INS's can populate the same chip later (TMAPS
-     `AlignmentState`, etc.).
+1. **Mode badge plumbing** (Core + UI):
+   - `Core/Devices/DeviceModeSeverity.cs` — enum
+     `Unknown / Good / Warning / Caution / Bad`.
+   - `Core/Devices/DeviceModeSnapshot.cs` — immutable `{Label, Severity}`.
+   - `IInsDevice` gains `DeviceModeSnapshot? CurrentMode` + `event ModeChanged`.
+     Default impl on `InsDeviceBase` returns null + never raises;
+     `Vn310InsDevice` overrides + raises from
+     `OnServiceTelemetryUpdated` and `OnServiceStalled` (also clears on
+     `OnDisconnectAsync`).
+   - `UI/Converters/DeviceModeSeverityToBrushConverter.cs` (Good=green
+     `16,124,16`, Warning=amber `202,138,4`, Caution=orange `217,119,6`,
+     Bad=red `196,43,28`, Unknown=gray) + `DeviceModeSeverityToVisibilityConverter.cs`
+     (collapse on Unknown).
+   - `UI/Views/Controls/DeviceModeChip.xaml(.cs)` — reusable pill with
+     two DPs (`Label` string, `Severity` int-backed for WinRT-friendliness).
+   - `DeviceCardViewModel` exposes flattened `ModeLabel` / `ModeSeverity`
+     and subscribes to `ModeChanged` via the existing DispatcherQueue
+     marshalling pattern.
+   - `DevicesPage.xaml` device-card data template renders the chip next
+     to the connection Status text.
+2. **Inspect pane refactor** mirroring Phase 5.5 (settings) exactly:
+   - `DeviceInspectPaneViewModelBase` (abstract partial, IDisposable).
+   - `GenericInspectPaneViewModel` — placeholder for TMAPS (wraps
+     existing `InspectFields`).
+   - `Vn310InspectPaneViewModel` — bespoke (see step 4).
+   - `DeviceInspectPaneFactory.Create(DeviceCardViewModel)` switch.
+   - `InspectPaneTemplateSelector` (mirrors `SettingsPaneTemplateSelector`).
+   - `Views/Panes/SubViews/GenericInspectView.xaml` — moved out of the
+     host; `Views/Panes/SubViews/Vn310InspectView.xaml` — bespoke.
+   - `DevicesViewModel` adds `CurrentInspectPane` property + factory
+     dispatch + `DisposeCurrentInspectPane()` (called on open settings,
+     open inspect, close, cleanup).
+3. **Packet stats** on `Vn310TelemetryService`:
+   - `long PacketCount` (Interlocked), `Vn310PacketSourceMode LastSourceMode`,
+     `DateTime[] GetRecentPacketTimestamps()` returning a copy of the
+     1s-window ring (cap 256). Updated in `OnAsyncPacketReceived`.
+   - Forwarded through `Vn310InsDevice.PacketCount` /
+     `.LastSourceMode` / `.GetRecentPacketTimestamps()` so the inspect VM
+     doesn't reach into `m_Service`.
+4. **`Vn310InspectPaneViewModel`** — subscribes to `TelemetryUpdated`,
+   marshals to UI thread, plus a 250ms `DispatcherTimer` to advance
+   "last packet age" and Hz between packets. Sections:
+   - **ASCII-mode banner** — visible iff `HasRates == false` after >=1
+     packet. "Rates not available — sensor is configured for ASCII
+     VNINS. Reconfigure factory output to binary to enable angular
+     rate fields."
+   - **Binary-mode banner** — visible iff `HasRates == true` after >=1
+     packet. "Uncertainty fields not available — current binary
+     subscription is CommonGroup + TimeGroup only. Extend to
+     AttitudeGroup / InsGroup for AttU / PosU / VelU." (Asymmetry is
+     real: ASCII gives uncertainties but no rates; Binary gives rates
+     but no uncertainties.)
+   - **Current telemetry** — UTC, Lat/Lon/Alt, Y/P/R, rates, NED vel,
+     speed, three uncertainties. Cells render `—` when the source mode
+     doesn't carry the field (so 0.0 doesn't read as "exactly zero").
+   - **INS Status** — Mode (text), raw hex, IsGpsFix, IsGpsHeadingIns,
+     IsGpsCompassActive, IsImuError, IsMagnetometerError, IsGnssError.
+   - **Time Status** — raw hex + IsTimeOK / IsDateOK / IsUtcTimeValid +
+     composite Valid. Whole section dashes out in ASCII mode (not in
+     the protocol).
+   - **Packet stats** — total count, rate (Hz, 1s window), last packet
+     age (ms), source mode (Ascii / Binary).
+5. **Status tracker note** — pane-header chip was attempted (chip next
+   to selected device name) but tripped a hard `XamlCompiler` failure
+   when bound via `{x:Bind ViewModel.SelectedDevice.ModeSeverity}` from
+   the root page context (outside any `DataTemplate`); same chip in
+   the card-row DataTemplate works. Card chip ships; pane-header chip
+   deferred.
 
-2. Inspect page foundation:
-   - Create `UI/Views/Inspect/InspectPageBase.xaml` (or interface +
-     conventions) — generic shell with header (device name + status chip)
-     and a `ContentPresenter` slot for INS-specific content.
-   - Create `UI/Views/Inspect/Vn310InspectPage.xaml(.cs)` and
-     `UI/ViewModels/Inspect/Vn310InspectViewModel.cs`:
-     - Subscribes to `Vn310InsDevice.TelemetryUpdated`.
-     - Sections:
-       - **Current telemetry:** all parsed fields, live-updating
-       - **INS Status decoded:** Mode, IsGpsFix, IsGpsHeadingIns,
-         IsGpsCompassActive, IsImuError, IsGnssError, IsMagnetometerError
-       - **Time Status decoded:** IsTimeOK, IsDateOK, IsUtcTimeValid
-       - **Packet stats:** total received count, packet rate (Hz over last
-         second), last packet age (ms), source mode (ASCII vs Binary)
-   - Wire a navigation route: device card → "Inspect" button →
-     `Vn310InspectPage`.
-
-3. The inspect page is the place where ASCII-mode limitations are surfaced
-   visibly ("Rates not available — sensor is configured for ASCII VNINS;
-   change factory config to binary mode to enable rates.").
-
-**Definition of done:**
-- Connect VN310 → device card chip shows the mode and updates as it changes.
-- Click Inspect → page shows all fields live.
-- Disconnect → chip goes gray, inspect page shows last-known values frozen
-  or a clear "disconnected" state.
+**Definition of done — verified against build:**
+- All files compile (`dotnet build` succeeds, only the AnyCPU packaging
+  warning remains which VS configurations don't hit).
+- Hardware verification deferred to Phase 7.
 
 ---
 
@@ -578,7 +614,7 @@ Append updates here as phases complete, so future-you knows where to pick up.
 - [x] Phase 3 — Wire `Vn310InsDevice` to the service (2026-05-20; bad-port path verified via UI → Error status with friendly message; SDK-originated `FileNotFoundException` shielded behind a `SerialPort.GetPortNames()` pre-flight to avoid VS first-chance breaks)
 - [x] Phase 4 — Integration grid candidate (2026-05-20; bad-port path re-verified, column-lifecycle deferred to Phase 7 hardware bring-up)
 - [x] Phase 5 — Connection settings UI + RecommendedHint (2026-05-24; VN310-specific settings pane w/ COM-port dropdown + Refresh + stale-port warning; card UX: border-tint-on-status, error-row icon + red text, "Retry" button text in Error state; fixed UI refresh on background StateChanged via DispatcherQueue, fixed stall-handler not stopping service)
-- [ ] Phase 6 — Status surfaces (badge + inspect page)
+- [x] Phase 6 — Status surfaces (2026-05-24; mode chip on card via `DeviceModeChip` + IInsDevice.CurrentMode/ModeChanged contract; inspect refactored to base+factory+selector mirroring Phase 5.5; `Vn310InspectPaneViewModel` + `Vn310InspectView` with telemetry / INS Status / Time Status / packet stats sections + ASCII-vs-Binary asymmetry banners; packet stats live on `Vn310TelemetryService` so they survive pane open/close. Pane-header chip deferred — root-page `x:Bind` to ModeSeverity tripped XamlCompiler; card chip ships)
 - [ ] Phase 7 — Real hardware bring-up
 
 ---
