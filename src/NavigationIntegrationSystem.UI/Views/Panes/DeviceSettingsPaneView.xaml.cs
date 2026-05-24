@@ -4,11 +4,11 @@ using NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
 namespace NavigationIntegrationSystem.UI.Views.Panes;
 
-// Settings pane view for a selected device
+// Settings pane view for a selected device. Hosts the Apply&Save footer + dirty warning and delegates per-device content to a ContentControl with a DataTemplateSelector
 public sealed partial class DeviceSettingsPaneView : UserControl
 {
     #region Properties
-    public DeviceSettingsPaneViewModel ViewModel => (DeviceSettingsPaneViewModel)DataContext;
+    public DeviceSettingsPaneViewModelBase ViewModel => (DeviceSettingsPaneViewModelBase)DataContext;
     #endregion
 
     #region Constructors
@@ -19,11 +19,11 @@ public sealed partial class DeviceSettingsPaneView : UserControl
     }
     #endregion
 
-    #region Functions
-    // Updates ViewModel with current XamlRoot when DataContext changes
-    private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+    #region Event Handlers
+    // Updates ViewModel with current XamlRoot when DataContext changes so the pane VM can show validation / unsaved-changes dialogs
+    private void OnDataContextChanged(FrameworkElement i_Sender, DataContextChangedEventArgs i_Args)
     {
-        if (args.NewValue is DeviceSettingsPaneViewModel vm) 
+        if (i_Args.NewValue is DeviceSettingsPaneViewModelBase vm)
         {
             vm.SetXamlRoot(XamlRoot);
             Bindings.Update();

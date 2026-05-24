@@ -18,7 +18,7 @@ public sealed partial class Vn310SettingsView : UserControl
     #endregion
 
     #region Properties
-    public DeviceSettingsPaneViewModel ViewModel => (DeviceSettingsPaneViewModel)DataContext;
+    public Vn310SettingsPaneViewModel ViewModel => (Vn310SettingsPaneViewModel)DataContext;
     // Bound by the COM Port ComboBox's ItemsSource. Refreshed on Loaded + DataContext change + manual Refresh-button click
     public ObservableCollection<string> ComPorts => m_ComPorts;
 
@@ -102,7 +102,7 @@ public sealed partial class Vn310SettingsView : UserControl
     // Mirror of RealDeviceSettingsView: x:Bind compiles against ViewModel; when DataContext switches to a different device's VM, force-re-evaluate so the new VM's values render. Re-enumerate ports too because the saved port may differ per-device
     private void OnDataContextChanged(FrameworkElement i_Sender, DataContextChangedEventArgs i_Args)
     {
-        if (i_Args.NewValue is DeviceSettingsPaneViewModel)
+        if (i_Args.NewValue is Vn310SettingsPaneViewModel)
         {
             Bindings.Update();
             RefreshComPorts();

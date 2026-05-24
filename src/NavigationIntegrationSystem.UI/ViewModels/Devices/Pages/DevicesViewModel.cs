@@ -39,7 +39,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     private DeviceCardViewModel? m_SelectedDevice;
     private bool m_IsPaneOpen;
     private DevicesPaneMode m_PaneMode;
-    private DeviceSettingsPaneViewModel? m_CurrentSettingsPane;
+    private DeviceSettingsPaneViewModelBase? m_CurrentSettingsPane;
     private readonly IDialogService m_DialogService;
     private readonly MainViewModel m_MainViewModel;
     #endregion
@@ -48,7 +48,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     public ObservableCollection<DeviceCardViewModel> Devices { get; } = new ObservableCollection<DeviceCardViewModel>();
     public DeviceCardViewModel? SelectedDevice { get => m_SelectedDevice; set => SetProperty(ref m_SelectedDevice, value);}
     public DevicesPaneMode PaneMode { get => m_PaneMode; set => SetProperty(ref m_PaneMode, value); }
-    public DeviceSettingsPaneViewModel? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
+    public DeviceSettingsPaneViewModelBase? CurrentSettingsPane { get => m_CurrentSettingsPane; set => SetProperty(ref m_CurrentSettingsPane, value); }
     // Exposes the current devices.json path for footer binding
     public string DevicesConfigPath => AppPaths.DevicesConfigPath;
     public bool IsPaneOpen
@@ -130,7 +130,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         if (i_Device == null) { return; }
 
         SelectedDevice = i_Device;
-        CurrentSettingsPane = new DeviceSettingsPaneViewModel(this, i_Device, m_FilePickerService, m_PlaybackService, m_DialogService);
+        CurrentSettingsPane = DeviceSettingsPaneFactory.Create(this, i_Device, m_DialogService, m_FilePickerService, m_PlaybackService);
         PaneMode = DevicesPaneMode.Settings;
         IsPaneOpen = true;
     }

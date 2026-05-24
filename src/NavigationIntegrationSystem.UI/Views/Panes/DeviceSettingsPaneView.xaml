@@ -4,8 +4,30 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="using:NavigationIntegrationSystem.UI.Views.Panes"
              xmlns:sub="using:NavigationIntegrationSystem.UI.Views.Panes.SubViews"
+             xmlns:vm="using:NavigationIntegrationSystem.UI.ViewModels.Devices.Panes"
              mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <!-- One DataTemplate per concrete pane VM subclass. The ContentControl + SettingsPaneTemplateSelector pair instantiates exactly the right sub-view for the active device's VM; only one is ever in the visual tree at a time -->
+        <DataTemplate x:Key="RealDeviceTemplate" x:DataType="vm:RealDeviceSettingsPaneViewModel">
+            <sub:RealDeviceSettingsView />
+        </DataTemplate>
+
+        <DataTemplate x:Key="Vn310Template" x:DataType="vm:Vn310SettingsPaneViewModel">
+            <sub:Vn310SettingsView />
+        </DataTemplate>
+
+        <DataTemplate x:Key="PlaybackTemplate" x:DataType="vm:PlaybackSettingsPaneViewModel">
+            <sub:PlaybackSettingsView />
+        </DataTemplate>
+
+        <local:SettingsPaneTemplateSelector x:Key="SettingsPaneSelector"
+                                            RealDeviceTemplate="{StaticResource RealDeviceTemplate}"
+                                            Vn310Template="{StaticResource Vn310Template}"
+                                            PlaybackTemplate="{StaticResource PlaybackTemplate}" />
+    </UserControl.Resources>
 
     <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
         <Grid>
@@ -14,41 +36,37 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" x:Name="RootPanel" HorizontalAlignment="Stretch" Spacing="14">
+            <StackPanel Grid.Row="0" HorizontalAlignment="Stretch" Spacing="14">
 
-            <TextBlock FontSize="18" Text="Device Settings" />
+                <TextBlock FontSize="18" Text="Device Settings" />
 
-            <!-- Generic real-device settings (TMAPS, etc.) -->
-            <sub:RealDeviceSettingsView DataContext="{x:Bind ViewModel, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsGenericRealDevice, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                <!-- Per-device pane: the selector picks Vn310Template / PlaybackTemplate / RealDeviceTemplate based on the runtime VM subclass -->
+                <ContentControl Content="{x:Bind ViewModel, Mode=OneWay}"
+                                ContentTemplateSelector="{StaticResource SettingsPaneSelector}"
+                                HorizontalContentAlignment="Stretch"
+                                HorizontalAlignment="Stretch" />
 
-            <!-- VN310-specific settings (serial-only, COM-port dropdown) -->
-            <sub:Vn310SettingsView DataContext="{x:Bind ViewModel, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsVn310Device, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-            <!-- Playback Settings -->
-            <sub:PlaybackSettingsView DataContext="{x:Bind ViewModel, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsPlaybackDevice, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-        </StackPanel>
-
-            <!--  Pane footer: settings apply/save only when Settings is visible  -->
-        <Grid Grid.Row="1" VerticalAlignment="Bottom">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <!--  Inline warning when settings changed but not saved  -->
-            <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,8,0,0" Orientation="Horizontal" Spacing="8"
-                        Visibility="{x:Bind ViewModel.HasUnsavedChanges, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                <FontIcon Margin="0,1,0,0" Glyph="&#xE7BA;" />
-                <TextBlock Foreground="{ThemeResource SystemFillColorCautionBrush}" Text="Settings were changed but not saved" />
             </StackPanel>
 
-            <Button Grid.Row="1" Grid.Column="1" Command="{x:Bind ViewModel.ApplyCommand}" Content="Apply &amp; Save" Style="{ThemeResource AccentButtonStyle}"/>
-        </Grid>
+            <!--  Pane footer: dirty warning + Apply&Save. Bound to the base VM so it's identical across every device -->
+            <Grid Grid.Row="1" VerticalAlignment="Bottom">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,8,0,0" Orientation="Horizontal" Spacing="8"
+                            Visibility="{x:Bind ViewModel.HasUnsavedChanges, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <FontIcon Margin="0,1,0,0" Glyph="&#xE7BA;" />
+                    <TextBlock Foreground="{ThemeResource SystemFillColorCautionBrush}" Text="Settings were changed but not saved" />
+                </StackPanel>
+
+                <Button Grid.Row="1" Grid.Column="1" Command="{x:Bind ViewModel.ApplyCommand}" Content="Apply &amp; Save" Style="{ThemeResource AccentButtonStyle}"/>
+            </Grid>
         </Grid>
     </ScrollViewer>
 </UserControl>

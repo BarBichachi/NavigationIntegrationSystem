@@ -7,7 +7,7 @@ namespace NavigationIntegrationSystem.UI.Views.Panes.SubViews;
 public sealed partial class PlaybackSettingsView : UserControl
 {
     #region Properties
-    public DeviceSettingsPaneViewModel ViewModel => (DeviceSettingsPaneViewModel)DataContext;
+    public PlaybackSettingsPaneViewModel ViewModel => (PlaybackSettingsPaneViewModel)DataContext;
     #endregion
 
     #region Constructors
@@ -23,7 +23,7 @@ public sealed partial class PlaybackSettingsView : UserControl
     // Guard against null / wrong type: calling Bindings.Update on a null DataContext causes the codegen's TwoWay updaters to fire with stale UI state and crash (e.g. ComboBox SelectedItem briefly null -> cast to enum throws NRE).
     private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
-        if (args.NewValue is DeviceSettingsPaneViewModel)
+        if (args.NewValue is PlaybackSettingsPaneViewModel)
         {
             Bindings.Update();
         }
