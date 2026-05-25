@@ -127,7 +127,49 @@ list the NIS file here so the merge can prefer the parent's version.
 Things NIS does that the parent's existing code doesn't — confirm the parent
 team is OK with each before merging.
 
-- (none yet — will accumulate)
+### Global unhandled-exception logging (2026-05-25, Phase 7)
+- `App.xaml.cs` wires three handlers: `AppDomain.CurrentDomain.UnhandledException`,
+  `Application.UnhandledException` (WinUI 3), `TaskScheduler.UnobservedTaskException`.
+- Each handler writes the exception (incl. stack trace) to the daily log via
+  `ILogService.Error` before the process is allowed to terminate.
+- Handlers do NOT suppress termination (`e.Handled` left at default `false`) —
+  logging only, no behavior change beyond visibility.
+- **Motivation:** vendored VectorNav SDK throws on its own background thread
+  when the VN310 loses power while connected (see section 7); without these
+  handlers, the process dies with zero log evidence. The handlers are not
+  VN-specific — they capture any unhandled exception across the app.
+- **On merge:** if the parent already wires global handlers, the two
+  implementations need to be reconciled (probably keep one set, prefer the
+  parent's). If the parent has none, NIS's can stay as-is.
+
+## 7. Vendor SDK defects (worked around, not fixed at source)
+
+Things the vendored VectorNav SDK does that we can't fix without forking it.
+Documented here so the parent-solution merge can decide whether to fork +
+patch or accept the limitation.
+
+### VectorNav SDK throws on serial-notifications thread when VN310 loses power
+- **Where:** `VectorNavLib/src/Communication/SerialPort.cs:290` — inside
+  `HandleSerialPortNotifications`, the SDK's own background thread (named
+  `VN.SerialPort (COMx)`).
+- **Trigger:** sensor loses power while the COM port stays present (e.g. USB-to-
+  serial bridge stays alive because the FTDI/CP210x chip is powered from USB,
+  but the VN310 itself is unpowered). Win32 `ReadFile` returns errors; the
+  SDK's loop exits with `_continueHandlingSerialPortEvents` still true and
+  throws `new Exception()` unconditionally.
+- **Impact:** unhandled exception on a thread NIS doesn't own → .NET 8
+  terminates the process. We cannot catch it from our code.
+- **Current mitigation:** none functional — the global exception handler logs
+  the throw before death (see section 5) so we have post-mortem evidence.
+  AutoReconnect cannot help because the process is already gone.
+- **True fix (deferred):** rebuild the SDK from the source at
+  `Navigation-LEAN/VectorNav/VN310/V5.0/VectorNavLib/`, replace the throw with
+  an event raise (`ConnectionLost`), subscribe in `Vn310TelemetryService` and
+  hook to existing `Stalled` + AutoReconnect machinery. Decision deferred to
+  senior-engineer review — owning a forked SDK is a meaningful dependency
+  change.
+- **On merge:** if the parent solution patches or replaces this SDK, drop the
+  workaround note from this file.
 
 ---
 

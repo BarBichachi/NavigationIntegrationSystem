@@ -71,7 +71,8 @@ public sealed partial class DeviceSettingsDraftViewModel : ViewModelBase
     // Serial
     public SerialLineKind SerialLineKind { get => m_SerialLineKind; set => SetProperty(ref m_SerialLineKind, value); }
     public string SerialComPort { get => m_SerialComPort; set => SetProperty(ref m_SerialComPort, value); }
-    public int SerialBaudRate { get => m_SerialBaudRate; set => SetProperty(ref m_SerialBaudRate, value); }
+    // Setter syncs SerialBaudRateText so the int (ComboBox path) and the text (TextBox path / dirty check) stay in lockstep no matter which control writes
+    public int SerialBaudRate { get => m_SerialBaudRate; set { if (SetProperty(ref m_SerialBaudRate, value)) { SerialBaudRateText = value.ToString(); } } }
     public string SerialBaudRateText { get => m_SerialBaudRateText; set { if (SetProperty(ref m_SerialBaudRateText, value)) { if (int.TryParse(value, out int rate)) { SerialBaudRate = rate; } } } }
 
     // Playback

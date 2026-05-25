@@ -74,13 +74,14 @@
                                    Foreground="{ThemeResource SystemFillColorCautionBrush}" />
                     </StackPanel>
 
-                    <!-- Baud Rate: free text; hint below the label -->
+                    <!-- Baud Rate: dropdown of standard serial rates; hint below the label. If a saved value isn't in the list, SelectedItem renders empty (parallels how COM Port surfaces stale-port state) -->
                     <StackPanel Grid.Row="3" Grid.Column="0">
                         <TextBlock Text="Baud Rate" VerticalAlignment="Center" Opacity="0.7"/>
                         <controls:RecommendedHint Text="{x:Bind ViewModel.BaudRateHintText, Mode=OneWay}" />
                     </StackPanel>
-                    <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" VerticalAlignment="Top"
-                             Text="{x:Bind ViewModel.Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <ComboBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" VerticalAlignment="Top" HorizontalAlignment="Stretch"
+                              ItemsSource="{x:Bind ViewModel.SerialBaudRates, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.Draft.SerialBaudRate, Mode=TwoWay}" />
                 </Grid>
             </StackPanel>
         </Border>

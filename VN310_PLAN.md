@@ -615,7 +615,14 @@ Append updates here as phases complete, so future-you knows where to pick up.
 - [x] Phase 4 — Integration grid candidate (2026-05-20; bad-port path re-verified, column-lifecycle deferred to Phase 7 hardware bring-up)
 - [x] Phase 5 — Connection settings UI + RecommendedHint (2026-05-24; VN310-specific settings pane w/ COM-port dropdown + Refresh + stale-port warning; card UX: border-tint-on-status, error-row icon + red text, "Retry" button text in Error state; fixed UI refresh on background StateChanged via DispatcherQueue, fixed stall-handler not stopping service)
 - [x] Phase 6 — Status surfaces (2026-05-24; mode chip on card via `DeviceModeChip` + IInsDevice.CurrentMode/ModeChanged contract; inspect refactored to base+factory+selector mirroring Phase 5.5; `Vn310InspectPaneViewModel` + `Vn310InspectView` with telemetry / INS Status / Time Status / packet stats sections + ASCII-vs-Binary asymmetry banners; packet stats live on `Vn310TelemetryService` so they survive pane open/close. Pane-header chip deferred — root-page `x:Bind` to ModeSeverity tripped XamlCompiler; card chip ships)
-- [ ] Phase 7 — Real hardware bring-up
+- [~] Phase 7 — Real hardware bring-up (2026-05-25, partial)
+  - **Verified:** packets received & recognized (ASCII VNINS at 4–5 Hz); YPR plausible immediately via AHRS; InsStatus bit decoder confirmed 1:1 with reference at `Navigation-LEAN/.../VN310_Statusses.cs`; after sky view + dual antennas + several-minute wait, unit reached `Tracking` and all INS-derived fields populated correctly; integration grid rows update at sensor rate; recording captures VN310 selections (decoded round-trip via RecordDecoderPro); USB unplug → clean disconnect via SDK's `userUnpluggedUsbCable` path → AutoReconnect resumes when re-plugged.
+  - **Known issues / deferred:**
+    - **Output rate stuck at 4–5 Hz** across three independent softwares — likely sensor's `AsyncDataOutputFrequency` reconfigured low at some point. Confirmed not a NIS bug. Deferred to senior-engineer conversation; fix via VectorNav Sensor Explorer (Register 7) outside of NIS.
+    - **Power-loss while connected crashes the app** — VectorNav SDK throws on its own background thread (`SerialPort.cs:290`). Cannot be caught from NIS code (thread we don't own, .NET 8 terminates on unhandled). See `MIGRATION_NOTES.md` section 7. Mitigation shipped: global `AppDomain`/`Application`/`TaskScheduler` unhandled-exception handlers in `App.xaml.cs` log full stack + thread name (`VN.SerialPort (COMx)`) before death, so post-mortem is possible. True fix (SDK fork) deferred.
+    - **TimeStatus validation** in ASCII mode — N/A (TimeStatus byte exists only in Binary subscription). UTC time itself populates fine via the VNINS time field + leap-second offset.
+  - **Side improvements landed:**
+    - Baud Rate input upgraded from free-text TextBox to ComboBox (general industry rates 300…921600) in both `Vn310SettingsView` and `RealDeviceSettingsView`. `SerialBaudRate` setter now syncs `SerialBaudRateText` so dirty-detection stays accurate whichever control writes.
 
 ---
 

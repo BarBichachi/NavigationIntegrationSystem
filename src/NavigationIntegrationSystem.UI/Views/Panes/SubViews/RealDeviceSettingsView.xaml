@@ -113,7 +113,9 @@
                     <TextBox Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.Draft.SerialComPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                     <TextBlock Grid.Row="2" Text="Baud Rate" VerticalAlignment="Center" Opacity="0.7"/>
-                    <TextBox Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.Draft.SerialBaudRateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch"
+                              ItemsSource="{x:Bind ViewModel.SerialBaudRates, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.Draft.SerialBaudRate, Mode=TwoWay}" />
                 </Grid>
             </StackPanel>
         </Border>

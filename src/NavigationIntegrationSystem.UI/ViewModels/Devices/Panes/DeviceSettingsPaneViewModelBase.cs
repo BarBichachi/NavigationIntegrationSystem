@@ -24,6 +24,8 @@ public abstract partial class DeviceSettingsPaneViewModelBase : ViewModelBase
     // ItemsSource references MUST be stable across VM instances. Each new VM was previously creating a fresh ObservableCollection; when the settings pane re-opened with a new VM, ComboBox saw a different collection reference, cleared its SelectedItem mid-rebuild, and the TwoWay binding's generated cast `(SerialLineKind)null` threw NullReferenceException. Sharing one immutable list per enum avoids the clear
     private static readonly IReadOnlyList<DeviceConnectionKind> s_ConnectionKinds = (DeviceConnectionKind[])Enum.GetValues(typeof(DeviceConnectionKind));
     private static readonly IReadOnlyList<SerialLineKind> s_SerialLineKinds = (SerialLineKind[])Enum.GetValues(typeof(SerialLineKind));
+    // Standard RS-232/USB-serial rates. Doubling series from 300 baud up through 921600. Omits low-traffic legacy values (50/75/110/134/150/200) and non-doubling oddballs (14400/28800/76800/128000) that almost never appear in modern device ICDs
+    private static readonly IReadOnlyList<int> s_SerialBaudRates = new[] { 300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 };
     #endregion
 
     #region Properties
@@ -31,6 +33,7 @@ public abstract partial class DeviceSettingsPaneViewModelBase : ViewModelBase
     public DeviceSettingsDraftViewModel Draft { get; }
     public IReadOnlyList<DeviceConnectionKind> ConnectionKinds => s_ConnectionKinds;
     public IReadOnlyList<SerialLineKind> SerialLineKinds => s_SerialLineKinds;
+    public IReadOnlyList<int> SerialBaudRates => s_SerialBaudRates;
     public bool HasUnsavedChanges
     {
         get => m_HasUnsavedChanges;
