@@ -1,8 +1,6 @@
 ﻿using Microsoft.UI.Dispatching;
 using NavigationIntegrationSystem.Core.Enums;
 using NavigationIntegrationSystem.Core.Integration;
-using NavigationIntegrationSystem.Core.Playback;
-using NavigationIntegrationSystem.Devices.Implementations.Vn310;
 using NavigationIntegrationSystem.UI.ViewModels.Base;
 using NavigationIntegrationSystem.UI.ViewModels.Devices;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Cards;
@@ -23,8 +21,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
 {
     #region Private Fields
     private readonly DevicesViewModel m_DevicesViewModel;
-    private readonly IPlaybackService m_PlaybackService;
-    private readonly Random m_Rng = new();
+    private readonly IReadOnlyDictionary<DeviceType, IIntegrationCandidateFactory> m_FactoriesByType;
     private readonly Dictionary<DeviceType, bool> m_DeviceVisibility = new();
     private DispatcherQueueTimer? m_Timer;
     #endregion
@@ -35,10 +32,11 @@ public sealed partial class IntegrationViewModel : ViewModelBase
     #endregion
 
     #region Constructors
-    public IntegrationViewModel(DevicesViewModel i_DevicesViewModel, IPlaybackService i_PlaybackService)
+    public IntegrationViewModel(DevicesViewModel i_DevicesViewModel, IEnumerable<IIntegrationCandidateFactory> i_CandidateFactories)
     {
         m_DevicesViewModel = i_DevicesViewModel;
-        m_PlaybackService = i_PlaybackService;
+        // Dictionary keyed by device type so the row-rebuild loop is O(1) per device. Duplicate registrations would be a DI misconfiguration -- let ToDictionary throw so it surfaces at startup, not silently later
+        m_FactoriesByType = i_CandidateFactories.ToDictionary(f => f.Type);
 
         InitializeIntegrationRows();
         HookDevices();
@@ -127,30 +125,29 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         }
     }
 
-    // Logic to calculate the magnitude of the selected velocity components
+    // Logic to calculate the magnitude of the selected velocity components. Returns "no value" (clears the calculated row) when any of the three components lacks a selected source -- treating a missing source as zero would let V-Total display a misleading numeric (e.g. 15 m/s) when only one component is actually known. Uses the polymorphic GetSnapshotValue contract (same call the 100Hz recording loop uses) so every candidate type contributes uniformly; adding a new candidate type requires only overriding GetSnapshotValue, not touching this method
     private void UpdateCalculatedRow(IntegrationFieldRowViewModel i_TotalRow)
     {
-        var vnRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityNorth);
-        var veRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityEast);
-        var vdRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityDown);
+        IntegrationFieldRowViewModel? vnRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityNorth);
+        IntegrationFieldRowViewModel? veRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityEast);
+        IntegrationFieldRowViewModel? vdRow = Rows.FirstOrDefault(r => r.FieldName == IntegrationFieldNames.VelocityDown);
 
-        if (vnRow == null || veRow == null || vdRow == null) return;
+        if (vnRow == null || veRow == null || vdRow == null) { i_TotalRow.ClearCalculatedValue(); return; }
 
-        // Helper to get numeric value from a row's selected source
-        Func<IntegrationFieldRowViewModel, double> getVal = (r) =>
+        // Null result means the row has no selected visible source (all device toggles off, or no devices connected for this row). The magnitude isn't meaningful unless every component has a real source
+        Func<IntegrationFieldRowViewModel, double?> tryGetVal = (r) =>
         {
-            var sel = r.VisibleSources.FirstOrDefault(s => s.IsSelected);
-            if (sel is NumericSourceCandidateViewModel n) return n.Value;
-            if (sel is ManualSourceCandidateViewModel m) return m.Value;
-            return 0;
+            IntegrationSourceCandidateViewModel? sel = r.VisibleSources.FirstOrDefault(s => s.IsSelected);
+            return sel?.GetSnapshotValue();
         };
 
-        double vn = getVal(vnRow);
-        double ve = getVal(veRow);
-        double vd = getVal(vdRow);
+        double? vn = tryGetVal(vnRow);
+        double? ve = tryGetVal(veRow);
+        double? vd = tryGetVal(vdRow);
 
-        double total = Math.Sqrt(vn * vn + ve * ve + vd * vd);
+        if (vn == null || ve == null || vd == null) { i_TotalRow.ClearCalculatedValue(); return; }
 
+        double total = Math.Sqrt(vn.Value * vn.Value + ve.Value * ve.Value + vd.Value * vd.Value);
         i_TotalRow.UpdateCalculatedValue(total);
     }
 
@@ -200,34 +197,10 @@ public sealed partial class IntegrationViewModel : ViewModelBase
 
             foreach (DeviceCardViewModel device in i_Connected)
             {
-                if (device.Type == DeviceType.Manual)
-                {
-                    row.Sources.Add(new ManualSourceCandidateViewModel(device.DisplayName));
-                    continue;
-                }
-
-                if (device.Type == DeviceType.Playback)
-                {
-                    if (IntegrationFieldKeyMap.FieldToCsvKey.TryGetValue(row.FieldName, out string? csvKey))
-                    {
-                        row.Sources.Add(new PlaybackSourceCandidateViewModel(device.Device, device.DisplayName, csvKey, m_PlaybackService));
-                    }
-                    // Calculated rows (Velocity Total) have no key — silently skipped
-                    continue;
-                }
-
-                if (device.Type == DeviceType.VN310)
-                {
-                    if (IntegrationFieldKeyMap.FieldToVn310Key.TryGetValue(row.FieldName, out string? vnKey))
-                    {
-                        row.Sources.Add(new Vn310SourceCandidateViewModel((Vn310InsDevice)device.Device, device.DisplayName, vnKey));
-                    }
-                    // Rows without a VN310 mapping (Course, Velocity Total) — silently skipped
-                    continue;
-                }
-
-                double initial = CreateInitialValue(row.FieldName, row.Unit, device.Type);
-                row.Sources.Add(new NumericSourceCandidateViewModel(device.Device, device.DisplayName, initial, m_Rng));
+                // Per-device-type factory is the single point of knowledge for how this device contributes to the integration grid. A factory returning null means the device cannot source this particular field (e.g. a device that doesn't expose Course; calculated rows like Velocity Total). A missing factory means the device was registered without a corresponding integration factory -- treated as "no contribution" rather than a hard failure so partially-implemented devices don't break the grid
+                if (!m_FactoriesByType.TryGetValue(device.Type, out IIntegrationCandidateFactory? factory)) { continue; }
+                IntegrationSourceCandidateViewModel? candidate = factory.Create(device.Device, device.DisplayName, row.FieldName);
+                if (candidate != null) { row.Sources.Add(candidate); }
             }
 
             row.RestoreSelection(previousDeviceType);
@@ -246,7 +219,7 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         return m_DeviceVisibility.TryGetValue(i_Source.DeviceType, out bool isVisible) && isVisible;
     }
 
-    // Attempts to auto-select a newly visible device for rows that are currently "—"
+    // Attempts to auto-select a newly visible device for rows that are currently "-"
     private void TryAutoSelectNewlyVisibleSource(DeviceType i_DeviceType)
     {
         foreach (IntegrationFieldRowViewModel row in Rows)
@@ -298,24 +271,6 @@ public sealed partial class IntegrationViewModel : ViewModelBase
         return 0.05;
     }
 
-    // Creates a dummy initial value per field/device-type so candidates look distinct
-    private double CreateInitialValue(string i_FieldName, string i_Unit, DeviceType i_DeviceType)
-    {
-        double baseValue =
-            i_FieldName switch
-            {
-                IntegrationFieldNames.Yaw => 8.0,
-                IntegrationFieldNames.Latitude => 32.0853,
-                IntegrationFieldNames.Longitude => 34.7818,
-                IntegrationFieldNames.Altitude => 120.5,
-                IntegrationFieldNames.Pitch => 0.2,
-                IntegrationFieldNames.Roll => -0.1,
-                _ => 0.0
-            };
-
-        double deviceOffset = i_DeviceType == DeviceType.VN310 ? 0.0 : 5.0;
-        return baseValue + deviceOffset;
-    }
 
     // Stops the dummy telemetry timer safely
     public void Deinitialize()

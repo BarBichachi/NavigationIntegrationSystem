@@ -34,7 +34,7 @@ public sealed partial class ManualSourceCandidateViewModel : IntegrationSourceCa
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(Text)) { return "—"; }
+            if (string.IsNullOrWhiteSpace(Text)) { return "-"; }
             if (!IsValid) { return "Invalid"; }
             return Text.Trim();
         }

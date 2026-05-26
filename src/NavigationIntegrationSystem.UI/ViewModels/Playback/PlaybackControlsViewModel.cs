@@ -50,7 +50,7 @@ public sealed partial class PlaybackControlsViewModel : ViewModelBase
 
     public string ProgressText => $"{CurrentLineIndex} / {TotalLineCount}";
 
-    // "hh:mm:ss / hh:mm:ss" — content-time elapsed vs total, derived from line index and current playback frequency.
+    // "hh:mm:ss / hh:mm:ss" - content-time elapsed vs total, derived from line index and current playback frequency.
     // Uses the live Frequency value, so a mid-playback frequency change is reflected on the next position tick.
     public string ElapsedTimeText
     {

@@ -8,6 +8,7 @@ using NavigationIntegrationSystem.Devices.Runtime;
 using NavigationIntegrationSystem.UI.Bootstrap;
 using NavigationIntegrationSystem.UI.Services.Logging;
 using NavigationIntegrationSystem.UI.Services.UI.Windowing;
+using NavigationIntegrationSystem.UI.ViewModels.Base;
 
 using System;
 using System.Threading;
@@ -72,6 +73,9 @@ public partial class App : Application
 
         m_MainWindow.Closed += async (s, e) =>
         {
+            // Silence ALL VM PropertyChanged notifications before the first await. WinUI begins tearing down the data-bound view tree as soon as the window closes, but ViewModels keep receiving background events (device state/mode changes from disconnect, hosted-service log lines, etc.) and would marshal PropertyChanged to UI; those updates land on dead DependencyObjects and crash with COMException 0x8000FFFF. Pair with UiLogBuffer.BeginShutdown which seals the same window for the log-buffer's ObservableCollection mutations
+            ViewModelBase.SignalAppShutdown();
+            Services.GetRequiredService<UiLogBuffer>().BeginShutdown();
             await m_Host.StopAsync();
             m_Host.Dispose();
         };
@@ -79,7 +83,7 @@ public partial class App : Application
     #endregion
 
     #region Functions
-    // Wires the three .NET exception channels to ILogService so otherwise-silent failures are visible in the daily log. Does NOT prevent crashes -- in .NET 8 an unhandled exception on a background thread terminates the process regardless. Specific known case this addresses: the VectorNav SDK's HandleSerialPortNotifications thread (named "VN.SerialPort (COMx)") throws when the VN310 loses power while connected; without these handlers, the process dies with no log evidence
+    // Wires the three .NET exception channels to ILogService so otherwise-silent failures are visible in the daily log. Does NOT prevent crashes -- in .NET 8 an unhandled exception on a background thread terminates the process regardless. Logging the thread name verbatim lets vendor-owned threads (e.g. a device SDK's read/notify thread) be identified post-mortem without this layer needing to know about them
     private void InstallGlobalExceptionHandlers()
     {
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
@@ -96,17 +100,14 @@ public partial class App : Application
     #endregion
 
     #region Event Handlers
-    // Fires for unhandled exceptions on any non-UI thread (including the VectorNav SDK's serial-notifications thread). Process WILL terminate after this returns -- we only get one shot to log post-mortem evidence. The thread-name hint helps future-us identify SDK-originated crashes immediately. Args type fully qualified because Microsoft.UI.Xaml also exports a UnhandledExceptionEventArgs and the AppDomain delegate expects the System one
+    // Fires for unhandled exceptions on any non-UI thread (including vendor SDK threads). Process WILL terminate after this returns -- we only get one shot to log post-mortem evidence. The thread name is logged verbatim; vendor SDKs typically name their own threads, so the log line itself identifies the origin without this layer needing per-device knowledge. Args type fully qualified because Microsoft.UI.Xaml also exports a UnhandledExceptionEventArgs and the AppDomain delegate expects the System one
     private void OnAppDomainUnhandledException(object i_Sender, System.UnhandledExceptionEventArgs i_Args)
     {
         try
         {
             Exception? ex = i_Args.ExceptionObject as Exception;
             string threadName = Thread.CurrentThread.Name ?? "(unnamed)";
-            string hint = threadName.StartsWith("VN.SerialPort", StringComparison.Ordinal)
-                ? " [VectorNav SDK thread -- likely VN310 power loss or cable fault]"
-                : string.Empty;
-            TryGetLog()?.Error(nameof(App), $"Unhandled exception on thread '{threadName}'. IsTerminating={i_Args.IsTerminating}.{hint}", ex);
+            TryGetLog()?.Error(nameof(App), $"Unhandled exception on thread '{threadName}'. IsTerminating={i_Args.IsTerminating}.", ex);
         }
         catch { /* handler must not throw; process is dying */ }
     }

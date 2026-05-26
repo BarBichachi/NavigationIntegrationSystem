@@ -9,7 +9,7 @@ using System.Globalization;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
-// Bespoke inspect pane for VN310. Subscribes to Vn310InsDevice.TelemetryUpdated (raised from the SDK packet thread) and marshals refreshes to the UI thread. A DispatcherTimer ticks every 250ms to advance the "last packet age" + Hz figures between packets, so the inspect view feels live even when telemetry stops arriving
+// Bespoke inspect pane for VN310. Subscribes to Vn310InsDevice.TelemetryUpdated (raised from the SDK packet thread) and marshals refreshes to the UI thread. A DispatcherTimer ticks every 250ms to advance the "last packet age" + Hz figures between packets, so the inspect view feels live even when telemetry stops arriving. Renders both ASCII and Binary streams independently for dual-stream configurations
 public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewModelBase
 {
     #region Private Fields
@@ -42,9 +42,9 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
     private string m_IsGpsFixText = c_NotAvailable;
     private string m_IsGpsHeadingInsText = c_NotAvailable;
     private string m_IsGpsCompassActiveText = c_NotAvailable;
-    private string m_IsImuErrorText = c_NotAvailable;
-    private string m_IsMagnetometerErrorText = c_NotAvailable;
-    private string m_IsGnssErrorText = c_NotAvailable;
+    private string m_IsImuOkText = c_NotAvailable;
+    private string m_IsMagnetometerOkText = c_NotAvailable;
+    private string m_IsGnssOkText = c_NotAvailable;
 
     private string m_TimeStatusRawText = c_NotAvailable;
     private string m_IsTimeOkText = c_NotAvailable;
@@ -53,18 +53,20 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
     private string m_IsTimeStatusValidText = c_NotAvailable;
 
     private string m_PacketCountText = "0";
-    private string m_PacketRateText = "—";
-    private string m_LastPacketAgeText = "—";
-    private string m_SourceModeText = "—";
+    private string m_AsciiStatsText = c_NotAvailable;
+    private string m_BinaryStatsText = c_NotAvailable;
+    private string m_LastPacketAgeText = c_NotAvailable;
+    private string m_SourceModeText = c_NotAvailable;
 
-    private bool m_IsAsciiMode;
-    private bool m_IsBinaryMode;
+    // Tracks the freshness flags from the most recently applied snapshot. Drives the banner visibility and the per-field "show value vs dash out" logic. Without a snapshot yet, both are false and all banners (other than not-connected) stay hidden
+    private bool m_IsAsciiFresh;
+    private bool m_IsBinaryFresh;
     private bool m_HasAnyPacket;
 
     private bool m_IsNotConnectedBannerVisible;
     private string m_NotConnectedBannerText = string.Empty;
 
-    private const string c_NotAvailable = "—";
+    private const string c_NotAvailable = "-";
     #endregion
 
     #region Properties
@@ -91,9 +93,9 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
     public string IsGpsFixText { get => m_IsGpsFixText; private set => SetProperty(ref m_IsGpsFixText, value); }
     public string IsGpsHeadingInsText { get => m_IsGpsHeadingInsText; private set => SetProperty(ref m_IsGpsHeadingInsText, value); }
     public string IsGpsCompassActiveText { get => m_IsGpsCompassActiveText; private set => SetProperty(ref m_IsGpsCompassActiveText, value); }
-    public string IsImuErrorText { get => m_IsImuErrorText; private set => SetProperty(ref m_IsImuErrorText, value); }
-    public string IsMagnetometerErrorText { get => m_IsMagnetometerErrorText; private set => SetProperty(ref m_IsMagnetometerErrorText, value); }
-    public string IsGnssErrorText { get => m_IsGnssErrorText; private set => SetProperty(ref m_IsGnssErrorText, value); }
+    public string IsImuOkText { get => m_IsImuOkText; private set => SetProperty(ref m_IsImuOkText, value); }
+    public string IsMagnetometerOkText { get => m_IsMagnetometerOkText; private set => SetProperty(ref m_IsMagnetometerOkText, value); }
+    public string IsGnssOkText { get => m_IsGnssOkText; private set => SetProperty(ref m_IsGnssOkText, value); }
 
     public string TimeStatusRawText { get => m_TimeStatusRawText; private set => SetProperty(ref m_TimeStatusRawText, value); }
     public string IsTimeOkText { get => m_IsTimeOkText; private set => SetProperty(ref m_IsTimeOkText, value); }
@@ -102,15 +104,18 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
     public string IsTimeStatusValidText { get => m_IsTimeStatusValidText; private set => SetProperty(ref m_IsTimeStatusValidText, value); }
 
     public string PacketCountText { get => m_PacketCountText; private set => SetProperty(ref m_PacketCountText, value); }
-    public string PacketRateText { get => m_PacketRateText; private set => SetProperty(ref m_PacketRateText, value); }
+    public string AsciiStatsText { get => m_AsciiStatsText; private set => SetProperty(ref m_AsciiStatsText, value); }
+    public string BinaryStatsText { get => m_BinaryStatsText; private set => SetProperty(ref m_BinaryStatsText, value); }
     public string LastPacketAgeText { get => m_LastPacketAgeText; private set => SetProperty(ref m_LastPacketAgeText, value); }
     public string SourceModeText { get => m_SourceModeText; private set => SetProperty(ref m_SourceModeText, value); }
 
-    // ASCII banner is visible when we've received at least one packet and that packet was ASCII -- so the user understands why rates are dashed out
-    public bool IsAsciiBannerVisible { get => m_IsAsciiMode && m_HasAnyPacket; }
-    // Binary banner is visible when we've received at least one binary packet -- explains why uncertainty fields are dashed out (our subscribed binary groups don't include AttitudeGroup/InsGroup)
-    public bool IsBinaryBannerVisible { get => m_IsBinaryMode && m_HasAnyPacket; }
-    // Top-of-view "not connected" banner. Visible whenever the device isn't Connected; text differs based on whether we've ever seen telemetry (so user knows whether they're looking at stale data or no data at all)
+    // Visible when only ASCII has been seen recently (single-stream legacy config or Binary has stalled). Surfaces why rates + TimeStatus show '-'
+    public bool IsAsciiOnlyBannerVisible { get => m_HasAnyPacket && m_IsAsciiFresh && !m_IsBinaryFresh; }
+    // Visible when only Binary has been seen recently. Surfaces why uncertainties show '-'
+    public bool IsBinaryOnlyBannerVisible { get => m_HasAnyPacket && m_IsBinaryFresh && !m_IsAsciiFresh; }
+    // Visible when both streams are flowing -- all fields live, info banner (no warning needed)
+    public bool IsDualStreamBannerVisible { get => m_HasAnyPacket && m_IsAsciiFresh && m_IsBinaryFresh; }
+    // Top-of-view "not connected" banner. Visible whenever the device isn't Connected; text differs based on whether we've ever seen telemetry
     public bool IsNotConnectedBannerVisible { get => m_IsNotConnectedBannerVisible; private set => SetProperty(ref m_IsNotConnectedBannerVisible, value); }
     public string NotConnectedBannerText { get => m_NotConnectedBannerText; private set => SetProperty(ref m_NotConnectedBannerText, value); }
     #endregion
@@ -145,14 +150,15 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
         m_Vn310Device.StateChanged -= OnDeviceStateChanged;
     }
 
-    // Populates all of the per-packet fields from a freshly received telemetry snapshot. Called both from OnTelemetryUpdated (after dispatcher hop) and during the constructor seed
+    // Populates all of the per-packet fields from a freshly received merged telemetry snapshot. Called both from OnTelemetryUpdated (after dispatcher hop) and during the constructor seed. Binary-exclusive fields (rates, TimeStatus) honor IsBinaryFresh; ASCII-exclusive fields (uncertainties) honor IsAsciiFresh -- so all fields can be live simultaneously in dual-stream mode
     private void ApplyTelemetry(Vn310Telemetry i_Telemetry)
     {
         m_HasAnyPacket = true;
-        m_IsBinaryMode = i_Telemetry.HasRates;
-        m_IsAsciiMode = !i_Telemetry.HasRates;
-        OnPropertyChanged(nameof(IsAsciiBannerVisible));
-        OnPropertyChanged(nameof(IsBinaryBannerVisible));
+        m_IsAsciiFresh = i_Telemetry.IsAsciiFresh;
+        m_IsBinaryFresh = i_Telemetry.IsBinaryFresh;
+        OnPropertyChanged(nameof(IsAsciiOnlyBannerVisible));
+        OnPropertyChanged(nameof(IsBinaryOnlyBannerVisible));
+        OnPropertyChanged(nameof(IsDualStreamBannerVisible));
 
         UtcTimeText = i_Telemetry.UtcTime.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         LatText = FormatDouble(i_Telemetry.LatDeg, "F6");
@@ -162,8 +168,8 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
         PitchText = FormatDouble(i_Telemetry.PitchDeg, "F3");
         RollText = FormatDouble(i_Telemetry.RollDeg, "F3");
 
-        // Rates only available in binary mode. In ASCII mode show '—' so the user doesn't read zeros as "rotation rate is exactly zero"
-        if (i_Telemetry.HasRates)
+        // Rates available iff Binary stream is fresh. In ASCII-only mode show '-' so the user doesn't read zeros as "rotation rate is exactly zero"
+        if (i_Telemetry.IsBinaryFresh)
         {
             YawRateText = FormatDouble(i_Telemetry.YawRateDegS, "F3");
             PitchRateText = FormatDouble(i_Telemetry.PitchRateDegS, "F3");
@@ -181,18 +187,18 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
         VelDownText = FormatDouble(i_Telemetry.VelDown, "F3");
         SpeedText = FormatDouble(i_Telemetry.Speed, "F3");
 
-        // Uncertainties only populated in ASCII mode. Binary path has them as 0f because we don't subscribe to AttitudeGroup/InsGroup (Phase 7 may extend this); show '—' for binary mode
-        if (i_Telemetry.HasRates)
-        {
-            AttUncertaintyText = c_NotAvailable;
-            PosUncertaintyText = c_NotAvailable;
-            VelUncertaintyText = c_NotAvailable;
-        }
-        else
+        // Uncertainties available iff ASCII stream is fresh (VNINS carries them; our Binary subscription doesn't include AttitudeGroup/InsGroup uncertainty fields)
+        if (i_Telemetry.IsAsciiFresh)
         {
             AttUncertaintyText = FormatFloat(i_Telemetry.AttUncertainty, "F4");
             PosUncertaintyText = FormatFloat(i_Telemetry.PosUncertainty, "F4");
             VelUncertaintyText = FormatFloat(i_Telemetry.VelUncertainty, "F4");
+        }
+        else
+        {
+            AttUncertaintyText = c_NotAvailable;
+            PosUncertaintyText = c_NotAvailable;
+            VelUncertaintyText = c_NotAvailable;
         }
 
         InsStatusRawText = $"0x{i_Telemetry.InsStatus.RawData:X4}";
@@ -200,12 +206,13 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
         IsGpsFixText = FormatBool(i_Telemetry.InsStatus.IsGpsFix);
         IsGpsHeadingInsText = FormatBool(i_Telemetry.InsStatus.IsGpsHeadingIns);
         IsGpsCompassActiveText = FormatBool(i_Telemetry.InsStatus.IsGpsCompassActive);
-        IsImuErrorText = FormatBool(i_Telemetry.InsStatus.InsErrors.IsImuError);
-        IsMagnetometerErrorText = FormatBool(i_Telemetry.InsStatus.InsErrors.IsMagnetometerError);
-        IsGnssErrorText = FormatBool(i_Telemetry.InsStatus.InsErrors.IsGnssError);
+        // Inverted so "yes" means subsystem is OK and "no" means error -- consistent semantics with the other yes/no rows on this page (yes always good, no always bad)
+        IsImuOkText = FormatBool(!i_Telemetry.InsStatus.InsErrors.IsImuError);
+        IsMagnetometerOkText = FormatBool(!i_Telemetry.InsStatus.InsErrors.IsMagnetometerError);
+        IsGnssOkText = FormatBool(!i_Telemetry.InsStatus.InsErrors.IsGnssError);
 
-        // Time Status only present in binary packets. ASCII VNINS doesn't carry it, so show '—' so the user knows the section isn't applicable
-        if (i_Telemetry.HasRates)
+        // Time Status carried by Binary only -- in ASCII-only mode show '-' so the user knows the section isn't applicable
+        if (i_Telemetry.IsBinaryFresh)
         {
             TimeStatusRawText = $"0x{i_Telemetry.TimeStatus.RawData:X2}";
             IsTimeOkText = FormatBool(i_Telemetry.TimeStatus.IsTimeOK);
@@ -223,35 +230,70 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
         }
     }
 
-    // Updates the packet-stats section. Called on every timer tick AND right after a packet, so the count + Hz move with the data
+    // Updates the packet-stats section. Called on every timer tick AND right after a packet, so per-source rate + count move with the data
     private void RefreshPacketStats()
     {
-        long count = m_Vn310Device.PacketCount;
-        PacketCountText = count.ToString(CultureInfo.InvariantCulture);
+        long totalCount = m_Vn310Device.PacketCount;
+        long asciiCount = m_Vn310Device.AsciiPacketCount;
+        long binaryCount = m_Vn310Device.BinaryPacketCount;
+        PacketCountText = totalCount.ToString(CultureInfo.InvariantCulture);
 
         Vn310PacketSourceMode mode = m_Vn310Device.LastSourceMode;
-        SourceModeText = mode == Vn310PacketSourceMode.Unknown ? c_NotAvailable : mode.ToString();
+        SourceModeText = FormatSourceMode(mode);
 
-        DateTime[] timestamps = m_Vn310Device.GetRecentPacketTimestamps();
-        if (timestamps.Length == 0)
+        DateTime now = DateTime.UtcNow;
+        DateTime[] asciiTs = m_Vn310Device.GetRecentAsciiTimestamps();
+        DateTime[] binaryTs = m_Vn310Device.GetRecentBinaryTimestamps();
+        AsciiStatsText = FormatPerSourceStats(asciiTs, asciiCount, now);
+        BinaryStatsText = FormatPerSourceStats(binaryTs, binaryCount, now);
+
+        DateTime? newest = NewestOf(asciiTs, binaryTs);
+        if (newest == null)
         {
-            PacketRateText = c_NotAvailable;
             LastPacketAgeText = c_NotAvailable;
             return;
         }
-
-        DateTime now = DateTime.UtcNow;
-        DateTime cutoff = now - TimeSpan.FromSeconds(1);
-        int recentCount = 0;
-        for (int i = 0; i < timestamps.Length; i++)
-        {
-            if (timestamps[i] >= cutoff) { recentCount++; }
-        }
-        PacketRateText = $"{recentCount} Hz";
-
-        DateTime newest = timestamps[timestamps.Length - 1];
-        double ageMs = (now - newest).TotalMilliseconds;
+        double ageMs = (now - newest.Value).TotalMilliseconds;
         LastPacketAgeText = $"{ageMs:F0} ms";
+    }
+
+    // Formats a per-source stats line as "X Hz · N pkts". X is the count of timestamps in the 1s rate window
+    private static string FormatPerSourceStats(DateTime[] i_Timestamps, long i_CumulativeCount, DateTime i_Now)
+    {
+        if (i_CumulativeCount == 0) { return c_NotAvailable; }
+        DateTime cutoff = i_Now - TimeSpan.FromSeconds(1);
+        int hz = 0;
+        for (int i = 0; i < i_Timestamps.Length; i++)
+        {
+            if (i_Timestamps[i] >= cutoff) { hz++; }
+        }
+        return $"{hz} Hz · {i_CumulativeCount.ToString(CultureInfo.InvariantCulture)} pkts";
+    }
+
+    // Returns the latest timestamp across the two per-source rings; null if both are empty. Used by "last packet age" so it ticks for whichever source last produced a packet
+    private static DateTime? NewestOf(DateTime[] i_Ascii, DateTime[] i_Binary)
+    {
+        bool hasA = i_Ascii.Length > 0;
+        bool hasB = i_Binary.Length > 0;
+        if (!hasA && !hasB) { return null; }
+        if (hasA && hasB)
+        {
+            DateTime newestA = i_Ascii[i_Ascii.Length - 1];
+            DateTime newestB = i_Binary[i_Binary.Length - 1];
+            return newestA >= newestB ? newestA : newestB;
+        }
+        return hasA ? i_Ascii[i_Ascii.Length - 1] : i_Binary[i_Binary.Length - 1];
+    }
+
+    private static string FormatSourceMode(Vn310PacketSourceMode i_Mode)
+    {
+        return i_Mode switch
+        {
+            Vn310PacketSourceMode.AsciiOnly => "ASCII only",
+            Vn310PacketSourceMode.BinaryOnly => "Binary only",
+            Vn310PacketSourceMode.Both => "ASCII + Binary",
+            _ => c_NotAvailable
+        };
     }
 
     private static string FormatDouble(double i_Value, string i_Format)
@@ -278,8 +320,8 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
         if (connected) { return; }
 
         NotConnectedBannerText = m_HasAnyPacket
-            ? "Device not connected — showing last received values."
-            : "Device not connected — connect to receive telemetry.";
+            ? "Device not connected - showing last received values."
+            : "Device not connected - connect to receive telemetry.";
     }
     #endregion
 
@@ -311,7 +353,7 @@ public sealed partial class Vn310InspectPaneViewModel : DeviceInspectPaneViewMod
         }
     }
 
-    // Already on the UI thread (DispatcherTimer fires there); refresh the stats so "last packet age" creeps up between packets and Hz stays current even if the wire goes quiet
+    // Already on the UI thread (DispatcherTimer fires there); refresh the stats so "last packet age" creeps up between packets and per-source Hz stays current even if one wire goes quiet
     private void OnRefreshTimerTick(object? i_Sender, object i_Args)
     {
         RefreshPacketStats();

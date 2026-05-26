@@ -13,7 +13,7 @@ namespace NavigationIntegrationSystem.Infrastructure.Logging;
 public sealed class FileLogService : ILogService, ILogPaths, IDisposable
 {
     #region Constants
-    // 10k records ≈ ~1MB at typical line lengths — enough headroom for a brief disk hiccup, small enough not to balloon memory under sustained backpressure.
+    // 10k records ≈ ~1MB at typical line lengths - enough headroom for a brief disk hiccup, small enough not to balloon memory under sustained backpressure.
     private const int c_ChannelCapacity = 10_000;
     // Bounded wait when stopping the consumer so a stuck disk can't hang app shutdown forever.
     private const int c_ShutdownDrainTimeoutMs = 2000;
@@ -38,7 +38,7 @@ public sealed class FileLogService : ILogService, ILogPaths, IDisposable
     // Fires synchronously on the calling thread for every log record. Used by the in-memory UI log buffer.
     public event Action<LogRecord>? RecordWritten;
 
-    // Dead-letter event: fires from the consumer task when a file write throws. Subscribers should treat this as a non-fatal observability signal — disk full, permission denied, etc. If unsubscribed, the failure is silently swallowed.
+    // Dead-letter event: fires from the consumer task when a file write throws. Subscribers should treat this as a non-fatal observability signal - disk full, permission denied, etc. If unsubscribed, the failure is silently swallowed.
     public event Action<LogRecord, Exception>? WriteFailed;
     #endregion
 

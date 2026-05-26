@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
-// Common logic for any device settings pane: holds the Draft, takes/restores snapshots, tracks dirty state, validates, and saves. Subclasses add per-device knobs (e.g. file pickers for Playback, recommended-hint accessors for VN310). The pane host (DeviceSettingsPaneView) binds to this base type and a DataTemplate selects the matching View per concrete subclass
+// Common logic for any device settings pane: holds the Draft, takes/restores snapshots, tracks dirty state, validates, and saves. Subclasses add per-device knobs (e.g. file pickers, recommended-hint accessors for real INS devices). The pane host (DeviceSettingsPaneView) binds to this base type and a DataTemplate selects the matching View per concrete subclass
 public abstract partial class DeviceSettingsPaneViewModelBase : ViewModelBase
 {
     #region Static Lookups

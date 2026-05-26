@@ -81,7 +81,7 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
         }
     }
 
-    // Spins up the background snapshot loop. Idempotent — if a loop is already running, returns.
+    // Spins up the background snapshot loop. Idempotent - if a loop is already running, returns.
     private void StartLoop()
     {
         lock (m_Lock)
@@ -203,10 +203,10 @@ public sealed class IntegrationSnapshotService : IHostedService, IDisposable
                 io_Data.StatusValue |= (uint)IntegratedInsOutputStatusFlags.PositionAltValid;
                 break;
 
-            // Euler angle arms. Inner field/flag names keep the "Azimuth" spelling — that's the
+            // Euler angle arms. Inner field/flag names keep the "Azimuth" spelling - that's the
             // parent solution's binary record contract (TO_BE_DELETED-rooted). NIS internally
-            // calls this field "Yaw" because that's what VN310 (and the underlying sensor
-            // convention) emits.
+            // calls this field "Yaw" because that's what modern INS sensors emit and what the
+            // integration grid displays.
             case IntegrationFieldNames.Yaw:
                 io_Data.AzimuthDeviceCode = i_Code;
                 io_Data.AzimuthDeviceId = i_Id;

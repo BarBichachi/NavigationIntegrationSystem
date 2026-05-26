@@ -1,4 +1,4 @@
-# NavigationIntegrationSystem — CLAUDE.md
+# NavigationIntegrationSystem - CLAUDE.md
 
 ## Project Purpose
 
@@ -32,7 +32,7 @@ Core has no references to anything else. Infrastructure and Devices never refere
 |---|---|
 | Platform | .NET 8, WinUI 3, Windows App SDK 1.8 |
 | UI target | `net8.0-windows10.0.19041.0` |
-| MVVM | Manual — `CommunityToolkit.Mvvm` for interfaces only (`IRelayCommand`, `IAsyncRelayCommand`) |
+| MVVM | Manual - `CommunityToolkit.Mvvm` for interfaces only (`IRelayCommand`, `IAsyncRelayCommand`) |
 | DI / Hosting | `Microsoft.Extensions.Hosting` + `Microsoft.Extensions.DependencyInjection` |
 | Logging | `Microsoft.Extensions.Logging` + `FileLogService` |
 | Collections | `CommunityToolkit.WinUI.Collections` |
@@ -46,7 +46,7 @@ Core has no references to anything else. Infrastructure and Devices never refere
 dotnet build NavigationIntegrationSystem.slnx
 ```
 
-Only run this for: new project references, DI registration changes, or complex type restructuring. Skip it for routine property/method edits — the user is running VS and will catch compile errors immediately.
+Only run this for: new project references, DI registration changes, or complex type restructuring. Skip it for routine property/method edits - the user is running VS and will catch compile errors immediately.
 
 ---
 
@@ -65,7 +65,7 @@ Only run this for: new project references, DI registration changes, or complex t
 
 ---
 
-## Class Structure — Strict Region Order
+## Class Structure - Strict Region Order
 
 Every class must use `#region` blocks in this order:
 
@@ -84,8 +84,8 @@ Every class must use `#region` blocks in this order:
 - One-line property syntax: `public string X { get => m_X; set => SetProperty(ref m_X, value); }`
 - Commands are explicit properties under `#region Commands`, typed as `IRelayCommand` or `IAsyncRelayCommand`
 - **Forbidden:** `[ObservableProperty]`, `[RelayCommand]`, or any CommunityToolkit source generators
-- **`partial` is required on every VM** — CsWinRT (the WinUI 3 marshalling source generator) emits partial extensions for any type that crosses the WinRT ABI (e.g. INotifyPropertyChanged set as DataContext, used via x:Bind). Missing `partial` works on JIT today but breaks under trimming / AOT and triggers the WinRT info diagnostic on the affected type.
-- ViewModels contain UI logic only — no device-specific logic, no file I/O
+- **`partial` is required on every VM** - CsWinRT (the WinUI 3 marshalling source generator) emits partial extensions for any type that crosses the WinRT ABI (e.g. INotifyPropertyChanged set as DataContext, used via x:Bind). Missing `partial` works on JIT today but breaks under trimming / AOT and triggers the WinRT info diagnostic on the affected type.
+- ViewModels contain UI logic only - no device-specific logic, no file I/O
 
 ---
 
@@ -94,7 +94,7 @@ Every class must use `#region` blocks in this order:
 - No `var` (except in lambda expressions)
 - No temporary or abbreviated variable names
 - Braces mandatory on all control blocks
-- One-line `//` comment above every function — no XML `<summary>` tags, no comments on properties
+- One-line `//` comment above every function - no XML `<summary>` tags, no comments on properties
 - No trailing period on comment lines
 - Prefer one-liners for simple guards and properties
 - Functions must be short and focused; decompose complex logic into sub-functions
@@ -103,8 +103,8 @@ Every class must use `#region` blocks in this order:
 
 ## Async / Threading
 
-- **Infrastructure / Devices:** always `ConfigureAwait(false)` — no UI context needed
-- **UI / ViewModels:** never `ConfigureAwait` — needs DispatcherQueue context
+- **Infrastructure / Devices:** always `ConfigureAwait(false)` - no UI context needed
+- **UI / ViewModels:** never `ConfigureAwait` - needs DispatcherQueue context
 - UI updates from non-UI code: always marshal via `DispatcherQueue.TryEnqueue()`
 
 ---
@@ -112,7 +112,7 @@ Every class must use `#region` blocks in this order:
 ## XAML Rules
 
 - Prefer single-line elements
-- **Hot Reload rule:** always declare `Grid.RowDefinitions` and `Grid.ColumnDefinitions` explicitly — never inline on the Grid tag
+- **Hot Reload rule:** always declare `Grid.RowDefinitions` and `Grid.ColumnDefinitions` explicitly - never inline on the Grid tag
 - Converters registered globally in `App.xaml`
 - Shared styles preferred over per-page definitions
 - XAML comments are encouraged to explain layout intent
@@ -121,10 +121,15 @@ Every class must use `#region` blocks in this order:
 
 ## Device Registration Pattern (Locked)
 
-- Explicit registration only — no reflection-based auto-discovery
-- Single entry point: `DevicesModuleBootstrapper` (registered before any service requests)
-- UI/Bootstrap calls one method; `HostBuilderFactory` is never modified when adding devices
-- Adding a device: `DeviceType` enum in Core → `InsDevice` impl in Devices → `DeviceModule` in Devices → register in bootstrapper
+- Explicit registration only - no reflection-based auto-discovery
+- Two parallel registration tracks, one per layer:
+  - **Devices layer** (single entry point: `DevicesModuleBootstrapper`, registered before any service requests). The bootstrapper handles `IInsDeviceModule` implementations.
+  - **UI layer** (registered directly in `HostBuilderFactory`). Each device that should appear as an integration grid source ships an `IIntegrationCandidateFactory` implementation. The factory owns any device-specific field-key maps so `IntegrationViewModel` stays device-agnostic.
+- Adding a device:
+  1. `DeviceType` enum value in Core
+  2. `InsDevice` impl + `DeviceModule` in Devices; register module in `DevicesModuleBootstrapper`
+  3. Optional: bespoke `<Device>SettingsPaneViewModel` / `<Device>InspectPaneViewModel` + matching XAML views, wired through the existing factories + template selectors
+  4. `<Device>IntegrationCandidateFactory` in UI; register as `IIntegrationCandidateFactory` in `HostBuilderFactory` so the integration grid picks it up
 
 ---
 
@@ -149,17 +154,25 @@ Every class must use `#region` blocks in this order:
 
 | Device | Type | Status |
 |---|---|---|
-| VN310 | `DeviceType.Vn310` | Impl done, connection not yet wired |
+| VN310 | `DeviceType.Vn310` | Done. Hardware verified (Phase 7). Phase 8 added dual-stream ASCII+Binary support |
 | TMAPS100X | `DeviceType.Tmaps100X` | Impl done, connection not yet wired |
-| Manual | `DeviceType.Manual` | Done — no connection settings |
-| Playback | `DeviceType.Playback` | **In progress** — next major feature |
+| Manual | `DeviceType.Manual` | Done - no connection settings |
+| Playback | `DeviceType.Playback` | **In progress** - next major feature |
 
 ---
 
 ## Integration Parameters
 
-Grid rows (in order): Azimuth, Elevation, Latitude, Longitude, Altitude, Pitch, Roll, Speed.
-Each row: parameter name | integrated output | one column per connected device | manual input (RadioButton + TextBox).
+Canonical row vocabulary lives in `Core/Integration/IntegrationFieldNames.cs`. Grid rows (in order):
+
+- Position: `Latitude`, `Longitude`, `Altitude`
+- Euler angles: `Yaw`, `Pitch`, `Roll` (Yaw on the wire is VN's -180..+180; wrapped to 0..360 for display)
+- Euler rates: `YawRate`, `PitchRate`, `RollRate`
+- NED velocity components: `VelocityNorth`, `VelocityEast`, `VelocityDown`
+- Calculated: `VelocityTotal` (sqrt of squared components; clears to "-" when any component lacks a selected source)
+- Misc: `Course`
+
+Each row: parameter name | integrated output | one column per connected device | per-device candidate (typically a RadioButton; Manual is a TextBox).
 
 ---
 
@@ -179,7 +192,7 @@ File: `.dat`, compatible with RecordDecoderPro. Record layout:
 - CSV playback engine: streaming `StreamReader`, timing engine (delta between timestamps for 1x speed), state machine (Play/Pause/Stop/Seek), data dispatcher
 - `PlaybackInsDevice` implementation inheriting `InsDeviceBase`
 - Playback settings pane: file picker, export template button, loop toggle
-- Global playback tray at bottom of `MainWindow`: play/pause, stop, seeker slider — visible only when Playback device is Connected
+- Global playback tray at bottom of `MainWindow`: play/pause, stop, seeker slider - visible only when Playback device is Connected
 - Column injection into `IntegrationViewModel` when Playback device connects
 - Then: real device telemetry (replace `Tick()` dummy data with actual parsing)
 
@@ -187,4 +200,4 @@ File: `.dat`, compatible with RecordDecoderPro. Record layout:
 
 ## Files Staged for Deletion
 
-`src/NavigationIntegrationSystem.Infrastructure/TO_BE_DELETED/` — legacy files from the main solution, kept temporarily as reference. Do not modify these.
+`src/NavigationIntegrationSystem.Infrastructure/TO_BE_DELETED/` - legacy files from the main solution, kept temporarily as reference. Do not modify these.

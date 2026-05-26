@@ -59,7 +59,7 @@ public sealed partial class PlaybackSourceCandidateViewModel : IntegrationSource
     #endregion
 
     #region Event Handlers
-    // Background callback from the playback service. No PropertyChanged here — UI binding would throw cross-thread.
+    // Background callback from the playback service. No PropertyChanged here - UI binding would throw cross-thread.
     private void OnPacketDispatched(object? sender, PlaybackPacket e)
     {
         if (e.Values.TryGetValue(m_CsvKey, out double value))

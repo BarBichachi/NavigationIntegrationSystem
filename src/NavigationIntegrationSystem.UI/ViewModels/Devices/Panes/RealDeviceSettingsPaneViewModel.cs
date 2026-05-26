@@ -4,7 +4,7 @@ using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
 
 namespace NavigationIntegrationSystem.UI.ViewModels.Devices.Panes;
 
-// Settings pane for hardware-backed devices that use the generic Connection-kind selector + UDP/TCP/Serial subsections (TMAPS today). Future devices that need bespoke fields should create their own subclass instead of bloating this one
+// Settings pane for hardware-backed devices that use the generic Connection-kind selector + UDP/TCP/Serial subsections. Default for any real device that doesn't ship its own bespoke subclass. Future devices that need bespoke fields should create their own subclass instead of bloating this one
 public sealed partial class RealDeviceSettingsPaneViewModel : DeviceSettingsPaneViewModelBase
 {
     #region Constructors

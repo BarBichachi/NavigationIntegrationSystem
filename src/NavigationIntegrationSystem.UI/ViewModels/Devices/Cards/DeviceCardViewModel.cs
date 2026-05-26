@@ -21,7 +21,7 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
     private readonly IInsDevice m_Device;
     private readonly Action<DeviceCardViewModel> m_OpenSettings;
     private readonly Action<DeviceCardViewModel> m_OpenInspect;
-    // Captured at construction (which runs on the UI thread). Used to marshal StateChanged property notifications back to UI when the underlying device fires the event from a background thread (e.g. VN310's watchdog timer callback after 2s of telemetry silence)
+    // Captured at construction (which runs on the UI thread). Used to marshal StateChanged property notifications back to UI when the underlying device fires the event from a background thread (e.g. a watchdog timer callback after telemetry silence)
     private readonly DispatcherQueue m_DispatcherQueue;
     private bool m_HasUnsavedSettings;
     #endregion
@@ -137,7 +137,7 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
         }
     }
 
-    // Raises the state-derived property notifications. Pulled into a method so OnDeviceStateChanged can route through DispatcherQueue when the underlying StateChanged was fired off the UI thread (e.g. VN310 watchdog timer)
+    // Raises the state-derived property notifications. Pulled into a method so OnDeviceStateChanged can route through DispatcherQueue when the underlying StateChanged was fired off the UI thread (e.g. a device watchdog timer)
     private void RaiseStatePropertyChanges()
     {
         OnPropertyChanged(nameof(Status));
@@ -157,7 +157,7 @@ public sealed partial class DeviceCardViewModel : ViewModelBase
     #endregion
 
     #region Event Handlers
-    // Marshals state-change notifications back to the UI thread. The Vn310 watchdog raises Stalled (and thus StateChanged) from a System.Threading.Timer callback; without this hop, x:Bind doesn't pick up the property changes until the next layout pass (visible to the user as "the card doesn't update until I switch pages and come back")
+    // Marshals state-change notifications back to the UI thread. Devices that fire Stalled (and thus StateChanged) from a System.Threading.Timer callback would otherwise skip x:Bind updates until the next layout pass (visible to the user as "the card doesn't update until I switch pages and come back")
     private void OnDeviceStateChanged(object? i_Sender, EventArgs i_Args)
     {
         if (m_DispatcherQueue.HasThreadAccess)

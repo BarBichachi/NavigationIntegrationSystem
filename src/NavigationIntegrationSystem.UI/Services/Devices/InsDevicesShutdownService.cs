@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace NavigationIntegrationSystem.UI.Services.Devices;
 
-// IHostedService that disconnects all still-active devices at app shutdown. Without this, devices that the user left Connected when closing the app would leak their OS resources (serial ports especially -- the VectorNav SDK's read thread keeps the COM port open until the process actually dies, leaving it "busy" for several seconds even after a new app instance starts). Runs in StopAsync before the DI container disposes the services. Lives in the UI project (not Devices) because hosted-service plumbing is a hosting-layer concern; the Devices project stays framework-agnostic, matching how IntegrationSnapshotService is wired
+// IHostedService that disconnects all still-active devices at app shutdown. Without this, devices that the user left Connected when closing the app would leak their OS resources (serial ports especially -- vendor SDKs commonly keep their I/O thread alive until the process actually dies, leaving the COM port "busy" for several seconds even after a new app instance starts). Runs in StopAsync before the DI container disposes the services. Lives in the UI project (not Devices) because hosted-service plumbing is a hosting-layer concern; the Devices project stays framework-agnostic, matching how IntegrationSnapshotService is wired
 public sealed class InsDevicesShutdownService : IHostedService
 {
     #region Private Fields

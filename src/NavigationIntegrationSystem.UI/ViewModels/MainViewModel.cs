@@ -94,7 +94,7 @@ public sealed partial class MainViewModel : ViewModelBase
     #region Functions
     // Optimistic-update pattern: flip IsRecording on the VM IMMEDIATELY so the button text/icon update without
     // waiting for the cross-thread RecordingStateChanged event to round-trip. The await reconciles with the actual
-    // service state after Start/Stop returns — covers the case where Start() fails inside the legacy recorder and
+    // service state after Start/Stop returns - covers the case where Start() fails inside the legacy recorder and
     // the state event never fires.
     private async Task OnToggleRecordingAsync()
     {
@@ -130,7 +130,7 @@ public sealed partial class MainViewModel : ViewModelBase
     #endregion
 
     #region Event Handlers
-    // RecordingStateChanged fires from whichever thread called Start/Stop — now the threadpool (see Task.Run above). Marshal to UI before mutating bound properties.
+    // RecordingStateChanged fires from whichever thread called Start/Stop - now the threadpool (see Task.Run above). Marshal to UI before mutating bound properties.
     private void OnRecordingStateChanged(object? sender, bool i_IsRecording)
     {
         if (m_DispatcherQueue.HasThreadAccess)

@@ -16,9 +16,11 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
 {
     #region Private Fields
     private IntegrationSourceCandidateViewModel? m_SelectedSource;
-    // Mirror of m_SelectedSource read by the background snapshot loop. Volatile read/write only — UI thread writes; background reads.
+    // Mirror of m_SelectedSource read by the background snapshot loop. Volatile read/write only - UI thread writes; background reads.
     private IntegrationSourceCandidateViewModel? m_SelectedForCapture;
     private double m_CalculatedValue;
+    // False until the calculation produces a real value. Stays false when any input component is missing, so SelectedValueText returns "-" instead of a misleading numeric zero
+    private bool m_HasCalculatedValue;
     #endregion
 
     #region Properties
@@ -37,8 +39,8 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     {
         get
         {
-            if (IsCalculated) return $"{m_CalculatedValue:0.00000}";
-            if (m_SelectedSource == null || !VisibleSources.Contains(m_SelectedSource)) return "—";
+            if (IsCalculated) return m_HasCalculatedValue ? $"{m_CalculatedValue:0.00000}" : "-";
+            if (m_SelectedSource == null || !VisibleSources.Contains(m_SelectedSource)) return "-";
             return m_SelectedSource.DisplayText;
         }
     }
@@ -140,6 +142,15 @@ public sealed partial class IntegrationFieldRowViewModel : ViewModelBase
     public void UpdateCalculatedValue(double i_Value)
     {
         m_CalculatedValue = i_Value;
+        m_HasCalculatedValue = true;
+        OnPropertyChanged(nameof(SelectedValueText));
+    }
+
+    // Clears the calculated value so SelectedValueText returns "-". Called by the row's owner when any input component lacks a selected source (e.g. Velocity Total with no source selected on V-North / V-East / V-Down)
+    public void ClearCalculatedValue()
+    {
+        if (!m_HasCalculatedValue) { return; }
+        m_HasCalculatedValue = false;
         OnPropertyChanged(nameof(SelectedValueText));
     }
 

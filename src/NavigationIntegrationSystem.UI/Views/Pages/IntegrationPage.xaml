@@ -68,11 +68,11 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Active Sources (Max 3):" />
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Active Sources:" />
 
-                    <!--  Scrollable chips: connected sources only  -->
+                    <!--  Scrollable chips: connected sources only. ItemsControl has bottom margin so the visible scrollbar (which takes inline space when Windows' "always show scrollbars" accessibility setting is on) doesn't crowd the chip's "Apply to All" buttons  -->
                     <ScrollViewer Grid.Column="1" HorizontalAlignment="Right" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled" VerticalScrollBarVisibility="Disabled">
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
+                        <ItemsControl Margin="0,0,0,8" ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" Spacing="12" />
@@ -126,22 +126,27 @@
                             <!--  Spacer  -->
                             <Grid Grid.Column="2" />
 
-                            <!--  Source columns (visible-only)  -->
-                            <ItemsControl Grid.Column="3" ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
+                            <!--  Source column titles. The master visible scrollbar for the parameter table: dragging this thumb scrolls every row's (hidden-scrollbar) source area in sync via the code-behind. ItemsControl bottom margin keeps the scrollbar from crowding the title text  -->
+                            <ScrollViewer Grid.Column="3" x:Name="HeaderSourcesScroller"
+                                          HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
+                                          VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled"
+                                          Loaded="OnSourcesScrollerLoaded" Unloaded="OnSourcesScrollerUnloaded">
+                                <ItemsControl Margin="0,0,0,8" ItemsSource="{x:Bind ViewModel.ConnectedDevices, Mode=OneWay}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
 
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="layout:IntegrationDeviceOptionViewModel">
-                                        <Grid Width="150" Visibility="{x:Bind IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                                            <TextBlock FontWeight="SemiBold" Opacity="0.6" Text="{x:Bind DisplayName}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="layout:IntegrationDeviceOptionViewModel">
+                                            <Grid Width="150" Visibility="{x:Bind IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <TextBlock FontWeight="SemiBold" Opacity="0.6" Text="{x:Bind DisplayName}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </Grid>
                     </ListView.Header>
 
@@ -182,8 +187,11 @@
                                     <!--  Spacer  -->
                                     <Grid Grid.Column="2" />
 
-                                    <!--  Per-source candidates  -->
-                                    <Grid Grid.Column="3" Visibility="{x:Bind IsCalculated, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                    <!--  Per-source candidates. ScrollViewer synced with the header (and every other row) by the page code-behind so all source columns scroll together. Scrollbar hidden so N rows don't show N inline scrollbars stacked vertically (which steals row height and is visually noisy); users scroll horizontally via shift+wheel or touchpad gesture  -->
+                                    <ScrollViewer Grid.Column="3" Visibility="{x:Bind IsCalculated, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                                                  HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Enabled"
+                                                  VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled"
+                                                  Loaded="OnSourcesScrollerLoaded" Unloaded="OnSourcesScrollerUnloaded">
                                         <ItemsControl ItemTemplateSelector="{StaticResource IntegrationCandidateTemplateSelector}" ItemsSource="{x:Bind VisibleSources, Mode=OneWay}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -191,7 +199,7 @@
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                         </ItemsControl>
-                                    </Grid>
+                                    </ScrollViewer>
 
                                     <TextBlock Grid.Column="3" VerticalAlignment="Center" FontStyle="Italic" Opacity="0.5" Text="Automatically calculated from velocity components"
                                                Visibility="{x:Bind IsCalculated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />

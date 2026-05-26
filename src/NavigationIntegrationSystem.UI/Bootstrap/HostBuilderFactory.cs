@@ -24,6 +24,7 @@ using NavigationIntegrationSystem.UI.Services.UI.Navigation;
 using NavigationIntegrationSystem.UI.Services.UI.Windowing;
 using NavigationIntegrationSystem.UI.ViewModels;
 using NavigationIntegrationSystem.UI.ViewModels.Devices.Pages;
+using NavigationIntegrationSystem.UI.ViewModels.Integration.Candidates;
 using NavigationIntegrationSystem.UI.ViewModels.Integration.Pages;
 using NavigationIntegrationSystem.UI.ViewModels.Playback;
 using NavigationIntegrationSystem.UI.ViewModels.Settings;
@@ -49,7 +50,7 @@ public static class HostBuilderFactory
                 services.AddSingleton(new DevicesConfigService(AppPaths.DevicesConfigPath));
 
                 // 2. Logging Infrastructure
-                // Register the concrete FileLogService once, then bind both interfaces to the same instance — avoids the brittle ILogService -> ILogPaths cross-cast.
+                // Register the concrete FileLogService once, then bind both interfaces to the same instance - avoids the brittle ILogService -> ILogPaths cross-cast.
                 string logRoot = PathResolver.Resolve(settings.Nis.Log.Root);
                 services.AddSingleton(sp => new FileLogService(logRoot));
                 services.AddSingleton<ILogService>(sp => sp.GetRequiredService<FileLogService>());
@@ -71,6 +72,12 @@ public static class HostBuilderFactory
                 services.AddSingleton<IInsDeviceModule, ManualDeviceModule>();
                 services.AddSingleton<IInsDeviceModule, PlaybackDeviceModule>();
                 services.AddSingleton<DevicesModuleBootstrapper>();
+
+                // 5b. Per-device integration candidate factories. One per DeviceType; each owns its own field-name -> telemetry-key map. IntegrationViewModel consumes the IEnumerable so the grid wiring stays device-agnostic
+                services.AddSingleton<IIntegrationCandidateFactory, Vn310IntegrationCandidateFactory>();
+                services.AddSingleton<IIntegrationCandidateFactory, Tmaps100XIntegrationCandidateFactory>();
+                services.AddSingleton<IIntegrationCandidateFactory, ManualIntegrationCandidateFactory>();
+                services.AddSingleton<IIntegrationCandidateFactory, PlaybackIntegrationCandidateFactory>();
 
                 // 6. Recording & Snapshot Services
                 services.AddSingleton<IRecordingService, NisRecordingService>();

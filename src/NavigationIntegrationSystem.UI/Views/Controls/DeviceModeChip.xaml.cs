@@ -4,7 +4,7 @@ using NavigationIntegrationSystem.Core.Devices;
 
 namespace NavigationIntegrationSystem.UI.Views.Controls;
 
-// Small reusable colored pill showing a device's self-reported mode (e.g. VN310 TRACKING / ALIGNING / ...). Two flat DPs (Label + Severity) instead of a single Snapshot DP because x:Bind in WinUI 3 lacks null-safe property navigation -- callers expose flattened props on their VM and bind primitives, which keeps null handling at the binding boundary instead of inside this control
+// Small reusable colored pill showing a device's self-reported mode (e.g. TRACKING / ALIGNING / GNSS LOSS). Two flat DPs (Label + Severity) instead of a single Snapshot DP because x:Bind in WinUI 3 lacks null-safe property navigation -- callers expose flattened props on their VM and bind primitives, which keeps null handling at the binding boundary instead of inside this control
 public sealed partial class DeviceModeChip : UserControl
 {
     #region Dependency Properties
@@ -14,11 +14,12 @@ public sealed partial class DeviceModeChip : UserControl
         typeof(DeviceModeChip),
         new PropertyMetadata(null));
 
+    // DP type matches the property type (DeviceModeSeverity). The previous int-DP-with-enum-property design relied on x:Bind doing an implicit enum->int conversion when assigning the binding source, which WinUI 3's x:Bind does NOT do; the result was a "Converter failed" runtime error at every binding update. Using the enum directly works because the internal XAML converters (DeviceModeSeverityToBrush/Visibility) already accept the enum
     public static readonly DependencyProperty SeverityProperty = DependencyProperty.Register(
         nameof(Severity),
-        typeof(int),
+        typeof(DeviceModeSeverity),
         typeof(DeviceModeChip),
-        new PropertyMetadata((int)DeviceModeSeverity.Unknown));
+        new PropertyMetadata(DeviceModeSeverity.Unknown));
     #endregion
 
     #region Properties
@@ -30,8 +31,8 @@ public sealed partial class DeviceModeChip : UserControl
 
     public DeviceModeSeverity Severity
     {
-        get => (DeviceModeSeverity)(int)GetValue(SeverityProperty);
-        set => SetValue(SeverityProperty, (int)value);
+        get => (DeviceModeSeverity)GetValue(SeverityProperty);
+        set => SetValue(SeverityProperty, value);
     }
     #endregion
 

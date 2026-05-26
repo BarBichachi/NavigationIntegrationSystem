@@ -23,30 +23,44 @@
                 </StackPanel>
             </Border>
 
-            <!--  ASCII-mode banner: surfaces why angular rates show '—'. Info-blue (not caution-yellow) because it's a config note, not a warning  -->
+            <!--  Dual-stream banner: visible when both ASCII and Binary are fresh. Info-blue (no warning), confirms all fields are live  -->
             <Border Padding="10" CornerRadius="6"
-                    Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
-                    BorderBrush="{ThemeResource SystemFillColorAttentionBrush}"
+                    Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                    BorderBrush="{ThemeResource SystemFillColorSuccessBrush}"
                     BorderThickness="1"
-                    Visibility="{Binding IsAsciiBannerVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    Visibility="{Binding IsDualStreamBannerVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE946;" FontSize="14" VerticalAlignment="Top"
-                              Foreground="{ThemeResource SystemFillColorAttentionBrush}" />
-                    <TextBlock Text="Rates not available — sensor is configured for ASCII VNINS. Reconfigure factory output to binary to enable angular rate fields."
+                    <FontIcon Glyph="&#xE73E;" FontSize="14" VerticalAlignment="Top"
+                              Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                    <TextBlock Text="Dual stream active - ASCII + Binary"
                                TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
-            <!--  Binary-mode banner: surfaces why uncertainty fields show '—'. Also info-blue  -->
+            <!--  ASCII-only banner: visible when only ASCII has been seen recently. Surfaces why angular rates + TimeStatus show '-'. Info-blue (not caution-yellow) because it's a config note, not a warning  -->
             <Border Padding="10" CornerRadius="6"
                     Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
                     BorderBrush="{ThemeResource SystemFillColorAttentionBrush}"
                     BorderThickness="1"
-                    Visibility="{Binding IsBinaryBannerVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                    Visibility="{Binding IsAsciiOnlyBannerVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE946;" FontSize="14" VerticalAlignment="Top"
                               Foreground="{ThemeResource SystemFillColorAttentionBrush}" />
-                    <TextBlock Text="Uncertainty fields not available — current binary subscription is CommonGroup + TimeGroup only. Extend to AttitudeGroup / InsGroup for AttU / PosU / VelU."
+                    <TextBlock Text="ASCII stream only - rates and TimeStatus unavailable"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!--  Binary-only banner: visible when only Binary has been seen recently. Surfaces why uncertainty fields show '-'  -->
+            <Border Padding="10" CornerRadius="6"
+                    Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
+                    BorderBrush="{ThemeResource SystemFillColorAttentionBrush}"
+                    BorderThickness="1"
+                    Visibility="{Binding IsBinaryOnlyBannerVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE946;" FontSize="14" VerticalAlignment="Top"
+                              Foreground="{ThemeResource SystemFillColorAttentionBrush}" />
+                    <TextBlock Text="Binary stream only - uncertainties unavailable"
                                TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
@@ -183,14 +197,14 @@
                         <TextBlock Grid.Row="4" Grid.Column="0" Opacity="0.7" Text="GPS Compass Active" VerticalAlignment="Center" />
                         <TextBlock Grid.Row="4" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding IsGpsCompassActiveText}" />
 
-                        <TextBlock Grid.Row="5" Grid.Column="0" Opacity="0.7" Text="IMU Error" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="5" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding IsImuErrorText}" />
+                        <TextBlock Grid.Row="5" Grid.Column="0" Opacity="0.7" Text="IMU OK" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="5" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding IsImuOkText}" />
 
-                        <TextBlock Grid.Row="6" Grid.Column="0" Opacity="0.7" Text="Magnetometer Error" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="6" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding IsMagnetometerErrorText}" />
+                        <TextBlock Grid.Row="6" Grid.Column="0" Opacity="0.7" Text="Magnetometer OK" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="6" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding IsMagnetometerOkText}" />
 
-                        <TextBlock Grid.Row="7" Grid.Column="0" Opacity="0.7" Text="GNSS Error" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="7" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding IsGnssErrorText}" />
+                        <TextBlock Grid.Row="7" Grid.Column="0" Opacity="0.7" Text="GNSS OK" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="7" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding IsGnssOkText}" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -230,7 +244,7 @@
                 </StackPanel>
             </Border>
 
-            <!--  Packet stats  -->
+            <!--  Packet stats: dual-stream aware. Per-source rate (1s window) + cumulative count exposed independently; "last packet age" is the youngest timestamp across both streams; source mode reflects which streams are currently fresh  -->
             <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
                 <StackPanel Spacing="10">
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Packet stats" />
@@ -244,19 +258,23 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Opacity="0.7" Text="Total received" VerticalAlignment="Center" />
                         <TextBlock Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding PacketCountText}" />
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Opacity="0.7" Text="Rate (1s window)" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding PacketRateText}" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Opacity="0.7" Text="ASCII" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding AsciiStatsText}" />
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Opacity="0.7" Text="Last packet age" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding LastPacketAgeText}" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Opacity="0.7" Text="Binary" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding BinaryStatsText}" />
 
-                        <TextBlock Grid.Row="3" Grid.Column="0" Opacity="0.7" Text="Source mode" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="3" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding SourceModeText}" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" Opacity="0.7" Text="Last packet age" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding LastPacketAgeText}" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Opacity="0.7" Text="Source mode" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" HorizontalAlignment="Right" FontFamily="Consolas" Text="{Binding SourceModeText}" />
                     </Grid>
                 </StackPanel>
             </Border>

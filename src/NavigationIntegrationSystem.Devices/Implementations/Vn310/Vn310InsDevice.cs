@@ -30,10 +30,13 @@ public sealed class Vn310InsDevice : InsDeviceBase
     #region Properties
     public Vn310Telemetry? LatestTelemetry => m_Service.LatestTelemetry;
     public override DeviceModeSnapshot? CurrentMode { get { lock (m_ModeLock) { return m_CurrentMode; } } }
-    // Packet stats forwarded from the inner service so the inspect VM doesn't have to reach into m_Service. Stats persist across inspect pane open/close because the service lives for this device's whole runtime lifetime
+    // Packet stats forwarded from the inner service so the inspect VM doesn't have to reach into m_Service. Stats persist across inspect pane open/close because the service lives for this device's whole runtime lifetime. Per-source counts and timestamp rings expose ASCII and Binary streams separately for dual-stream Hz display
     public long PacketCount => m_Service.PacketCount;
+    public long AsciiPacketCount => m_Service.AsciiPacketCount;
+    public long BinaryPacketCount => m_Service.BinaryPacketCount;
     public Vn310PacketSourceMode LastSourceMode => m_Service.LastSourceMode;
-    public DateTime[] GetRecentPacketTimestamps() => m_Service.GetRecentPacketTimestamps();
+    public DateTime[] GetRecentAsciiTimestamps() => m_Service.GetRecentAsciiTimestamps();
+    public DateTime[] GetRecentBinaryTimestamps() => m_Service.GetRecentBinaryTimestamps();
     #endregion
 
     #region Events

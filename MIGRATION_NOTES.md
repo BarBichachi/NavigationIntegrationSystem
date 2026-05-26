@@ -1,14 +1,14 @@
-# Migration Notes — NIS → Parent Solution
+# Migration Notes - NIS → Parent Solution
 
 Things to do when integrating `NavigationIntegrationSystem` into its eventual
 parent solution. Living document; append to it whenever NIS makes a change
 that would conflict with the parent's existing types or schemas.
 
-**Important — what "parent solution" means here:** NIS is being built as a
+**Important - what "parent solution" means here:** NIS is being built as a
 standalone WinUI app, but will eventually be folded into a larger umbrella
 solution as one of many projects. That umbrella solution is **not** any of the
 external reference codebases I researched during planning (e.g. the
-`OrbitNavSystemCtrl` family — `Navigation-LEAN/...` and `Navigation/...`
+`OrbitNavSystemCtrl` family - `Navigation-LEAN/...` and `Navigation/...`
 on disk). Those were studied to learn the VN310 protocol; they are *not*
 the merge target and their conventions are not authoritative. The actual
 parent's conventions will only become known at merge time.
@@ -21,7 +21,7 @@ Order entries newest-first within each section so we don't lose track.
 
 ---
 
-## 1. Files in `Infrastructure/TO_BE_DELETED/` — to remove on merge
+## 1. Files in `Infrastructure/TO_BE_DELETED/` - to remove on merge
 
 These were vendored from the parent solution so NIS could compile in isolation.
 On merge, delete the entire `TO_BE_DELETED/` folder; the parent's originals
@@ -39,7 +39,7 @@ resolve against the parent's namespaces instead. Affected NIS files:
 - `UI/Services/Recording/CsvTestingService.cs`
 - (search for `using Infrastructure.Navigation.NavigationSystems.IntegratedInsOutput;`
   and the related `Infrastructure.DataStructures` / `Infrastructure.Navigation`
-  imports — adjust to whatever the merged namespaces are)
+  imports - adjust to whatever the merged namespaces are)
 
 ---
 
@@ -47,7 +47,7 @@ resolve against the parent's namespaces instead. Affected NIS files:
 
 NIS internally renames some fields for UI clarity but keeps the parent's
 on-the-wire names on shared binary / CSV schemas. When merging, the parent
-solution can adopt NIS's naming OR NIS can keep aliasing — decide per item.
+solution can adopt NIS's naming OR NIS can keep aliasing - decide per item.
 
 ### Yaw vs Azimuth (Euler angle 3)
 - **NIS UI / integration grid:** uses `Yaw` (constants `IntegrationFieldNames.Yaw`,
@@ -60,14 +60,14 @@ solution can adopt NIS's naming OR NIS can keep aliasing — decide per item.
     `"EulerAzimuthValue"`.
   - `IntegrationSnapshotService.cs` switch case `IntegrationFieldNames.Yaw`
     still writes to `io_Data.AzimuthDeviceCode` etc.
-- **On merge — decide:**
+- **On merge - decide:**
   1. Rename parent's fields/flags to `Yaw*` (binary schema changes, CSV header
-     changes, RecordDecoderPro changes — biggest blast radius), or
+     changes, RecordDecoderPro changes - biggest blast radius), or
   2. Keep parent's `Azimuth*` names and have NIS continue aliasing (the current
      state), or
   3. Add a translation layer in the recorder so both names work.
 
-### TMAPS100X — Azimuth/Yaw still TBD
+### TMAPS100X - Azimuth/Yaw still TBD
 - `Tmaps100XDeviceModule` currently defines `AzimuthDeg` / `AzimuthRateDegS`.
 - Decision pending: confirm against TMAPS100X ICD whether the device emits
   "Azimuth" (true heading from north) or "Yaw" (body rotation).
@@ -94,7 +94,7 @@ solution can adopt NIS's naming OR NIS can keep aliasing — decide per item.
   runtime (Phase 1 smoke test, 2026-05-20).
 - **Source of the vendored DLL:** copied from
   `C:\Users\BARBIC\Desktop\Work\NavigationControlSystem\Navigation\Navigation\NavigationSystemsController\packages\VectorNav.1.1.5\lib\net472\VectorNav.dll`
-  (external research artifact — see VN310_PLAN.md glossary; NOT part of the
+  (external research artifact - see VN310_PLAN.md glossary; NOT part of the
   parent solution).
 - The actual parent solution's stance on VectorNav is unknown until merge.
   Possibilities to check at merge time:
@@ -118,13 +118,13 @@ solution can adopt NIS's naming OR NIS can keep aliasing — decide per item.
 Whenever NIS has built a thing locally that the parent already does better,
 list the NIS file here so the merge can prefer the parent's version.
 
-- (none yet — will accumulate as we go)
+- (none yet - will accumulate as we go)
 
 ---
 
 ## 5. Behavioral changes NIS introduces that the parent doesn't have
 
-Things NIS does that the parent's existing code doesn't — confirm the parent
+Things NIS does that the parent's existing code doesn't - confirm the parent
 team is OK with each before merging.
 
 ### Global unhandled-exception logging (2026-05-25, Phase 7)
@@ -132,12 +132,12 @@ team is OK with each before merging.
   `Application.UnhandledException` (WinUI 3), `TaskScheduler.UnobservedTaskException`.
 - Each handler writes the exception (incl. stack trace) to the daily log via
   `ILogService.Error` before the process is allowed to terminate.
-- Handlers do NOT suppress termination (`e.Handled` left at default `false`) —
+- Handlers do NOT suppress termination (`e.Handled` left at default `false`) -
   logging only, no behavior change beyond visibility.
 - **Motivation:** vendored VectorNav SDK throws on its own background thread
   when the VN310 loses power while connected (see section 7); without these
   handlers, the process dies with zero log evidence. The handlers are not
-  VN-specific — they capture any unhandled exception across the app.
+  VN-specific - they capture any unhandled exception across the app.
 - **On merge:** if the parent already wires global handlers, the two
   implementations need to be reconciled (probably keep one set, prefer the
   parent's). If the parent has none, NIS's can stay as-is.
@@ -149,7 +149,7 @@ Documented here so the parent-solution merge can decide whether to fork +
 patch or accept the limitation.
 
 ### VectorNav SDK throws on serial-notifications thread when VN310 loses power
-- **Where:** `VectorNavLib/src/Communication/SerialPort.cs:290` — inside
+- **Where:** `VectorNavLib/src/Communication/SerialPort.cs:290` - inside
   `HandleSerialPortNotifications`, the SDK's own background thread (named
   `VN.SerialPort (COMx)`).
 - **Trigger:** sensor loses power while the COM port stays present (e.g. USB-to-
@@ -159,14 +159,14 @@ patch or accept the limitation.
   throws `new Exception()` unconditionally.
 - **Impact:** unhandled exception on a thread NIS doesn't own → .NET 8
   terminates the process. We cannot catch it from our code.
-- **Current mitigation:** none functional — the global exception handler logs
+- **Current mitigation:** none functional - the global exception handler logs
   the throw before death (see section 5) so we have post-mortem evidence.
   AutoReconnect cannot help because the process is already gone.
 - **True fix (deferred):** rebuild the SDK from the source at
   `Navigation-LEAN/VectorNav/VN310/V5.0/VectorNavLib/`, replace the throw with
   an event raise (`ConnectionLost`), subscribe in `Vn310TelemetryService` and
   hook to existing `Stalled` + AutoReconnect machinery. Decision deferred to
-  senior-engineer review — owning a forked SDK is a meaningful dependency
+  senior-engineer review - owning a forked SDK is a meaningful dependency
   change.
 - **On merge:** if the parent solution patches or replaces this SDK, drop the
   workaround note from this file.

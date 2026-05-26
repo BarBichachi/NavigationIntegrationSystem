@@ -11,7 +11,7 @@ using VectorNav.Sensor;
 
 namespace NavigationIntegrationSystem.Devices.Implementations.Vn310;
 
-// Per-device-instance service that owns a single VnSensor, decodes incoming packets (ASCII VNINS or binary with the expected group layout), and raises TelemetryUpdated for downstream consumers. Not a singleton; one instance per Vn310InsDevice. Connect is offloaded via Task.Run because the SDK's underlying Connect call is synchronous.
+// Per-device-instance service that owns a single VnSensor and decodes incoming packets from both wire formats concurrently (ASCII VNINS and Binary CommonGroup+TimeGroup). Each format is stored as its own per-source latest snapshot; on every packet a merged Vn310Telemetry is composed (shared fields from freshest source; rates/TimeStatus from Binary if fresh; uncertainties from ASCII if fresh) and raised via TelemetryUpdated. Not a singleton; one instance per Vn310InsDevice. Connect is offloaded via Task.Run because the SDK's underlying Connect call is synchronous
 public sealed class Vn310TelemetryService : IDisposable
 {
     #region Properties
@@ -21,30 +21,51 @@ public sealed class Vn310TelemetryService : IDisposable
 
     public string? LastError => Volatile.Read(ref m_LastError);
 
-    // Total packets successfully decoded since this service was constructed. Persists across pane open/close so the inspect view's counter is meaningful. Reset only when the service is recreated (one per device instance, which lives for the device's whole runtime lifetime)
-    public long PacketCount => Interlocked.Read(ref m_PacketCount);
+    // Total packets successfully decoded across both sources. Persists across pane open/close (one service instance lives for the device's whole runtime lifetime)
+    public long PacketCount => Interlocked.Read(ref m_AsciiPacketCount) + Interlocked.Read(ref m_BinaryPacketCount);
 
-    // The wire format of the most recently decoded packet (or Unknown if none yet). Inspect view uses this to render the ASCII-vs-Binary banners
-    public Vn310PacketSourceMode LastSourceMode { get { lock (m_StatsLock) { return m_LastSourceMode; } } }
+    public long AsciiPacketCount => Interlocked.Read(ref m_AsciiPacketCount);
 
-    // Snapshot of recent packet-arrival timestamps for Hz computation. Returned as a fresh array under the stats lock so the caller can compute rate without racing the writer
-    public DateTime[] GetRecentPacketTimestamps() { lock (m_StatsLock) { return m_RecentPacketTimestamps.ToArray(); } }
+    public long BinaryPacketCount => Interlocked.Read(ref m_BinaryPacketCount);
+
+    // Composition of currently-fresh wire sources, derived from the published merged snapshot's freshness flags. Returns Unknown until the first packet arrives
+    public Vn310PacketSourceMode LastSourceMode
+    {
+        get
+        {
+            Vn310Telemetry? t = Volatile.Read(ref m_LatestTelemetry);
+            if (t == null) { return Vn310PacketSourceMode.Unknown; }
+            if (t.IsAsciiFresh && t.IsBinaryFresh) { return Vn310PacketSourceMode.Both; }
+            if (t.IsAsciiFresh) { return Vn310PacketSourceMode.AsciiOnly; }
+            if (t.IsBinaryFresh) { return Vn310PacketSourceMode.BinaryOnly; }
+            return Vn310PacketSourceMode.Unknown;
+        }
+    }
+
+    // Snapshot of recent ASCII-packet timestamps for per-source Hz computation. Returned as a fresh array under the stats lock so the caller can compute rate without racing the writer
+    public DateTime[] GetRecentAsciiTimestamps() { lock (m_StatsLock) { return m_RecentAsciiTimestamps.ToArray(); } }
+
+    // Snapshot of recent Binary-packet timestamps for per-source Hz computation
+    public DateTime[] GetRecentBinaryTimestamps() { lock (m_StatsLock) { return m_RecentBinaryTimestamps.ToArray(); } }
     #endregion
 
     #region Private Fields
     // GPS-to-UTC offset in seconds as of 2026. Hardcoded per VN310_PLAN (accepted limitation: will silently drift if a leap second is added)
     private const int c_GpsToUtcLeapOffsetSec = -18;
 
-    // Watchdog window: declare Stalled if no packet arrives for this duration
+    // Watchdog window: declare Stalled if no packet of EITHER source arrives for this duration. Device-level liveness check; per-source staleness is separate (c_SourceStalenessMs)
     private const int c_WatchdogMs = 2000;
 
-    // Rate limit for "incompatible binary packet" log noise (the sensor may emit groups other than what we configured for)
+    // Per-source staleness threshold. A source's exclusive fields (rates+TimeStatus for Binary; uncertainties for ASCII) are treated as live only if a packet from that source arrived within this window. Set to match the main watchdog so single-source-dead detection happens at the same scale
+    private const int c_SourceStalenessMs = 2000;
+
+    // Rate limit for "incompatible binary packet" log noise (the sensor may emit binary groups other than what we configured for)
     private const int c_IncompatibleLogIntervalSec = 60;
 
-    // Size cap for the recent-timestamps ring used by Hz computation. 256 is more than enough to cover the highest plausible VN310 rate (~400Hz) over a 1s window with headroom; anything older than 1s gets trimmed in the writer
+    // Size cap for the per-source recent-timestamps rings used by Hz computation. 256 covers even the highest plausible VN310 rate (~400Hz) over a 1s window with headroom; anything older than 1s gets trimmed in the writer
     private const int c_RecentTimestampsRingCap = 256;
 
-    // Initial-handshake timeout: how long StartAsync waits for the first packet AFTER SDK Connect succeeds before failing. Without this guard, SDK reports "Connected" on a port that's wired up but has no sensor on the other end -- we'd transition to Connected, the watchdog would fire 2s later, and auto-reconnect would loop forever. By failing the StartAsync we surface this as Connecting->Error (not Connected->Error), which short-circuits the auto-reconnect path. 3s is generous enough to cover sensor warm-up + SDK first-packet jitter
+    // Initial-handshake timeout: how long StartAsync waits for the first packet (of any source) AFTER SDK Connect succeeds before failing. Without this guard, SDK reports "Connected" on a port that's wired up but has no sensor on the other end -- we'd transition to Connected, the watchdog would fire 2s later, and auto-reconnect would loop forever. By failing StartAsync we surface this as Connecting->Error (not Connected->Error), short-circuiting the auto-reconnect path
     private const int c_InitialPacketTimeoutMs = 3000;
 
     private static readonly CommonGroup s_ExpectedCommonGroup =
@@ -63,11 +84,19 @@ public sealed class Vn310TelemetryService : IDisposable
     private bool m_Disposed;
     private DateTime m_LastIncompatibleLogUtc = DateTime.MinValue;
 
-    // Packet stats. Read on the inspect VM's UI-thread timer tick; written on the SDK packet thread. Lock-guarded for the source-mode + ring (PacketCount uses Interlocked)
-    private long m_PacketCount;
-    private Vn310PacketSourceMode m_LastSourceMode = Vn310PacketSourceMode.Unknown;
-    private readonly Queue<DateTime> m_RecentPacketTimestamps = new Queue<DateTime>(c_RecentTimestampsRingCap);
-    private readonly object m_StatsLock = new object();
+    // Per-source latest parsed snapshots. Only OnAsyncPacketReceived writes these (SDK packet thread, single writer), so no lock is required between reader and writer; readers Volatile.Read for a coherent snapshot. The IsAsciiFresh/IsBinaryFresh flags on these per-source objects are unused -- freshness is evaluated against PacketReceivedAt at merge time
+    private Vn310Telemetry? m_LatestAscii;
+    private Vn310Telemetry? m_LatestBinary;
+
+    // Per-source counters and timestamp rings. Counters use Interlocked; rings are guarded by m_StatsLock because they're read on the inspect VM's UI-thread timer tick and written on the SDK packet thread
+    private long m_AsciiPacketCount;
+    private long m_BinaryPacketCount;
+    private readonly Queue<DateTime> m_RecentAsciiTimestamps = new(c_RecentTimestampsRingCap);
+    private readonly Queue<DateTime> m_RecentBinaryTimestamps = new(c_RecentTimestampsRingCap);
+    private readonly object m_StatsLock = new();
+
+    // Last source-mode value emitted to the log. Used to fire transition messages (e.g. Both->BinaryOnly when ASCII stalls) at most once per transition rather than per-packet. Touched only from the SDK packet thread inside OnAsyncPacketReceived
+    private Vn310PacketSourceMode m_LastLoggedMode = Vn310PacketSourceMode.Unknown;
 
     // First-packet TCS used by StartAsync to wait for proof-of-life from the sensor. Non-null only during the initial-handshake window (between SDK Connect succeeding and first packet arriving). OnAsyncPacketReceived signals it on first packet so StartAsync returns; if timeout fires before first packet, StartAsync throws TimeoutException and the caller treats Connecting->Error (no auto-reconnect)
     private TaskCompletionSource<bool>? m_FirstPacketTcs;
@@ -141,7 +170,7 @@ public sealed class Vn310TelemetryService : IDisposable
                     }
                 }
 
-                // Proof-of-life received: commit to Connected state, arm the runtime watchdog. The first packet has already been processed by OnAsyncPacketReceived (m_LatestTelemetry / PacketCount / etc. are populated) -- the caller will see live data the moment Connected fires
+                // Proof-of-life received: commit to Connected state, arm the runtime watchdog. The first packet has already been processed by OnAsyncPacketReceived (m_LatestTelemetry / per-source state are populated) -- the caller will see live data the moment Connected fires
                 lock (m_StateLock)
                 {
                     m_Sensor = sensor;
@@ -209,7 +238,7 @@ public sealed class Vn310TelemetryService : IDisposable
         });
     }
 
-    // Parses an ASCII VNINS packet. Yaw is wrapped to [0, 360). Rates default to 0 (ASCII VNINS does not include them). UTC is reconstructed from today's UTC date + the time-of-day field minus the GPS leap offset
+    // Parses an ASCII VNINS packet into a per-source snapshot. Yaw is wrapped to [0, 360). Rates / TimeStatus default to zero/empty because ASCII VNINS doesn't carry them -- the merge layer is responsible for sourcing those from the latest fresh Binary snapshot
     private Vn310Telemetry ParseAscii(Packet i_Packet, DateTime i_ReceivedAt)
     {
         double time;
@@ -250,12 +279,14 @@ public sealed class Vn310TelemetryService : IDisposable
             VelUncertainty = velUncertainty,
             InsStatus = insStatus,
             TimeStatus = new Vn310TimeStatus(),
-            HasRates = false,
+            // Freshness flags on per-source snapshots are unused (the merge function recomputes them); set neutrally so accidental direct consumption isn't misleading
+            IsAsciiFresh = false,
+            IsBinaryFresh = false,
             PacketReceivedAt = i_ReceivedAt
         };
     }
 
-    // Parses a binary packet with the expected CommonGroup + TimeGroup layout. Extraction order is locked by the VN310 ICD and must match the order the sensor serializes the fields. Yaw is wrapped to [0, 360)
+    // Parses a binary packet with the expected CommonGroup + TimeGroup layout into a per-source snapshot. Extraction order is locked by the VN310 ICD and must match the order the sensor serializes the fields. Yaw is wrapped to [0, 360). Uncertainties default to 0f because our subscribed binary groups don't include them -- the merge layer sources those from the latest fresh ASCII snapshot. Returns null if the binary group layout doesn't match (e.g. sensor was reconfigured for a different binary subscription via Control Center)
     private Vn310Telemetry? ParseBinary(Packet i_Packet, DateTime i_ReceivedAt)
     {
         if (!i_Packet.IsCompatible(s_ExpectedCommonGroup, s_ExpectedTimeGroup, ImuGroup.None, GpsGroup.None, AttitudeGroup.None, InsGroup.None))
@@ -302,9 +333,68 @@ public sealed class Vn310TelemetryService : IDisposable
             VelUncertainty = 0f,
             InsStatus = new Vn310InsStatus { RawData = statusRaw },
             TimeStatus = new Vn310TimeStatus { RawData = rawTimeStatus },
-            HasRates = true,
+            IsAsciiFresh = false,
+            IsBinaryFresh = false,
             PacketReceivedAt = i_ReceivedAt
         };
+    }
+
+    // Composes the published Vn310Telemetry from per-source snapshots and freshness. Called from OnAsyncPacketReceived on the SDK packet thread (single writer of m_LatestAscii / m_LatestBinary). Reads of those fields here are race-free; readers of the published m_LatestTelemetry see whatever was last Volatile.Written
+    private Vn310Telemetry BuildMerged(DateTime i_NowUtc)
+    {
+        Vn310Telemetry? a = m_LatestAscii;
+        Vn310Telemetry? b = m_LatestBinary;
+
+        bool asciiFresh = a != null && (i_NowUtc - a.PacketReceivedAt).TotalMilliseconds < c_SourceStalenessMs;
+        bool binaryFresh = b != null && (i_NowUtc - b.PacketReceivedAt).TotalMilliseconds < c_SourceStalenessMs;
+
+        // Shared-field source preference: freshest of the two; fall back to whichever exists if exactly one is non-null. BuildMerged is only called after at least one parse succeeded this tick, so at least one of (a, b) is non-null
+        Vn310Telemetry shared = ChooseSharedSource(a, b, asciiFresh, binaryFresh);
+
+        // UtcTime preference: prefer Binary if fresh (real Y/M/D from sensor, validated by TimeStatus). Fall back to ASCII (has the midnight-wrap caveat: it reconstructs the date from i_ReceivedAt.Date which can roll a second too late). Last resort: whatever shared has
+        DateTime utc = binaryFresh ? b!.UtcTime : (asciiFresh ? a!.UtcTime : shared.UtcTime);
+
+        return new Vn310Telemetry
+        {
+            UtcTime = utc,
+            LatDeg = shared.LatDeg,
+            LonDeg = shared.LonDeg,
+            AltM = shared.AltM,
+            YawDeg = shared.YawDeg,
+            PitchDeg = shared.PitchDeg,
+            RollDeg = shared.RollDeg,
+            VelNorth = shared.VelNorth,
+            VelEast = shared.VelEast,
+            VelDown = shared.VelDown,
+            Speed = shared.Speed,
+            InsStatus = shared.InsStatus,
+
+            // Binary-exclusive (rates + TimeStatus)
+            YawRateDegS = binaryFresh ? b!.YawRateDegS : 0.0,
+            PitchRateDegS = binaryFresh ? b!.PitchRateDegS : 0.0,
+            RollRateDegS = binaryFresh ? b!.RollRateDegS : 0.0,
+            TimeStatus = binaryFresh ? b!.TimeStatus : new Vn310TimeStatus(),
+
+            // ASCII-exclusive (uncertainties)
+            AttUncertainty = asciiFresh ? a!.AttUncertainty : 0f,
+            PosUncertainty = asciiFresh ? a!.PosUncertainty : 0f,
+            VelUncertainty = asciiFresh ? a!.VelUncertainty : 0f,
+
+            IsAsciiFresh = asciiFresh,
+            IsBinaryFresh = binaryFresh,
+            PacketReceivedAt = i_NowUtc
+        };
+    }
+
+    // Selects the source whose values populate shared fields (YPR, LLA, NED, InsStatus). Freshest wins; ties prefer ASCII (rare, since 100Hz Binary almost always wins on a typical dual-stream config); falls back through staleness if only one source has ever been seen
+    private static Vn310Telemetry ChooseSharedSource(Vn310Telemetry? i_Ascii, Vn310Telemetry? i_Binary, bool i_AsciiFresh, bool i_BinaryFresh)
+    {
+        if (i_AsciiFresh && i_BinaryFresh) { return i_Ascii!.PacketReceivedAt >= i_Binary!.PacketReceivedAt ? i_Ascii : i_Binary; }
+        if (i_AsciiFresh) { return i_Ascii!; }
+        if (i_BinaryFresh) { return i_Binary!; }
+        // Neither fresh on the merge tick is only possible if the current packet hasn't been folded in yet, which BuildMerged's caller arranges to be false. Defensive fallback to the newer of any non-null sources
+        if (i_Ascii != null && (i_Binary == null || i_Ascii.PacketReceivedAt >= i_Binary.PacketReceivedAt)) { return i_Ascii; }
+        return i_Binary!;
     }
 
     // Builds a DateTime from raw Y/M/D/H/M/S/ms bytes. Falls back to the packet-received time if the bytes are not yet calendar-valid (sensor warm-up before TimeStatus.IsValid becomes true)
@@ -344,6 +434,27 @@ public sealed class Vn310TelemetryService : IDisposable
         }
         m_LastIncompatibleLogUtc = now;
         m_LogService.Warn(nameof(Vn310TelemetryService), "Received binary packet that does not match expected group layout; skipping. Check sensor factory configuration.");
+    }
+
+    // Emits a log line only when the source-mode composition changes. Fires from the SDK packet thread, called per-packet. Transitions: Unknown->X on first packet; X->Both when a previously-silent source starts; Both->X when one source stalls past c_SourceStalenessMs while the other keeps flowing
+    private void LogModeTransitionIfChanged(Vn310PacketSourceMode i_Current)
+    {
+        if (i_Current == m_LastLoggedMode) { return; }
+        Vn310PacketSourceMode previous = m_LastLoggedMode;
+        m_LastLoggedMode = i_Current;
+
+        string msg = (previous, i_Current) switch
+        {
+            (Vn310PacketSourceMode.Unknown, Vn310PacketSourceMode.Both) => "VN310 dual stream established (ASCII + Binary) -- all fields live",
+            (Vn310PacketSourceMode.Unknown, Vn310PacketSourceMode.AsciiOnly) => "VN310 ASCII-only stream established -- rates and TimeStatus unavailable",
+            (Vn310PacketSourceMode.Unknown, Vn310PacketSourceMode.BinaryOnly) => "VN310 Binary-only stream established -- uncertainties unavailable",
+            (Vn310PacketSourceMode.Both, Vn310PacketSourceMode.BinaryOnly) => "VN310 ASCII stream stale (>2s); uncertainties unavailable",
+            (Vn310PacketSourceMode.Both, Vn310PacketSourceMode.AsciiOnly) => "VN310 Binary stream stale (>2s); rates and TimeStatus unavailable",
+            (Vn310PacketSourceMode.BinaryOnly, Vn310PacketSourceMode.Both) => "VN310 ASCII stream recovered -- all fields live",
+            (Vn310PacketSourceMode.AsciiOnly, Vn310PacketSourceMode.Both) => "VN310 Binary stream recovered -- all fields live",
+            _ => $"VN310 source mode changed: {previous} -> {i_Current}"
+        };
+        m_LogService.Info(nameof(Vn310TelemetryService), msg);
     }
 
     private void ThrowIfDisposed()
@@ -411,7 +522,7 @@ public sealed class Vn310TelemetryService : IDisposable
     #endregion
 
     #region Event Handlers
-    // Fires on the SDK's internal read thread when a packet arrives. Decodes, updates LatestTelemetry, resets the watchdog, then raises TelemetryUpdated
+    // Fires on the SDK's internal read thread when a packet arrives. Decodes, stores into the matching per-source slot, builds a merged snapshot, updates per-source stats, resets the watchdog, then raises TelemetryUpdated. All writes to per-source state happen on this single thread; readers Volatile.Read m_LatestTelemetry for the published merge
     private void OnAsyncPacketReceived(object? i_Sender, PacketFoundEventArgs i_Args)
     {
         Packet packet = i_Args.FoundPacket;
@@ -423,22 +534,27 @@ public sealed class Vn310TelemetryService : IDisposable
             return;
         }
 
-        Vn310Telemetry? telemetry = null;
+        // Route by wire type. Each branch parses, stores into its per-source slot, and updates per-source stats. ASCII non-VNINS / non-async types and unrecognized binary layouts are dropped before reaching the merge
+        bool routed = false;
         try
         {
             if (packet.Type == PacketType.Ascii)
             {
-                // Ignore NMEA passthrough and any non-VNINS VectorNav ASCII async types
-                if (!packet.IsAsciiAsync || packet.AsciiAsyncType != AsciiAsync.VNINS)
-                {
-                    return;
-                }
-                telemetry = ParseAscii(packet, receivedAt);
+                if (!packet.IsAsciiAsync || packet.AsciiAsyncType != AsciiAsync.VNINS) { return; }
+                Vn310Telemetry asciiSnap = ParseAscii(packet, receivedAt);
+                m_LatestAscii = asciiSnap;
+                Interlocked.Increment(ref m_AsciiPacketCount);
+                PushTimestamp(m_RecentAsciiTimestamps, receivedAt);
+                routed = true;
             }
             else if (packet.Type == PacketType.Binary)
             {
-                telemetry = ParseBinary(packet, receivedAt);
-                if (telemetry == null) { return; } // already logged (rate-limited)
+                Vn310Telemetry? binSnap = ParseBinary(packet, receivedAt);
+                if (binSnap == null) { return; } // incompatible layout; already logged (rate-limited)
+                m_LatestBinary = binSnap;
+                Interlocked.Increment(ref m_BinaryPacketCount);
+                PushTimestamp(m_RecentBinaryTimestamps, receivedAt);
+                routed = true;
             }
             else
             {
@@ -451,34 +567,31 @@ public sealed class Vn310TelemetryService : IDisposable
             return;
         }
 
-        Volatile.Write(ref m_LatestTelemetry, telemetry);
+        if (!routed) { return; }
 
-        // Signal the initial-handshake gate if StartAsync is waiting for proof-of-life. TrySetResult is no-op on subsequent packets (already completed), and idempotent if the timeout already fired (already cancelled). Done BEFORE stats / event raise so StartAsync's await returns as fast as possible
+        // Build and publish the merged snapshot. Single writer (this thread) -> simple Volatile.Write is sufficient for cross-thread visibility
+        Vn310Telemetry merged = BuildMerged(receivedAt);
+        Volatile.Write(ref m_LatestTelemetry, merged);
+
+        // Signal the initial-handshake gate if StartAsync is waiting for proof-of-life. TrySetResult is no-op on subsequent packets (already completed) and idempotent if the timeout already fired (already cancelled)
         Volatile.Read(ref m_FirstPacketTcs)?.TrySetResult(true);
 
-        // Update packet stats: increment count, refresh source mode, push timestamp into the rolling ring (trim entries older than 1s and enforce hard cap to bound memory)
-        Interlocked.Increment(ref m_PacketCount);
-        lock (m_StatsLock)
+        // Source-mode transition logging derives the current mode directly from the merge result's freshness flags, so it stays in sync with what consumers see
+        Vn310PacketSourceMode currentMode = (merged.IsAsciiFresh, merged.IsBinaryFresh) switch
         {
-            m_LastSourceMode = packet.Type == PacketType.Binary ? Vn310PacketSourceMode.Binary : Vn310PacketSourceMode.Ascii;
-            DateTime cutoff = receivedAt - TimeSpan.FromSeconds(1);
-            while (m_RecentPacketTimestamps.Count > 0 && m_RecentPacketTimestamps.Peek() < cutoff)
-            {
-                m_RecentPacketTimestamps.Dequeue();
-            }
-            while (m_RecentPacketTimestamps.Count >= c_RecentTimestampsRingCap)
-            {
-                m_RecentPacketTimestamps.Dequeue();
-            }
-            m_RecentPacketTimestamps.Enqueue(receivedAt);
-        }
+            (true, true) => Vn310PacketSourceMode.Both,
+            (true, false) => Vn310PacketSourceMode.AsciiOnly,
+            (false, true) => Vn310PacketSourceMode.BinaryOnly,
+            _ => Vn310PacketSourceMode.Unknown
+        };
+        LogModeTransitionIfChanged(currentMode);
 
-        // Reset the watchdog window. Grab the timer ref under lock to avoid racing with StopAsync nulling it out
+        // Reset the watchdog window. Grab the timer ref under lock to avoid racing with StopAsync nulling it out. ANY packet of either source resets it -- the watchdog detects total device silence, not per-source silence
         Timer? watchdog;
         lock (m_StateLock) { watchdog = m_Watchdog; }
         watchdog?.Change(c_WatchdogMs, Timeout.Infinite);
 
-        try { TelemetryUpdated?.Invoke(this, telemetry); }
+        try { TelemetryUpdated?.Invoke(this, merged); }
         catch (Exception ex)
         {
             // Don't let a buggy subscriber take down the SDK's read thread
@@ -486,7 +599,25 @@ public sealed class Vn310TelemetryService : IDisposable
         }
     }
 
-    // Fires on the timer thread when no packet has arrived within c_WatchdogMs. Sets LastError and raises Stalled. Does not auto-disconnect; the owning device decides how to react
+    // Pushes a timestamp into a per-source ring under the stats lock, trimming entries older than 1s (rate-window) and enforcing the hard ring cap. Hot path; keep allocations zero
+    private void PushTimestamp(Queue<DateTime> i_Ring, DateTime i_Timestamp)
+    {
+        lock (m_StatsLock)
+        {
+            DateTime cutoff = i_Timestamp - TimeSpan.FromSeconds(1);
+            while (i_Ring.Count > 0 && i_Ring.Peek() < cutoff)
+            {
+                i_Ring.Dequeue();
+            }
+            while (i_Ring.Count >= c_RecentTimestampsRingCap)
+            {
+                i_Ring.Dequeue();
+            }
+            i_Ring.Enqueue(i_Timestamp);
+        }
+    }
+
+    // Fires on the timer thread when no packet of either source has arrived within c_WatchdogMs. Sets LastError and raises Stalled. Does not auto-disconnect; the owning device decides how to react
     private void OnWatchdogTick(object? i_State)
     {
         if (!Volatile.Read(ref m_IsConnected)) { return; }
